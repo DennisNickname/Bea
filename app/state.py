@@ -179,6 +179,17 @@ FOOD_CATEGORIES = {
     "other": "Sonstiges",
 }
 
+HYDRATION_TARGET_LITERS = 2.5
+
+DRINK_TYPES = {
+    "water": "Wasser",
+    "tea": "Tee",
+    "coffee": "Kaffee",
+    "isotonic": "Iso-Getränk",
+    "juice": "Saftschorle",
+    "other": "Sonstiges Getränk",
+}
+
 MINDSET_EXERCISES = {
     "meditation": {
         "label": "Meditation",
@@ -660,6 +671,17 @@ DEFAULT_STATE = {
             "calories": 620,
             "water": 0.7,
             "xp": 47,
+            "created_at": "2026-06-04",
+        }
+    ],
+    "hydration_entries": [
+        {
+            "id": "hydration-1",
+            "member_id": "bea",
+            "drink_type": "water",
+            "amount_l": 0.5,
+            "note": "Morgens direkt nach dem Aufstehen.",
+            "xp": 13,
             "created_at": "2026-06-04",
         }
     ],
@@ -2552,6 +2574,64 @@ def add_nutrition_entry(state: dict, payload: dict) -> dict:
         "created_at": today(),
     }
     state["nutrition_entries"].insert(0, entry)
+    award_xp(state, member_id, "nutrition", xp)
+    return entry
+
+
+def hydration_entries_for_member(state: dict, member_id: str) -> list[dict]:
+    entries = [
+        entry
+        for entry in state.setdefault("hydration_entries", [])
+        if entry.get("member_id") == member_id
+    ]
+    return sorted(entries, key=lambda item: item.get("created_at", ""), reverse=True)
+
+
+def hydration_total_liters(state: dict, member_id: str, date_key: str | None = None) -> float:
+    target_date = date_key or today()
+    drink_total = sum(
+        float(entry.get("amount_l", 0))
+        for entry in state.setdefault("hydration_entries", [])
+        if entry.get("member_id") == member_id and entry.get("created_at") == target_date
+    )
+    meal_water = sum(
+        float(entry.get("water", 0))
+        for entry in state.setdefault("nutrition_entries", [])
+        if entry.get("member_id") == member_id and entry.get("created_at") == target_date
+    )
+    return round(drink_total + meal_water, 2)
+
+
+def hydration_weekly_average(state: dict, member_id: str, days: int = 7) -> float:
+    total = 0.0
+    current = date.today()
+    for offset in range(max(1, days)):
+        date_key = (current - timedelta(days=offset)).isoformat()
+        total += hydration_total_liters(state, member_id, date_key)
+    return round(total / max(1, days), 2)
+
+
+def add_hydration_entry(state: dict, payload: dict) -> dict:
+    member_id = str(payload.get("member_id", ""))
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    drink_type = str(payload.get("drink_type") or "water")
+    if drink_type not in DRINK_TYPES:
+        raise ValueError("Getränk wurde nicht gefunden.")
+
+    amount_l = round(clamp(as_float(payload, "amount_l", 0.25), 0.05, 5.0), 2)
+    xp = min(45, 8 + int(amount_l * 12))
+    entry = {
+        "id": new_id("hydration"),
+        "member_id": member_id,
+        "drink_type": drink_type,
+        "amount_l": amount_l,
+        "note": str(payload.get("note") or "").strip(),
+        "xp": xp,
+        "created_at": today(),
+    }
+    state.setdefault("hydration_entries", []).insert(0, entry)
     award_xp(state, member_id, "nutrition", xp)
     return entry
 

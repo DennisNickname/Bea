@@ -43,6 +43,7 @@ from app.state import AREA_LABELS
 from app.state import AREAS
 from app.state import BODY_FOCUS_LABELS
 from app.state import DIET_LABELS
+from app.state import DRINK_TYPES
 from app.state import ENDURANCE_LABELS
 from app.state import FOOD_CATEGORIES
 from app.state import GOAL_METRIC_LABELS
@@ -62,6 +63,7 @@ from app.state import TRAINING_LABELS
 from app.state import WORK_STYLE_LABELS
 from app.state import add_external_sport_entry
 from app.state import add_food_item
+from app.state import add_hydration_entry
 from app.state import add_assignment
 from app.state import add_challenge_progress
 from app.state import add_mindset_entry
@@ -84,6 +86,10 @@ from app.state import group_name
 from app.state import groups
 from app.state import groups_for_member
 from app.state import health_journey_status
+from app.state import hydration_entries_for_member
+from app.state import hydration_total_liters
+from app.state import hydration_weekly_average
+from app.state import HYDRATION_TARGET_LITERS
 from app.state import join_group
 from app.state import latest_weight_for_member
 from app.state import leaderboard
@@ -138,6 +144,7 @@ NAV_ITEMS = (
     ("/sport", "Sport"),
     ("/mindset", "Mindset"),
     ("/nahrung", "Nahrung"),
+    ("/fluessigkeit", "Flüssigkeit"),
     ("/fotos", "Fotos"),
     ("/integrationen", "Integrationen"),
 )
@@ -146,7 +153,7 @@ NAV_GROUPS = (
     ("Planung", (("/", "Dashboard"), ("/fitnessplan", "Fitnessplan"), ("/fragebogen", "Check-in"))),
     ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/reise", "Reise"), ("/belohnungen", "Belohnungen"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
     ("Community", (("/freunde", "Freunde"), ("/gruppen", "Gruppen"), ("/challenges", "Challenges"))),
-    ("Tracking", (("/sport", "Sport"), ("/mindset", "Mindset"), ("/nahrung", "Nahrung"), ("/fotos", "Fotos"), ("/integrationen", "Integrationen"))),
+    ("Tracking", (("/sport", "Sport"), ("/mindset", "Mindset"), ("/nahrung", "Nahrung"), ("/fluessigkeit", "Flüssigkeit"), ("/fotos", "Fotos"), ("/integrationen", "Integrationen"))),
 )
 
 
@@ -2274,11 +2281,12 @@ def entries_since(entries: list[dict], days: int, member_id: str) -> list[dict]:
 def progress_activity_balance(state: dict, member_id: str, days: int) -> dict:
     sports = entries_since(state.get("sport_entries", []), days, member_id)
     meals = entries_since(state.get("nutrition_entries", []), days, member_id)
+    drinks = entries_since(state.get("hydration_entries", []), days, member_id)
     endurance = [entry for entry in sports if entry.get("sport_type") == "endurance"]
     strength = [entry for entry in sports if entry.get("sport_type") == "strength"]
     calories = sum(int(entry.get("calories", 0)) for entry in meals)
     protein = sum(int(entry.get("protein", 0)) for entry in meals)
-    water = sum(float(entry.get("water", 0)) for entry in meals)
+    water = sum(float(entry.get("water", 0)) for entry in meals) + sum(float(entry.get("amount_l", 0)) for entry in drinks)
     return {
         "days": days,
         "sport_sessions": len(sports),
@@ -3032,6 +3040,8 @@ def render_start_daily_plan(state: dict, rpg: dict, member_id: str) -> str:
 
 def render_start_nutrition_summary(state: dict, member_id: str) -> str:
     plan = state.get("generated_plans", {}).get(member_id)
+    hydration_today = hydration_total_liters(state, member_id)
+    hydration_progress = int((hydration_today / HYDRATION_TARGET_LITERS) * 100)
     if not plan:
         return f"""
           <article class="panel">
@@ -3039,7 +3049,7 @@ def render_start_nutrition_summary(state: dict, member_id: str) -> str:
               <div>
                 <p class="eyebrow">Ernährung</p>
                 <h2>Noch kein Ernährungsplan</h2>
-                <p class="subtle">Der Check-in erstellt Kalorienziel, Makros und Mahlzeitenstruktur.</p>
+                <p class="subtle">Der Check-in erstellt Kalorienziel, Makros und Mahlzeitenstruktur. Heute getrunken: {h(hydration_today)} l.</p>
               </div>
               <a class="button blue" href="{h(questionnaire_link(member_id))}">Check-in starten</a>
             </div>
@@ -3067,6 +3077,16 @@ def render_start_nutrition_summary(state: dict, member_id: str) -> str:
           </div>
           <a class="button green" href="/nahrung">Mahlzeit tracken</a>
         </div>
+        <article class="card area-nutrition" style="margin-top: 1rem;">
+          <div class="row">
+            <div>
+              <h3>Flüssigkeitszufuhr</h3>
+              <p class="subtle">{h(hydration_today)} l von {h(HYDRATION_TARGET_LITERS)} l Tagesziel.</p>
+            </div>
+            <a class="button secondary" href="/fluessigkeit">Trinken</a>
+          </div>
+          <div style="margin-top: 0.75rem;">{progress_bar(hydration_progress, "Flüssigkeit heute")}</div>
+        </article>
         <div class="grid three" style="margin-top: 1rem;">{meals}</div>
       </article>
     """
@@ -3497,6 +3517,7 @@ def dashboard(request: Request) -> str:
           <a class="quick-link blue" href="/sport">Sport erfassen</a>
           <a class="quick-link gold" href="/mindset">Mindset üben</a>
           <a class="quick-link green" href="/nahrung">Mahlzeit tracken</a>
+          <a class="quick-link green" href="/fluessigkeit">Trinken tracken</a>
           <a class="quick-link gold" href="/challenges">Challenge ansehen</a>
           <a class="quick-link red" href="/fotos">Fotovergleich</a>
         </div>
@@ -4824,6 +4845,145 @@ def mindset_page(request: Request) -> str:
     return render_layout("/mindset", "Mindset", body)
 
 
+@app.get("/fluessigkeit", response_class=HTMLResponse)
+def hydration_page(request: Request) -> str:
+    state = load_state()
+    member_id = dashboard_member_id(state, request)
+    member_label = member_name(state, member_id)
+    today_key = date.today().isoformat()
+    entries = hydration_entries_for_member(state, member_id)
+    today_entries = [entry for entry in entries if entry.get("created_at") == today_key]
+    meal_water_today = sum(
+        float(entry.get("water", 0))
+        for entry in state.get("nutrition_entries", [])
+        if entry.get("member_id") == member_id and entry.get("created_at") == today_key
+    )
+    drink_total_today = round(sum(float(entry.get("amount_l", 0)) for entry in today_entries), 2)
+    total_today = hydration_total_liters(state, member_id)
+    weekly_average = hydration_weekly_average(state, member_id)
+    remaining = round(max(0.0, HYDRATION_TARGET_LITERS - total_today), 2)
+    progress = int((total_today / HYDRATION_TARGET_LITERS) * 100)
+    drink_options = render_options(DRINK_TYPES, "water")
+    quick_forms = "".join(
+        f"""
+        <form data-api-form data-endpoint="/api/hydration">
+          <input type="hidden" name="drink_type" value="water">
+          <input type="hidden" name="amount_l" value="{h(amount)}">
+          <input type="hidden" name="note" value="{h(label)}">
+          <button class="button secondary" type="submit">{h(label)}</button>
+        </form>
+        """
+        for amount, label in ((0.25, "250 ml"), (0.5, "500 ml"), (0.75, "750 ml"), (1.0, "1 Liter"))
+    )
+    rows = "".join(
+        f"""
+        <tr>
+          <td>{h(entry.get("created_at", ""))}</td>
+          <td>{h(DRINK_TYPES.get(entry.get("drink_type"), "Getränk"))}</td>
+          <td>{h(entry.get("amount_l", 0))} l</td>
+          <td>{h(entry.get("note", ""))}</td>
+          <td>{h(entry.get("xp", 0))} XP</td>
+        </tr>
+        """
+        for entry in entries[:18]
+    )
+    if not rows:
+        rows = '<tr><td colspan="5">Noch keine Getränke eingetragen.</td></tr>'
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Flüssigkeitszufuhr</p>
+          <h1>Trinken tracken</h1>
+        </div>
+        <p class="subtle">Getränke zählen zusammen mit Wasser aus Mahlzeiten in dein Tagesziel.</p>
+      </section>
+
+      <section class="grid four">
+        <article class="stat-card">
+          <span>Charakter</span>
+          <strong>{h(member_label)}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Heute</span>
+          <strong>{h(total_today)} l</strong>
+        </article>
+        <article class="stat-card">
+          <span>Rest</span>
+          <strong>{h(remaining)} l</strong>
+        </article>
+        <article class="stat-card">
+          <span>7-Tage-Schnitt</span>
+          <strong>{h(weekly_average)} l</strong>
+        </article>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <div class="row">
+          <div>
+            <h2>Tagesziel</h2>
+            <p class="subtle">{h(total_today)} l von {h(HYDRATION_TARGET_LITERS)} l. Davon {h(drink_total_today)} l als Getränk und {h(round(meal_water_today, 2))} l aus Mahlzeiten.</p>
+          </div>
+          <span class="tag area-nutrition">{h(min(100, progress))}%</span>
+        </div>
+        <div style="margin-top: 1rem;">{progress_bar(progress, "Flüssigkeitsziel")}</div>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Schnell eintragen</h2>
+          <div class="quick-actions" style="justify-content: flex-start; margin-top: 1rem;">{quick_forms}</div>
+          <form class="form-grid" data-api-form data-endpoint="/api/hydration" style="margin-top: 1rem;">
+            <label>
+              Getränk
+              <select name="drink_type">{drink_options}</select>
+            </label>
+            <label>
+              Menge in l
+              <input name="amount_l" type="number" min="0.05" max="5" step="0.05" value="0.5">
+            </label>
+            <label class="full">
+              Notiz
+              <input name="note" placeholder="z.B. nach dem Training, morgens, Tee">
+            </label>
+            <button class="button blue full" type="submit">Flüssigkeit speichern</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Orientierung</h2>
+          <div class="list" style="margin-top: 1rem;">
+            <article class="card area-nutrition">
+              <h3>Alltagsziel</h3>
+              <p class="subtle">Das Ziel von {h(HYDRATION_TARGET_LITERS)} l ist ein pragmatischer Startwert. Hitze, Schwitzen und lange Ausdauer erhöhen den Bedarf.</p>
+            </article>
+            <article class="card area-endurance">
+              <h3>Training & Wetter</h3>
+              <p class="subtle">Vor Outdoor-Einheiten Wasser bereitstellen. Bei langen oder sehr schweißtreibenden Einheiten können Elektrolyte sinnvoll sein.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Getränkeverlauf</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Getränk</th>
+              <th>Menge</th>
+              <th>Notiz</th>
+              <th>XP</th>
+            </tr>
+          </thead>
+          <tbody>{rows}</tbody>
+        </table>
+      </section>
+    """
+    return render_layout("/fluessigkeit", "Flüssigkeit", body)
+
+
 @app.get("/nahrung", response_class=HTMLResponse)
 def nutrition_page() -> str:
     state = load_state()
@@ -4849,7 +5009,7 @@ def nutrition_page() -> str:
         )
 
     protein_total = sum(int(entry["protein"]) for entry in state["nutrition_entries"])
-    water_total = sum(float(entry["water"]) for entry in state["nutrition_entries"])
+    water_total = sum(float(entry["water"]) for entry in state["nutrition_entries"]) + sum(float(entry.get("amount_l", 0)) for entry in state.get("hydration_entries", []))
     idea_cards = "".join(
         f"""
         <article class="card">
@@ -5614,6 +5774,16 @@ async def api_add_mindset(request: Request) -> dict[str, str]:
 @app.post("/api/nutrition")
 async def api_add_nutrition(request: Request) -> dict[str, str]:
     return save_action(add_nutrition_entry, await read_json_payload(request), "Nahrung gespeichert.")
+
+
+@app.post("/api/hydration")
+async def api_add_hydration(request: Request) -> dict[str, str]:
+    payload = await read_json_payload(request)
+    member_id = current_member_id(request)
+    if not member_id:
+        raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor Flüssigkeit gespeichert wird."})
+    payload["member_id"] = member_id
+    return save_action(add_hydration_entry, payload, "Flüssigkeitszufuhr gespeichert.")
 
 
 @app.post("/api/weight")
