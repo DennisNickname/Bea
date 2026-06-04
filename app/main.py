@@ -85,6 +85,7 @@ from app.state import level_for_xp
 from app.state import load_state
 from app.state import meal_ideas
 from app.state import member_name
+from app.state import members_by_id
 from app.state import password_is_configured
 from app.state import questionnaire_status
 from app.state import rpg_character
@@ -2878,6 +2879,209 @@ def render_dashboard_checkin_prompt(state: dict) -> str:
     """
 
 
+def dashboard_member_id(state: dict, request: Request) -> str:
+    member_ids = {member["id"] for member in state["members"]}
+    session_member = current_member_id(request)
+    if session_member in member_ids:
+        return session_member
+    return "bea" if "bea" in member_ids else state["members"][0]["id"]
+
+
+def render_start_avatar_panel(state: dict, member_id: str, rpg: dict) -> str:
+    avatar = avatar_profile_for_member(state, member_id)
+    member = members_by_id(state).get(member_id, state["members"][0])
+    character = rpg_character(member)
+    status = questionnaire_status(state, member_id)
+    plan = state.get("generated_plans", {}).get(member_id, {})
+    plan_label = f'Plan Version {plan.get("plan_version", 1)}' if plan else "Noch kein Plan"
+    bmi = avatar.get("bmi")
+    bmi_label_text = f"BMI {bmi}" if bmi is not None else "BMI offen"
+    return f"""
+      <article class="panel">
+        <div class="row">
+          <div>
+            <p class="eyebrow">Dein Charakter</p>
+            <h2>{h(avatar.get("name", member_name(state, member_id)))}</h2>
+            <p class="subtle">{h(character["title"])} - Level {h(character["level"])} - {h(plan_label)}</p>
+          </div>
+          <span class="tag {area_class(character["strongest_area"])}">{h(character["class_name"])}</span>
+        </div>
+        <div class="grid two" style="margin-top: 1rem; align-items: center;">
+          <div>{render_avatar_svg(avatar)}</div>
+          <div class="list">
+            <article class="card area-team">
+              <h3>Heute im Fokus</h3>
+              <p class="subtle">{h(status["message"])}</p>
+              <a class="button blue" href="{h(questionnaire_link(member_id) if status["is_due"] else "/fitnessplan")}" style="margin-top: 0.75rem;">{h(status["button_label"])}</a>
+            </article>
+            <article class="card area-strength">
+              <h3>Körperwerte</h3>
+              <p class="subtle">{h(avatar.get("height_cm", "-"))} cm · {h(avatar.get("weight_kg", "-"))} kg · {h(bmi_label_text)}</p>
+              <p class="subtle">Körperbau: {h(avatar.get("body_label", "offen"))}</p>
+            </article>
+          </div>
+        </div>
+      </article>
+    """
+
+
+def render_start_daily_plan(state: dict, rpg: dict, member_id: str) -> str:
+    completions = rpg.get("completed_quests", {})
+    quests = rpg.get("daily_quests", [])
+    done_count = sum(1 for quest in quests if rpg_completion_key(rpg["daily_date"], member_id, quest["id"]) in completions)
+    total = max(1, len(quests))
+    next_quest = next(
+        (
+            quest
+            for quest in quests
+            if rpg_completion_key(rpg["daily_date"], member_id, quest["id"]) not in completions
+        ),
+        quests[0] if quests else {},
+    )
+    assignments = [
+        item
+        for item in state.get("assignments", [])
+        if item.get("to_member") == member_id and item.get("status") != "done"
+    ][:2]
+    assignment_cards = ""
+    for item in assignments:
+        category = item.get("category", "team")
+        assignment_cards += f"""
+        <article class="card {area_class(category)}">
+          <span class="tag {area_class(category)}">{h(AREA_LABELS.get(category, "Teamgeist"))}</span>
+          <h3 style="margin-top: 0.55rem;">{h(item.get("title", "Aufgabe"))}</h3>
+          <p class="subtle">bis {h(item.get("due", "Diese Woche"))} · {h(item.get("xp", 0))} XP</p>
+        </article>
+        """
+    boss = rpg.get("daily_boss", {})
+    max_hp = max(1, int(boss.get("max_hp", 1)))
+    hp = max(0, int(boss.get("hp", max_hp)))
+    return f"""
+      <article class="panel">
+        <div class="row">
+          <div>
+            <p class="eyebrow">Tagesplan</p>
+            <h2>Heute erledigen</h2>
+            <p class="subtle">{h(rpg.get("daily_date", ""))} · {h(done_count)} von {h(total)} Quests geschafft</p>
+          </div>
+          <a class="button blue" href="/abenteuer">Zum Abenteuer</a>
+        </div>
+        <div style="margin-top: 0.85rem;">{progress_bar(int((done_count / total) * 100), "Tagesquests")}</div>
+        <div class="grid two" style="margin-top: 1rem;">
+          <article class="card {area_class(next_quest.get("area", "team"))}">
+            <span class="tag {area_class(next_quest.get("area", "team"))}">{h(AREA_LABELS.get(next_quest.get("area", "team"), "Teamgeist"))}</span>
+            <h3 style="margin-top: 0.55rem;">{h(next_quest.get("title", "Tagesquest auswählen"))}</h3>
+            <p class="subtle">{h(next_quest.get("description", "Heute kleine Schritte sammeln und dranbleiben."))}</p>
+          </article>
+          <article class="card area-strength">
+            <span class="tag area-strength">Tagesboss</span>
+            <h3 style="margin-top: 0.55rem;">{h(boss.get("name", "Boss"))}</h3>
+            <p class="subtle">{h(hp)} / {h(max_hp)} LP · Schwäche: {h(boss.get("weakness", "Konstanz"))}</p>
+          </article>
+        </div>
+        <div class="grid two" style="margin-top: 1rem;">
+          {assignment_cards or '<article class="card"><h3>Keine offenen Zuweisungen</h3><p class="subtle">Heute zählt dein eigener Plan.</p></article>'}
+        </div>
+      </article>
+    """
+
+
+def render_start_nutrition_summary(state: dict, member_id: str) -> str:
+    plan = state.get("generated_plans", {}).get(member_id)
+    if not plan:
+        return f"""
+          <article class="panel">
+            <div class="row">
+              <div>
+                <p class="eyebrow">Ernährung</p>
+                <h2>Noch kein Ernährungsplan</h2>
+                <p class="subtle">Der Check-in erstellt Kalorienziel, Makros und Mahlzeitenstruktur.</p>
+              </div>
+              <a class="button blue" href="{h(questionnaire_link(member_id))}">Check-in starten</a>
+            </div>
+          </article>
+        """
+    calories = plan["calories"]
+    macros = plan["macros"]
+    meals = "".join(
+        f"""
+        <article class="card area-nutrition">
+          <h3>{h(item["title"])}</h3>
+          <p><strong>{h(item["target"])}</strong></p>
+          <p class="subtle">{h(item["details"])}</p>
+        </article>
+        """
+        for item in plan.get("nutrition", [])[:3]
+    )
+    return f"""
+      <article class="panel">
+        <div class="row">
+          <div>
+            <p class="eyebrow">Ernährung</p>
+            <h2>Heute essen</h2>
+            <p class="subtle">{h(calories["target"])} kcal · Protein {h(macros["protein_g"])} g · Kohlenhydrate {h(macros["carbs_g"])} g · Fett {h(macros["fat_g"])} g</p>
+          </div>
+          <a class="button green" href="/nahrung">Mahlzeit tracken</a>
+        </div>
+        <div class="grid three" style="margin-top: 1rem;">{meals}</div>
+      </article>
+    """
+
+
+def render_start_training_summary(state: dict, member_id: str) -> str:
+    plan = state.get("generated_plans", {}).get(member_id)
+    if not plan:
+        return f"""
+          <article class="panel">
+            <div class="row">
+              <div>
+                <p class="eyebrow">Training</p>
+                <h2>Noch kein Trainingsplan</h2>
+                <p class="subtle">Der Check-in erstellt Kraft, Ausdauer, Regeneration und Progression.</p>
+              </div>
+              <a class="button blue" href="{h(questionnaire_link(member_id))}">Check-in starten</a>
+            </div>
+          </article>
+        """
+    training_cards = []
+    for item in plan.get("training", [])[:2]:
+        training_type = item.get("type", "Kraft")
+        training_area = training_type_area(training_type)
+        exercises = item.get("exercises", [])
+        first_exercise = exercises[0] if exercises else {}
+        training_cards.append(
+            f"""
+            <article class="card {area_class(training_area)}">
+              <div class="row">
+                <span class="tag {area_class(training_area)}">{h(training_type)}</span>
+                <span class="meta">{h(item.get("duration", "heute"))}</span>
+              </div>
+              <h3 style="margin-top: 0.55rem;">{h(item.get("title", "Training"))}</h3>
+              <p class="subtle">{h(item.get("details", ""))}</p>
+              <p class="subtle" style="margin-top: 0.45rem;"><strong>Start:</strong> {h(first_exercise.get("name", "Übungen ansehen"))}</p>
+            </article>
+            """
+        )
+    progression = plan.get("progression", [{}])[0]
+    return f"""
+      <article class="panel">
+        <div class="row">
+          <div>
+            <p class="eyebrow">Training</p>
+            <h2>Heute bewegen</h2>
+            <p class="subtle">{h(len(plan.get("training", [])))} Trainingseinheiten pro Woche · {h(len(plan.get("regeneration", [])))} Regenerationsblöcke</p>
+          </div>
+          <a class="button blue" href="/fitnessplan">Plan öffnen</a>
+        </div>
+        <div class="grid two" style="margin-top: 1rem;">{"".join(training_cards)}</div>
+        <article class="card area-team" style="margin-top: 1rem;">
+          <h3>{h(progression.get("title", "Progression"))}</h3>
+          <p class="subtle">{h(progression.get("details", "Sauber bewegen, Belastung dokumentieren und langsam steigern."))}</p>
+        </article>
+      </article>
+    """
+
+
 def render_login_page(error: str = "", next_url: str = "/") -> str:
     state = load_state()
     member_options = "\n".join(
@@ -3035,9 +3239,11 @@ async def logout(request: Request):
 
 
 @app.get("/", response_class=HTMLResponse)
-def dashboard() -> str:
+def dashboard(request: Request) -> str:
     state = load_state()
     rpg = ensure_rpg_state(state)
+    member_id = dashboard_member_id(state, request)
+    member_label = member_name(state, member_id)
     totals = team_totals(state)
     level_cards = "".join(level_meter(AREA_LABELS[area], totals[area], area) for area in AREAS)
     challenges = "".join(render_challenge_card(state, challenge) for challenge in state["challenges"][:3])
@@ -3055,8 +3261,8 @@ def dashboard() -> str:
     body = f"""
       <section class="page-heading">
         <div>
-          <p class="eyebrow">Team Dashboard</p>
-          <h1>Hallo Bea</h1>
+          <p class="eyebrow">Startseite</p>
+          <h1>Hallo {h(member_label)}</h1>
         </div>
         <div class="quick-actions" aria-label="Schnellaktionen">
           <a class="quick-link gold" href="/abenteuer">Abenteuer</a>
@@ -3072,24 +3278,22 @@ def dashboard() -> str:
 
       {plan_hint}
 
-      <section class="panel" style="margin-bottom: 1rem;">
-        <div class="row">
-          <div>
-            <h2>Heutiges Abenteuer</h2>
-            <p class="subtle">Schließt Tagesquests ab, macht Schaden und besiegt gemeinsam Tages- und Wochenboss.</p>
-          </div>
-          <a class="button blue" href="/abenteuer">Zum Abenteuer</a>
-        </div>
-        <div class="grid two" style="margin-top: 1rem;">
-          {render_rpg_boss_card(rpg["daily_boss"])}
-          {render_rpg_boss_card(rpg["weekly_boss"])}
-        </div>
+      <section class="grid two">
+        {render_start_avatar_panel(state, member_id, rpg)}
+        {render_start_daily_plan(state, rpg, member_id)}
       </section>
 
-      <section class="grid four">
+      <section class="grid" style="margin-top: 1rem;">
+        {render_start_nutrition_summary(state, member_id)}
+      </section>
+
+      <section class="grid" style="margin-top: 1rem;">
+        {render_start_training_summary(state, member_id)}
+      </section>
+
+      <section class="grid four" style="margin-top: 1rem;">
         {stat_cards(state)}
       </section>
-
       <section class="grid two" style="margin-top: 1rem;">
         <div class="panel">
           <h2>Rangliste</h2>
