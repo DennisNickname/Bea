@@ -11,6 +11,8 @@ import subprocess
 import threading
 import time
 import urllib.parse
+from datetime import date
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -33,6 +35,7 @@ from app.photos import publish_photo
 from app.photos import require_photo_pin
 from app.photos import set_photo_pin
 from app.state import ACTIVITY_LABELS
+from app.state import add_weight_entry
 from app.state import AREA_LABELS
 from app.state import AREAS
 from app.state import DIET_LABELS
@@ -55,6 +58,7 @@ from app.state import create_personal_plan
 from app.state import ensure_rpg_state
 from app.state import avatar_profile_for_member
 from app.state import food_items
+from app.state import latest_weight_for_member
 from app.state import leaderboard
 from app.state import level_for_xp
 from app.state import load_state
@@ -73,6 +77,8 @@ from app.state import strava_update_connection
 from app.state import team_totals
 from app.state import total_xp
 from app.state import update_settings
+from app.state import weight_change_for_member
+from app.state import weight_entries_for_member
 from app.weather import fetch_forecast
 
 app = FastAPI(title="Bea")
@@ -84,6 +90,7 @@ NAV_ITEMS = (
     ("/", "Dashboard"),
     ("/abenteuer", "Abenteuer"),
     ("/avatar", "Avatar"),
+    ("/fortschritt", "Fortschritt"),
     ("/fragebogen", "Fragebogen"),
     ("/freunde", "Freunde"),
     ("/challenges", "Challenges"),
@@ -749,7 +756,21 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             line-height: 1;
           }}
 
+          .mini-metric {{
+            border-radius: 0.5rem;
+            padding: 0.8rem;
+            background: rgb(255 255 255 / 72%);
+            box-shadow: inset 0 0 0 1px rgb(216 224 234 / 76%);
+          }}
+
+          .mini-metric strong {{
+            display: block;
+            font-size: 1.45rem;
+            line-height: 1;
+          }}
+
           .stat-card span,
+          .mini-metric span,
           .level-meter small,
           .meta {{
             color: var(--muted);
@@ -1676,6 +1697,215 @@ def render_avatar_card(profile: dict) -> str:
     """
 
 
+def parse_entry_date(value: str) -> date:
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        return date.min
+
+
+def entries_since(entries: list[dict], days: int, member_id: str) -> list[dict]:
+    cutoff = date.today() - timedelta(days=days)
+    return [
+        entry
+        for entry in entries
+        if entry.get("member_id") == member_id and parse_entry_date(str(entry.get("created_at") or entry.get("entry_date") or "")) >= cutoff
+    ]
+
+
+def progress_activity_balance(state: dict, member_id: str, days: int) -> dict:
+    sports = entries_since(state.get("sport_entries", []), days, member_id)
+    meals = entries_since(state.get("nutrition_entries", []), days, member_id)
+    endurance = [entry for entry in sports if entry.get("sport_type") == "endurance"]
+    strength = [entry for entry in sports if entry.get("sport_type") == "strength"]
+    calories = sum(int(entry.get("calories", 0)) for entry in meals)
+    protein = sum(int(entry.get("protein", 0)) for entry in meals)
+    water = sum(float(entry.get("water", 0)) for entry in meals)
+    return {
+        "days": days,
+        "sport_sessions": len(sports),
+        "sport_minutes": sum(int(entry.get("duration", 0)) for entry in sports),
+        "endurance_minutes": sum(int(entry.get("duration", 0)) for entry in endurance),
+        "strength_sessions": len(strength),
+        "sport_xp": sum(int(entry.get("xp", 0)) for entry in sports),
+        "meal_count": len(meals),
+        "calories": calories,
+        "avg_calories": round(calories / max(1, days)),
+        "protein": protein,
+        "avg_protein": round(protein / max(1, days)),
+        "water": round(water, 1),
+        "avg_water": round(water / max(1, days), 1),
+    }
+
+
+def bmi_value(weight_kg: float | None, height_cm: float | None) -> float | None:
+    if not weight_kg or not height_cm:
+        return None
+    height_m = float(height_cm) / 100
+    if height_m <= 0:
+        return None
+    return round(float(weight_kg) / (height_m * height_m), 1)
+
+
+def bmi_label(value: float | None) -> str:
+    if value is None:
+        return "Keine Daten"
+    if value < 18.5:
+        return "niedrig"
+    if value < 25:
+        return "Normalbereich"
+    if value < 30:
+        return "erhoeht"
+    return "stark erhoeht"
+
+
+def render_progress_member_card(state: dict, member: dict) -> str:
+    member_id = member["id"]
+    profile = state.get("profiles", {}).get(member_id, {})
+    plan = state.get("generated_plans", {}).get(member_id, {})
+    weight = latest_weight_for_member(state, member_id)
+    height = profile.get("height_cm")
+    bmi = bmi_value(weight, height)
+    change = weight_change_for_member(state, member_id)
+    change_text = "noch kein Verlauf" if change is None else f'{change:+.1f} kg / 30 Tage'
+    target = plan.get("calories", {}).get("target")
+    target_text = f"{target} kcal/Tag" if target else "Plan fehlt"
+    return f"""
+      <article class="card">
+        <div class="row">
+          <div>
+            <h3>{h(member["name"])}</h3>
+            <p class="subtle">{h(member.get("focus", ""))}</p>
+          </div>
+          <span class="tag area-team">{h(change_text)}</span>
+        </div>
+        <div class="grid three" style="margin-top: 0.85rem;">
+          <div class="mini-metric">
+            <span>Gewicht</span>
+            <strong>{h(f"{weight:.1f} kg" if weight else "offen")}</strong>
+          </div>
+          <div class="mini-metric">
+            <span>BMI</span>
+            <strong>{h(bmi if bmi is not None else "-")}</strong>
+          </div>
+          <div class="mini-metric">
+            <span>Plan</span>
+            <strong>{h(target_text)}</strong>
+          </div>
+        </div>
+        <p class="subtle" style="margin-top: 0.75rem;">BMI-Einordnung: {h(bmi_label(bmi))}. Nur als Orientierung.</p>
+      </article>
+    """
+
+
+def render_balance_table(balance: dict) -> str:
+    return f"""
+      <table>
+        <thead>
+          <tr>
+            <th>Zeitraum</th>
+            <th>Sport</th>
+            <th>Ausdauer</th>
+            <th>Kraft</th>
+            <th>Nahrung</th>
+            <th>Kalorien / Tag</th>
+            <th>Protein / Tag</th>
+            <th>Wasser / Tag</th>
+            <th>XP</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{h(balance["days"])} Tage</td>
+            <td>{h(balance["sport_sessions"])} Einheiten / {h(balance["sport_minutes"])} min</td>
+            <td>{h(balance["endurance_minutes"])} min</td>
+            <td>{h(balance["strength_sessions"])} Einheiten</td>
+            <td>{h(balance["meal_count"])} Eintraege</td>
+            <td>{h(balance["avg_calories"])} kcal</td>
+            <td>{h(balance["avg_protein"])} g</td>
+            <td>{h(balance["avg_water"])} l</td>
+            <td>{h(balance["sport_xp"])}</td>
+          </tr>
+        </tbody>
+      </table>
+    """
+
+
+def render_weight_history(state: dict, member_id: str) -> str:
+    rows = []
+    for entry in weight_entries_for_member(state, member_id)[:8]:
+        rows.append(
+            f"""
+            <tr>
+              <td>{h(entry["entry_date"])}</td>
+              <td>{h(entry["weight_kg"])} kg</td>
+              <td>{h(entry.get("note", ""))}</td>
+            </tr>
+            """
+        )
+    if not rows:
+        rows.append('<tr><td colspan="3" class="subtle">Noch keine Gewichtseintraege.</td></tr>')
+    return f"""
+      <table>
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Gewicht</th>
+            <th>Notiz</th>
+          </tr>
+        </thead>
+        <tbody>{"".join(rows)}</tbody>
+      </table>
+    """
+
+
+def render_plan_outlook(state: dict, member_id: str) -> str:
+    plan = state.get("generated_plans", {}).get(member_id)
+    if not plan:
+        return """
+          <article class="card">
+            <h3>Noch kein Ausblick</h3>
+            <p class="subtle">Fuellt zuerst den Fragebogen aus. Danach berechnet Bea den Ausblick aus Zielkalorien, Erhaltung und Training.</p>
+            <a class="button blue" href="/fragebogen" style="margin-top: 0.85rem;">Fragebogen starten</a>
+          </article>
+        """
+
+    calories = plan["calories"]
+    target = int(calories["target"])
+    maintenance = int(calories["maintenance"])
+    delta = target - maintenance
+    weekly_weight_delta = round((delta * 7) / 7700, 2)
+    four_week_delta = round(weekly_weight_delta * 4, 1)
+    direction = "halten" if abs(weekly_weight_delta) < 0.05 else "steigen" if weekly_weight_delta > 0 else "sinken"
+    training_count = len(plan.get("training", []))
+    return f"""
+      <article class="card area-nutrition">
+        <div class="row">
+          <div>
+            <h3>Wenn der Plan eingehalten wird</h3>
+            <p class="subtle">Ziel: {h(calories["goal_label"])} - Aktivitaet: {h(calories["activity_label"])}</p>
+          </div>
+          <span class="tag area-nutrition">{h(target)} kcal/Tag</span>
+        </div>
+        <div class="grid three" style="margin-top: 0.9rem;">
+          <div class="mini-metric">
+            <span>Kaloriendifferenz</span>
+            <strong>{h(delta)}</strong>
+          </div>
+          <div class="mini-metric">
+            <span>Trend / Woche</span>
+            <strong>{h(f"{weekly_weight_delta:+.2f} kg")}</strong>
+          </div>
+          <div class="mini-metric">
+            <span>4-Wochen-Ausblick</span>
+            <strong>{h(f"{four_week_delta:+.1f} kg")}</strong>
+          </div>
+        </div>
+        <p class="subtle" style="margin-top: 0.75rem;">Erwartung: Gewicht eher {h(direction)}. Geplant sind {h(training_count)} Trainingseinheiten pro Woche. Realitaet kann durch Wasser, Zyklus, Schlaf, Stress und Muskelaufbau abweichen.</p>
+      </article>
+    """
+
+
 def render_daily_quest_card(state: dict, rpg: dict, quest: dict) -> str:
     completions = rpg.get("completed_quests", {})
     completed_members = [
@@ -1873,6 +2103,7 @@ def dashboard() -> str:
         <div class="quick-actions" aria-label="Schnellaktionen">
           <a class="quick-link gold" href="/abenteuer">Abenteuer</a>
           <a class="quick-link red" href="/avatar">Avatar bauen</a>
+          <a class="quick-link blue" href="/fortschritt">Fortschritt</a>
           <a class="quick-link blue" href="/sport">Sport erfassen</a>
           <a class="quick-link green" href="/nahrung">Mahlzeit tracken</a>
           <a class="quick-link gold" href="/challenges">Challenge ansehen</a>
@@ -2078,6 +2309,122 @@ def avatar_page() -> str:
       </section>
     """
     return render_layout("/avatar", "Avatar", body)
+
+
+@app.get("/fortschritt", response_class=HTMLResponse)
+def progress_page(member_id: str = "bea") -> str:
+    state = load_state()
+    members = {member["id"]: member for member in state["members"]}
+    if member_id not in members:
+        member_id = "bea" if "bea" in members else state["members"][0]["id"]
+    member = members[member_id]
+    profile = state.get("profiles", {}).get(member_id, {})
+    weight = latest_weight_for_member(state, member_id)
+    height = profile.get("height_cm")
+    bmi = bmi_value(weight, height)
+    balance_7 = progress_activity_balance(state, member_id, 7)
+    balance_30 = progress_activity_balance(state, member_id, 30)
+    all_member_cards = "".join(render_progress_member_card(state, item) for item in leaderboard(state))
+    weight_form_value = f"{weight:.1f}" if weight else "70.0"
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Fortschritt</p>
+          <h1>Bilanz & Ausblick</h1>
+        </div>
+        <p class="subtle">Vergangene Aktivitaet, BMI, Gewicht und Plan-Projektion auf einer Seite.</p>
+      </section>
+
+      <section class="grid four">
+        <article class="stat-card">
+          <span>Mitglied</span>
+          <strong>{h(member["name"])}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Gewicht</span>
+          <strong>{h(f"{weight:.1f} kg" if weight else "offen")}</strong>
+        </article>
+        <article class="stat-card">
+          <span>BMI</span>
+          <strong>{h(bmi if bmi is not None else "-")}</strong>
+        </article>
+        <article class="stat-card">
+          <span>BMI-Einordnung</span>
+          <strong>{h(bmi_label(bmi))}</strong>
+        </article>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <div class="row">
+            <div>
+              <h2>Mitglied auswaehlen</h2>
+              <p class="subtle">Die Bilanz wird fuer die gewaehlte Person berechnet.</p>
+            </div>
+          </div>
+          <form class="form-grid" action="/fortschritt" method="get">
+            <label class="full">
+              Mitglied
+              <select name="member_id">{render_member_options(state, member_id)}</select>
+            </label>
+            <button class="button blue full" type="submit">Bilanz anzeigen</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Gewicht eintragen</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/weight">
+            <label>
+              Mitglied
+              <select name="member_id">{render_member_options(state, member_id)}</select>
+            </label>
+            <label>
+              Datum
+              <input name="entry_date" type="date" value="{h(date.today().isoformat())}">
+            </label>
+            <label>
+              Gewicht in kg
+              <input name="weight_kg" type="number" min="35" max="250" step="0.1" value="{h(weight_form_value)}">
+            </label>
+            <label>
+              Notiz
+              <input name="note" placeholder="z.B. morgens, nach Ruhetag">
+            </label>
+            <button class="button full" type="submit">Gewicht speichern</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Bilanz letzte 7 Tage</h2>
+          {render_balance_table(balance_7)}
+        </div>
+        <div class="panel">
+          <h2>Bilanz letzte 30 Tage</h2>
+          {render_balance_table(balance_30)}
+        </div>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Plan-Ausblick</h2>
+          {render_plan_outlook(state, member_id)}
+        </div>
+        <div class="panel">
+          <h2>Gewichtsverlauf</h2>
+          {render_weight_history(state, member_id)}
+          <p class="subtle" style="margin-top: 0.75rem;">BMI und Ausblick sind Orientierung und ersetzen keine medizinische Beratung.</p>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Team-Uebersicht</h2>
+        <div class="grid two">{all_member_cards}</div>
+      </section>
+    """
+    return render_layout("/fortschritt", "Fortschritt", body)
 
 
 @app.get("/fragebogen", response_class=HTMLResponse)
@@ -3230,6 +3577,11 @@ async def api_add_sport(request: Request) -> dict[str, str]:
 @app.post("/api/nutrition")
 async def api_add_nutrition(request: Request) -> dict[str, str]:
     return save_action(add_nutrition_entry, await read_json_payload(request), "Nahrung gespeichert.")
+
+
+@app.post("/api/weight")
+async def api_add_weight(request: Request) -> dict[str, str]:
+    return save_action(add_weight_entry, await read_json_payload(request), "Gewicht gespeichert.")
 
 
 @app.post("/api/foods")

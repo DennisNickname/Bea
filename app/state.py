@@ -4,6 +4,7 @@ import copy
 import json
 import os
 from datetime import date
+from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -355,6 +356,7 @@ DEFAULT_STATE = {
     "youtube_links": [],
     "rpg": {},
     "avatars": {},
+    "weight_entries": [],
 }
 
 
@@ -921,6 +923,67 @@ def save_avatar_profile(state: dict, payload: dict, photo_ids: dict[str, str] | 
     state.setdefault("avatars", {})[member_id] = profile
     award_xp(state, member_id, "team", 15)
     return profile
+
+
+def add_weight_entry(state: dict, payload: dict) -> dict:
+    member_id = str(payload.get("member_id") or "")
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    weight_kg = as_float(payload, "weight_kg")
+    if not 35 <= weight_kg <= 250:
+        raise ValueError("Bitte ein plausibles Gewicht zwischen 35 und 250 kg eintragen.")
+
+    entry_date = str(payload.get("entry_date") or today()).strip()
+    try:
+        date.fromisoformat(entry_date)
+    except ValueError as exc:
+        raise ValueError("Bitte ein gueltiges Datum eintragen.") from exc
+
+    entry = {
+        "id": new_id("weight"),
+        "member_id": member_id,
+        "weight_kg": round(weight_kg, 1),
+        "entry_date": entry_date,
+        "note": str(payload.get("note") or "").strip(),
+        "created_at": today(),
+    }
+    state.setdefault("weight_entries", []).insert(0, entry)
+    award_xp(state, member_id, "team", 6)
+    return entry
+
+
+def weight_entries_for_member(state: dict, member_id: str) -> list[dict]:
+    entries = [
+        entry
+        for entry in state.setdefault("weight_entries", [])
+        if entry.get("member_id") == member_id
+    ]
+    return sorted(entries, key=lambda item: item.get("entry_date", ""), reverse=True)
+
+
+def latest_weight_for_member(state: dict, member_id: str) -> float | None:
+    entries = weight_entries_for_member(state, member_id)
+    if entries:
+        return float(entries[0]["weight_kg"])
+    profile = state.setdefault("profiles", {}).get(member_id)
+    if profile and profile.get("weight_kg"):
+        return float(profile["weight_kg"])
+    return None
+
+
+def weight_change_for_member(state: dict, member_id: str, days: int = 30) -> float | None:
+    entries = weight_entries_for_member(state, member_id)
+    if len(entries) < 2:
+        return None
+
+    cutoff = date.today() - timedelta(days=days)
+    recent = [entry for entry in entries if date.fromisoformat(entry["entry_date"]) >= cutoff]
+    if len(recent) < 2:
+        return None
+    newest = float(recent[0]["weight_kg"])
+    oldest = float(recent[-1]["weight_kg"])
+    return round(newest - oldest, 1)
 
 
 def food_items(state: dict) -> list[dict]:
