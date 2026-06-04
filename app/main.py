@@ -265,6 +265,12 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             margin: 0;
           }}
 
+          .topbar-actions {{
+            display: grid;
+            gap: 0.45rem;
+            justify-items: stretch;
+          }}
+
           .button,
           .update-button {{
             border: 0;
@@ -287,6 +293,14 @@ def render_layout(active_path: str, title: str, body: str) -> str:
 
           .button.red {{
             background: var(--red);
+          }}
+
+          .button.disco {{
+            background: #7a3fc8;
+          }}
+
+          .button.disco-stop {{
+            background: #31414f;
           }}
 
           .button:disabled,
@@ -700,9 +714,13 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           <nav class="nav" aria-label="Hauptnavigation">
             {nav}
           </nav>
-          <form class="update-form" id="update-form">
-            <button class="update-button" id="update-button" type="submit">GitHub Update</button>
-          </form>
+          <div class="topbar-actions">
+            <form class="update-form" id="update-form">
+              <button class="update-button" id="update-button" type="submit">GitHub Update</button>
+            </form>
+            <button class="button disco" id="disco-start" type="button">Disco Start</button>
+            <button class="button disco-stop" id="disco-stop" type="button">Disco Ende</button>
+          </div>
         </header>
         <main class="page">
           {body}
@@ -892,6 +910,34 @@ def render_layout(active_path: str, title: str, body: str) -> str:
 
           const updateForm = document.querySelector("#update-form");
           const updateButton = document.querySelector("#update-button");
+          const discoStart = document.querySelector("#disco-start");
+          const discoStop = document.querySelector("#disco-stop");
+          const discoColors = ["#f7d046", "#35b779", "#2f80ed", "#a347c7", "#ef476f", "#06b6d4"];
+          const originalBackground = document.body.style.background;
+          let discoTimer = null;
+          let discoIndex = 0;
+
+          discoStart.addEventListener("click", () => {{
+            if (discoTimer) {{
+              return;
+            }}
+            document.body.style.transition = "background 180ms ease";
+            discoTimer = window.setInterval(() => {{
+              document.body.style.background = discoColors[discoIndex % discoColors.length];
+              discoIndex += 1;
+            }}, 500);
+            showStatus("Disco gestartet.");
+          }});
+
+          discoStop.addEventListener("click", () => {{
+            if (discoTimer) {{
+              window.clearInterval(discoTimer);
+              discoTimer = null;
+            }}
+            document.body.style.background = originalBackground;
+            showStatus("Disco beendet.");
+          }});
+
           updateForm.addEventListener("submit", async (event) => {{
             event.preventDefault();
             updateButton.disabled = true;
