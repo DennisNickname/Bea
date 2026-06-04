@@ -153,6 +153,8 @@ DEFAULT_STATE = {
             "last_sync": {},
         }
     },
+    "photo_access": {},
+    "photos": [],
 }
 
 

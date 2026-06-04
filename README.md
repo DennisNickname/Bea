@@ -10,9 +10,11 @@ FastAPI-App fuer gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, 
 - `Fitnessplan`: Wettervorhersage fuer Outdoor- oder Studio-Entscheidungen
 - `Sport`: Ausdauer- und Krafttraining getrennt erfassen
 - `Nahrung`: Mahlzeiten, Protein, Kalorien und Wasser tracken
+- `Fotos`: Private Vergleichsfotos mit PIN-Schutz und optionaler Community-Freigabe
 - `Integrationen`: Strava verbinden und externe Ausdauereinheiten importieren
 
 Die App speichert Live-Daten lokal in `data/bea_state.json`. Diese Datei wird nicht in Git committed.
+Private Fotos werden lokal unter `data/photos/` gespeichert und ebenfalls nicht committed.
 
 ## Lokal starten
 
@@ -53,6 +55,12 @@ Optional kann ein anderer Speicherort gesetzt werden:
 
 ```bash
 BEA_STATE_PATH=/home/pi/bea-data/state.json ./scripts/run.sh
+```
+
+Optional kann auch der Foto-Speicherort gesetzt werden:
+
+```bash
+BEA_PHOTO_PATH=/home/pi/bea-photos ./scripts/run.sh
 ```
 
 ## Strava verbinden

@@ -21,6 +21,7 @@ if [ -n "$systemctl_path" ] && [ -n "$sudo_path" ]; then
     sudo tee "$env_file" >/dev/null <<ENV
 # Optionaler Speicherort fuer Live-Daten
 # BEA_STATE_PATH=$project_dir/data/bea_state.json
+# BEA_PHOTO_PATH=$project_dir/data/photos
 
 # Strava OAuth App Credentials
 # STRAVA_CLIENT_ID=

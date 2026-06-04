@@ -24,6 +24,12 @@ from app.integrations import strava_access_token
 from app.integrations import strava_activity_payload
 from app.integrations import strava_authorization_url
 from app.integrations import strava_is_configured
+from app.photos import add_private_photo
+from app.photos import photo_pin_is_set
+from app.photos import private_photos_for_member
+from app.photos import public_photos
+from app.photos import publish_photo
+from app.photos import set_photo_pin
 from app.state import AREA_LABELS
 from app.state import AREAS
 from app.state import add_external_sport_entry
@@ -61,6 +67,7 @@ NAV_ITEMS = (
     ("/fitnessplan", "Fitnessplan"),
     ("/sport", "Sport"),
     ("/nahrung", "Nahrung"),
+    ("/fotos", "Fotos"),
     ("/integrationen", "Integrationen"),
 )
 
@@ -587,6 +594,58 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             text-transform: uppercase;
           }}
 
+          .photo-grid {{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+          }}
+
+          .photo-card {{
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 0.5rem;
+            background: #fff;
+          }}
+
+          .photo-frame {{
+            aspect-ratio: 4 / 5;
+            overflow: hidden;
+            background: #e7ecea;
+          }}
+
+          .photo-frame img {{
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }}
+
+          .photo-body {{
+            display: grid;
+            gap: 0.55rem;
+            padding: 0.85rem;
+          }}
+
+          .compare-board {{
+            display: none;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+          }}
+
+          .compare-board.is-visible {{
+            display: grid;
+          }}
+
+          .compare-board img {{
+            display: block;
+            width: 100%;
+            aspect-ratio: 4 / 5;
+            border-radius: 0.5rem;
+            object-fit: cover;
+            background: #e7ecea;
+          }}
+
           .update-status {{
             position: fixed;
             right: 1rem;
@@ -624,7 +683,9 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             .grid.two,
             .grid.three,
             .grid.four,
-            .form-grid {{
+            .form-grid,
+            .photo-grid,
+            .compare-board {{
               grid-template-columns: 1fr;
             }}
           }}
@@ -693,6 +754,141 @@ def render_layout(active_path: str, title: str, body: str) -> str:
               }}
             }});
           }});
+
+          function escapeHtml(value) {{
+            return String(value || "")
+              .replaceAll("&", "&amp;")
+              .replaceAll("<", "&lt;")
+              .replaceAll(">", "&gt;")
+              .replaceAll('"', "&quot;")
+              .replaceAll("'", "&#039;");
+          }}
+
+          function readFileAsDataUrl(file) {{
+            return new Promise((resolve, reject) => {{
+              const reader = new FileReader();
+              reader.addEventListener("load", () => resolve(reader.result));
+              reader.addEventListener("error", () => reject(new Error("Bild konnte nicht gelesen werden.")));
+              reader.readAsDataURL(file);
+            }});
+          }}
+
+          function renderPhotoGallery(photos, memberId, pin) {{
+            const gallery = document.querySelector("#private-photo-gallery");
+            if (!gallery) {{
+              return;
+            }}
+            window.__beaPrivatePhotos = photos;
+            if (!photos.length) {{
+              gallery.innerHTML = '<article class="card"><p class="subtle">Noch keine privaten Vergleichsfotos vorhanden.</p></article>';
+              return;
+            }}
+
+            gallery.innerHTML = photos.map((photo) => `
+              <article class="photo-card">
+                <div class="photo-frame">
+                  <img src="${{photo.image_data}}" alt="${{escapeHtml(photo.title)}}">
+                </div>
+                <div class="photo-body">
+                  <div class="row">
+                    <strong>${{escapeHtml(photo.title)}}</strong>
+                    <span class="tag area-team">${{photo.public ? "Community" : "Privat"}}</span>
+                  </div>
+                  <p class="subtle">${{escapeHtml(photo.photo_type)}} · ${{escapeHtml(photo.created_at)}}</p>
+                  <p class="subtle">${{escapeHtml(photo.note)}}</p>
+                  <label>
+                    <input class="photo-compare" type="checkbox" value="${{photo.id}}">
+                    Vergleichen
+                  </label>
+                  <button class="button secondary" type="button" data-publish-photo="${{photo.id}}">In Community veroeffentlichen</button>
+                </div>
+              </article>
+            `).join("");
+
+            gallery.querySelectorAll("[data-publish-photo]").forEach((button) => {{
+              button.addEventListener("click", async () => {{
+                try {{
+                  const data = await postJson("/api/photos/publish", {{
+                    member_id: memberId,
+                    pin,
+                    photo_id: button.dataset.publishPhoto,
+                  }});
+                  showStatus(data.message || "Foto veroeffentlicht.");
+                  window.setTimeout(() => window.location.reload(), 650);
+                }} catch (error) {{
+                  showStatus(error.message || "Foto konnte nicht veroeffentlicht werden.");
+                }}
+              }});
+            }});
+          }}
+
+          const photoUploadForm = document.querySelector("#photo-upload-form");
+          if (photoUploadForm) {{
+            photoUploadForm.addEventListener("submit", async (event) => {{
+              event.preventDefault();
+              const button = photoUploadForm.querySelector("button[type='submit']");
+              const fileInput = photoUploadForm.querySelector("input[type='file']");
+              const file = fileInput.files[0];
+              if (!file) {{
+                showStatus("Bitte ein Foto auswaehlen.");
+                return;
+              }}
+              if (button) {{
+                button.disabled = true;
+              }}
+              try {{
+                const payload = Object.fromEntries(new FormData(photoUploadForm).entries());
+                payload.image_data = await readFileAsDataUrl(file);
+                delete payload.photo_file;
+                const data = await postJson("/api/photos/upload", payload);
+                showStatus(data.message || "Foto gespeichert.");
+                photoUploadForm.reset();
+              }} catch (error) {{
+                showStatus(error.message || "Foto konnte nicht gespeichert werden.");
+              }} finally {{
+                if (button) {{
+                  button.disabled = false;
+                }}
+              }}
+            }});
+          }}
+
+          const photoGalleryForm = document.querySelector("#photo-gallery-form");
+          if (photoGalleryForm) {{
+            photoGalleryForm.addEventListener("submit", async (event) => {{
+              event.preventDefault();
+              const payload = Object.fromEntries(new FormData(photoGalleryForm).entries());
+              try {{
+                const data = await postJson("/api/photos/private", payload);
+                renderPhotoGallery(data.photos || [], payload.member_id, payload.pin);
+                showStatus(data.message || "Private Galerie geladen.");
+              }} catch (error) {{
+                showStatus(error.message || "Private Galerie konnte nicht geladen werden.");
+              }}
+            }});
+          }}
+
+          const compareButton = document.querySelector("#photo-compare-button");
+          if (compareButton) {{
+            compareButton.addEventListener("click", () => {{
+              const selected = [...document.querySelectorAll(".photo-compare:checked")].map((item) => item.value);
+              if (selected.length !== 2) {{
+                showStatus("Bitte genau zwei Fotos zum Vergleichen auswaehlen.");
+                return;
+              }}
+              const photos = window.__beaPrivatePhotos || [];
+              const selectedPhotos = selected.map((id) => photos.find((photo) => photo.id === id)).filter(Boolean);
+              const board = document.querySelector("#compare-board");
+              board.innerHTML = selectedPhotos.map((photo) => `
+                <article>
+                  <img src="${{photo.image_data}}" alt="${{escapeHtml(photo.title)}}">
+                  <h3>${{escapeHtml(photo.title)}}</h3>
+                  <p class="subtle">${{escapeHtml(photo.photo_type)}} · ${{escapeHtml(photo.created_at)}}</p>
+                </article>
+              `).join("");
+              board.classList.add("is-visible");
+            }});
+          }}
 
           const updateForm = document.querySelector("#update-form");
           const updateButton = document.querySelector("#update-button");
@@ -1228,6 +1424,160 @@ def nutrition_page() -> str:
     return render_layout("/nahrung", "Nahrung", body)
 
 
+def render_public_photo_card(state: dict, photo: dict) -> str:
+    return f"""
+      <article class="photo-card">
+        <div class="photo-frame">
+          <img src="{h(photo["image_data"])}" alt="{h(photo["title"])}">
+        </div>
+        <div class="photo-body">
+          <div class="row">
+            <strong>{h(photo["title"])}</strong>
+            <span class="tag area-team">Community</span>
+          </div>
+          <p class="subtle">{h(member_name(state, photo["member_id"]))} · {h(photo["photo_type"])} · {h(photo["published_at"] or photo["created_at"])}</p>
+          <p class="subtle">{h(photo["note"])}</p>
+        </div>
+      </article>
+    """
+
+
+@app.get("/fotos", response_class=HTMLResponse)
+def photos_page() -> str:
+    state = load_state()
+    pin_status = []
+    for member in state["members"]:
+        status = "PIN eingerichtet" if photo_pin_is_set(state, member["id"]) else "PIN fehlt"
+        status_class = "connected" if photo_pin_is_set(state, member["id"]) else "missing"
+        pin_status.append(
+            f"""
+            <article class="card">
+              <div class="row">
+                <div>
+                  <h3>{h(member["name"])}</h3>
+                  <p class="subtle">{h(member["focus"])}</p>
+                </div>
+                <span class="integration-status {status_class}">{status}</span>
+              </div>
+            </article>
+            """
+        )
+
+    public_cards = "".join(render_public_photo_card(state, photo) for photo in public_photos(state))
+    if not public_cards:
+        public_cards = """
+          <article class="card">
+            <p class="subtle">Noch keine Community-Fotos veroeffentlicht.</p>
+          </article>
+        """
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Vergleichsfotos</p>
+          <h1>Privat zuerst</h1>
+        </div>
+        <p class="subtle">Fotos sind PIN-geschuetzt und werden erst sichtbar, wenn du sie selbst in die Community stellst.</p>
+      </section>
+
+      <section class="grid two">
+        <div class="panel">
+          <h2>Foto-PIN einrichten</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/photos/pin">
+            <label>
+              Mitglied
+              <select name="member_id">{render_member_options(state, "bea")}</select>
+            </label>
+            <label>
+              Neuer PIN
+              <input name="pin" type="password" minlength="4" autocomplete="new-password">
+            </label>
+            <label class="full">
+              Aktueller PIN, nur beim Aendern
+              <input name="current_pin" type="password" autocomplete="current-password">
+            </label>
+            <button class="button full" type="submit">PIN speichern</button>
+          </form>
+          <div class="list" style="margin-top: 1rem;">{"".join(pin_status)}</div>
+        </div>
+
+        <div class="panel">
+          <h2>Privates Foto hochladen</h2>
+          <form class="form-grid" id="photo-upload-form">
+            <label>
+              Mitglied
+              <select name="member_id">{render_member_options(state, "bea")}</select>
+            </label>
+            <label>
+              Foto-PIN
+              <input name="pin" type="password" autocomplete="current-password">
+            </label>
+            <label>
+              Titel
+              <input name="title" placeholder="Check-in Juni">
+            </label>
+            <label>
+              Perspektive
+              <select name="photo_type">
+                <option>Front</option>
+                <option>Seite</option>
+                <option>Ruecken</option>
+                <option selected>Check-in</option>
+              </select>
+            </label>
+            <label class="full">
+              Notiz
+              <textarea name="note" placeholder="Training, Phase, Gewicht oder kurzer Kontext"></textarea>
+            </label>
+            <label class="full">
+              Foto
+              <input name="photo_file" type="file" accept="image/jpeg,image/png,image/webp">
+            </label>
+            <button class="button blue full" type="submit">Privat speichern</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <div class="row">
+          <div>
+            <h2>Private Galerie</h2>
+            <p class="subtle">Die Fotos werden erst nach PIN-Pruefung geladen.</p>
+          </div>
+          <button class="button secondary" id="photo-compare-button" type="button">Auswahl vergleichen</button>
+        </div>
+        <form class="form-grid" id="photo-gallery-form" style="margin-top: 1rem;">
+          <label>
+            Mitglied
+            <select name="member_id">{render_member_options(state, "bea")}</select>
+          </label>
+          <label>
+            Foto-PIN
+            <input name="pin" type="password" autocomplete="current-password">
+          </label>
+          <button class="button full" type="submit">Private Fotos laden</button>
+        </form>
+        <div class="compare-board" id="compare-board"></div>
+        <div class="photo-grid" id="private-photo-gallery" style="margin-top: 1rem;">
+          <article class="card">
+            <p class="subtle">Waehle dein Mitglied aus und gib deinen PIN ein.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <div class="row">
+          <div>
+            <h2>Community-Fotos</h2>
+            <p class="subtle">Nur bewusst veroeffentlichte Fotos erscheinen hier.</p>
+          </div>
+        </div>
+        <div class="photo-grid" style="margin-top: 1rem;">{public_cards}</div>
+      </section>
+    """
+    return render_layout("/fotos", "Fotos", body)
+
+
 def render_weather_day(day: dict) -> str:
     plan = day["plan"]
     return f"""
@@ -1594,6 +1944,67 @@ async def api_strava_sync(request: Request) -> dict[str, str]:
 
     save_state(state)
     return {"message": f"Strava synchronisiert: {imported} neue Aktivitaeten importiert."}
+
+
+@app.post("/api/photos/pin")
+async def api_set_photo_pin(request: Request) -> dict[str, str]:
+    payload = await read_json_payload(request)
+    state = load_state()
+    try:
+        set_photo_pin(
+            state,
+            str(payload.get("member_id") or ""),
+            str(payload.get("pin") or ""),
+            str(payload.get("current_pin") or ""),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    return {"message": "Foto-PIN gespeichert."}
+
+
+@app.post("/api/photos/upload")
+async def api_upload_photo(request: Request) -> dict[str, str]:
+    payload = await read_json_payload(request)
+    state = load_state()
+    try:
+        add_private_photo(state, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    return {"message": "Vergleichsfoto privat gespeichert."}
+
+
+@app.post("/api/photos/private")
+async def api_private_photos(request: Request) -> dict[str, object]:
+    payload = await read_json_payload(request)
+    state = load_state()
+    try:
+        photos = private_photos_for_member(
+            state,
+            str(payload.get("member_id") or ""),
+            str(payload.get("pin") or ""),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    return {"message": f"{len(photos)} private Fotos geladen.", "photos": photos}
+
+
+@app.post("/api/photos/publish")
+async def api_publish_photo(request: Request) -> dict[str, str]:
+    payload = await read_json_payload(request)
+    state = load_state()
+    try:
+        publish_photo(
+            state,
+            str(payload.get("member_id") or ""),
+            str(payload.get("pin") or ""),
+            str(payload.get("photo_id") or ""),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    return {"message": "Foto ist jetzt in der Community sichtbar."}
 
 
 @app.post("/update")
