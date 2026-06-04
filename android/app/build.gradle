@@ -6,11 +6,27 @@ android {
     namespace "de.bea.fitness"
     compileSdk 35
 
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
         applicationId "de.bea.fitness"
         minSdk 24
         targetSdk 35
         versionCode 1
         versionName "0.1.0"
+    }
+
+    buildTypes {
+        debug {
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
+            buildConfigField "boolean", "ALLOW_CLEARTEXT_SERVER", "true"
+        }
+        release {
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
+            buildConfigField "boolean", "ALLOW_CLEARTEXT_SERVER", "false"
+            minifyEnabled false
+        }
     }
 }

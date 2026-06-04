@@ -11,7 +11,8 @@ Die App enthält keinen eigenen Fitness-Server und keine eigene Datenbank. Sie l
 - `Neu laden` aktualisiert die WebView.
 - Android-Zurück-Taste navigiert innerhalb der Bea-Seiten zurück.
 - Foto- und Avatar-Uploads öffnen die Android-Dateiauswahl für Bilder.
-- HTTP zu lokalen Raspberry-Pi-Adressen ist erlaubt; für öffentliche Netze sollte Bea hinter HTTPS laufen.
+- Debug-Builds erlauben HTTP zu lokalen Raspberry-Pi-Adressen.
+- Release-Builds erzwingen HTTPS und blockieren unverschlüsselte `http://`-Server.
 
 ## Bauen
 
@@ -26,6 +27,15 @@ Alternativ mit installiertem Gradle:
 cd android
 gradle assembleDebug
 ```
+
+Für eine Store- oder Release-Version:
+
+```bash
+cd android
+gradle bundleRelease
+```
+
+Der Release-Build erwartet eine Bea-Instanz hinter HTTPS, VPN oder Reverse Proxy mit gültigem Zertifikat.
 
 Das Debug-APK liegt danach unter:
 

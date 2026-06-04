@@ -32,7 +32,9 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST_CODE = 42;
     private static final String PREFS_NAME = "bea_android";
     private static final String PREF_SERVER_URL = "server_url";
-    private static final String DEFAULT_SERVER_URL = "http://raspidiss.local:8010";
+    private static final String DEFAULT_SERVER_URL = BuildConfig.ALLOW_CLEARTEXT_SERVER
+        ? "http://raspidiss.local:8010"
+        : "https://raspidiss.local";
 
     private LinearLayout browserLayout;
     private ScrollView setupView;
@@ -103,7 +105,9 @@ public class MainActivity extends Activity {
         content.addView(serverInput, matchWrap());
 
         TextView hint = new TextView(this);
-        hint.setText("Nutze nicht localhost, sondern die Adresse deines Raspberry Pi, z.B. http://raspidiss.local:8010 oder http://192.168.178.40:8010.");
+        hint.setText(BuildConfig.ALLOW_CLEARTEXT_SERVER
+            ? "Nutze nicht localhost, sondern die Adresse deines Raspberry Pi, z.B. http://raspidiss.local:8010 oder http://192.168.178.40:8010."
+            : "Diese Release-Version erwartet HTTPS, z.B. https://bea.example.de oder eine VPN-Adresse mit gültigem Zertifikat.");
         hint.setTextColor(Color.rgb(100, 116, 139));
         hint.setTextSize(14);
         hint.setPadding(0, dp(10), 0, dp(18));
@@ -113,9 +117,14 @@ public class MainActivity extends Activity {
         connectButton.setText("Verbinden");
         connectButton.setAllCaps(false);
         connectButton.setOnClickListener(view -> {
-            String normalized = normalizeServerUrl(serverInput.getText().toString());
+            String rawServerUrl = serverInput.getText().toString();
+            String normalized = normalizeServerUrl(rawServerUrl);
             if (normalized.isEmpty()) {
                 Toast.makeText(this, "Bitte Server-Adresse eintragen.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!BuildConfig.ALLOW_CLEARTEXT_SERVER && normalized.toLowerCase().startsWith("http://")) {
+                Toast.makeText(this, "Für diese App-Version ist HTTPS erforderlich.", Toast.LENGTH_LONG).show();
                 return;
             }
             preferences.edit().putString(PREF_SERVER_URL, normalized).apply();
@@ -274,6 +283,11 @@ public class MainActivity extends Activity {
 
     private void showBrowser(String serverUrl) {
         String normalized = normalizeServerUrl(serverUrl);
+        if (!BuildConfig.ALLOW_CLEARTEXT_SERVER && normalized.toLowerCase().startsWith("http://")) {
+            Toast.makeText(this, "Für diese App-Version ist HTTPS erforderlich.", Toast.LENGTH_LONG).show();
+            showSetup();
+            return;
+        }
         setupView.setVisibility(View.GONE);
         browserLayout.setVisibility(View.VISIBLE);
         serverLabel.setText(normalized);
@@ -286,9 +300,11 @@ public class MainActivity extends Activity {
             return "";
         }
         if (!value.matches("^[A-Za-z][A-Za-z0-9+.-]*://.*")) {
-            value = "http://" + value;
+            value = (BuildConfig.ALLOW_CLEARTEXT_SERVER ? "http://" : "https://") + value;
         }
-        while (value.endsWith("/") && value.length() > "http://x".length()) {
+        int schemeEnd = value.indexOf("://");
+        int minLength = schemeEnd >= 0 ? schemeEnd + 4 : "http://x".length();
+        while (value.endsWith("/") && value.length() > minLength) {
             value = value.substring(0, value.length() - 1);
         }
         return value;

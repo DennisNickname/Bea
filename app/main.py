@@ -32,6 +32,7 @@ from app.integrations import strava_activity_payload
 from app.integrations import strava_authorization_url
 from app.integrations import strava_is_configured
 from app.photos import add_private_photo
+from app.photos import PHOTO_ROOT
 from app.photos import photo_pin_is_set
 from app.photos import private_photos_for_member
 from app.photos import public_photos
@@ -62,6 +63,7 @@ from app.state import RPG_DAILY_BOSSES
 from app.state import RPG_WEEKLY_BOSSES
 from app.state import SLEEP_QUALITY_LABELS
 from app.state import STRESS_LABELS
+from app.state import STATE_PATH
 from app.state import TRACKING_FREQUENCY_LABELS
 from app.state import TRAINING_FOCUS_LABELS
 from app.state import TRAINING_LABELS
@@ -154,6 +156,10 @@ SERVICE_NAME = os.getenv("BEA_SERVICE_NAME", "bea.service")
 SESSION_COOKIE = "bea_session"
 SESSION_TTL_SECONDS = int(os.getenv("BEA_SESSION_TTL_SECONDS", str(12 * 60 * 60)))
 SESSIONS: dict[str, dict] = {}
+LOGIN_RATE_LIMITS: dict[str, dict] = {}
+RESET_REQUEST_RATE_LIMITS: dict[str, dict] = {}
+RESET_CONFIRM_RATE_LIMITS: dict[str, dict] = {}
+REGISTER_RATE_LIMITS: dict[str, dict] = {}
 
 NAV_ITEMS = (
     ("/", "Dashboard"),
@@ -261,6 +267,64 @@ def _env_bool(*names: str, default: bool = False) -> bool:
     return value.lower() in ("1", "true", "yes", "ja")
 
 
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def source_ip_for_security(request: Request) -> str:
+    if os.getenv("BEA_TRUST_PROXY_HEADERS", "").lower() in ("1", "true", "yes", "ja"):
+        forwarded_for = request.headers.get("x-forwarded-for", "")
+        first_forwarded = forwarded_for.split(",", 1)[0].strip()
+        if first_forwarded:
+            return first_forwarded
+        real_ip = request.headers.get("x-real-ip", "").strip()
+        if real_ip:
+            return real_ip
+    return request.client.host if request.client else ""
+
+
+def rate_limit_key(scope: str, identifier: str, request: Request) -> str:
+    normalized_identifier = str(identifier or "").strip().lower()[:120]
+    return f"{scope}:{source_ip_for_security(request)}:{normalized_identifier}"
+
+
+def check_rate_limit(store: dict[str, dict], key: str) -> tuple[bool, int]:
+    record = store.get(key)
+    if not record:
+        return True, 0
+    locked_until = float(record.get("locked_until", 0))
+    if locked_until > time.time():
+        return False, max(1, int(locked_until - time.time()))
+    return True, 0
+
+
+def record_rate_limit_event(store: dict[str, dict], key: str, max_attempts: int, lockout_seconds: int) -> tuple[bool, int]:
+    if max_attempts <= 0:
+        return True, 0
+    now = time.time()
+    record = store.setdefault(key, {"attempts": 0, "locked_until": 0})
+    if float(record.get("locked_until", 0)) > now:
+        return False, max(1, int(float(record["locked_until"]) - now))
+    record["attempts"] = int(record.get("attempts", 0)) + 1
+    if int(record["attempts"]) >= max_attempts:
+        record["attempts"] = 0
+        record["locked_until"] = now + lockout_seconds
+        return False, lockout_seconds
+    return True, 0
+
+
+def clear_rate_limit(store: dict[str, dict], key: str) -> None:
+    store.pop(key, None)
+
+
+def rate_limit_text(retry_after_seconds: int) -> str:
+    minutes = max(1, int((retry_after_seconds + 59) / 60))
+    return f"Zu viele Versuche. Bitte in etwa {minutes} Minute(n) erneut probieren."
+
+
 def send_password_reset_email(email: str, code: str) -> bool:
     host = _env_value("BEA_MAIL_HOST", "MAIL_HOST")
     if not host:
@@ -324,7 +388,7 @@ def request_from_private_network(request: Request) -> bool:
     if not request.client:
         return True
     try:
-        address = ipaddress.ip_address(request.client.host)
+        address = ipaddress.ip_address(source_ip_for_security(request))
     except ValueError:
         return False
     return address.is_private or address.is_loopback or address.is_link_local
@@ -333,6 +397,43 @@ def request_from_private_network(request: Request) -> bool:
 def _combined_output(result: subprocess.CompletedProcess[str]) -> str:
     output = "\n".join(part for part in (result.stdout, result.stderr) if part)
     return output.strip() or "Kein Output."
+
+
+def create_update_backup() -> Path | None:
+    if os.getenv("BEA_UPDATE_BACKUP", "1").lower() in ("0", "false", "no", "off"):
+        return None
+
+    backup_root = Path(os.getenv("BEA_BACKUP_PATH", PROJECT_ROOT / "data" / "backups"))
+    backup_root.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    archive_base = backup_root / f"bea-update-{stamp}"
+    temp_root = backup_root / f".{archive_base.name}"
+    if temp_root.exists():
+        shutil.rmtree(temp_root)
+    temp_root.mkdir(parents=True)
+
+    try:
+        manifest = {
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "state_path": str(STATE_PATH),
+            "photo_root": str(PHOTO_ROOT),
+            "reason": "pre-github-update",
+        }
+        (temp_root / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+        if STATE_PATH.exists():
+            data_dir = temp_root / "data"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(STATE_PATH, data_dir / STATE_PATH.name)
+
+        if PHOTO_ROOT.exists():
+            shutil.copytree(PHOTO_ROOT, temp_root / "photos")
+
+        archive_path = shutil.make_archive(str(archive_base), "zip", temp_root)
+        return Path(archive_path)
+    finally:
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
 
 
 def _running_under_systemd() -> bool:
@@ -408,40 +509,95 @@ def training_type_area(training_type: str) -> str:
     }.get(training_type, "team")
 
 
+def _origin_matches_host(origin: str, host: str) -> bool:
+    if not origin or not host:
+        return False
+    parsed = urllib.parse.urlparse(origin)
+    return parsed.netloc.lower() == host.lower() and parsed.scheme in ("http", "https")
+
+
+def request_has_valid_origin(request: Request) -> bool:
+    if request.method.upper() in ("GET", "HEAD", "OPTIONS", "TRACE"):
+        return True
+
+    allowed_hosts = {request.headers.get("host", ""), request.url.netloc}
+    allowed_hosts.update(host.strip() for host in os.getenv("BEA_ALLOWED_HOSTS", "").split(",") if host.strip())
+
+    origin = request.headers.get("origin", "").strip()
+    if origin:
+        return any(_origin_matches_host(origin, host) for host in allowed_hosts)
+
+    referer = request.headers.get("referer", "").strip()
+    if referer:
+        return any(_origin_matches_host(referer, host) for host in allowed_hosts)
+
+    return True
+
+
+def add_security_headers(response, request: Request) -> None:
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    if os.getenv("BEA_ENABLE_CSP", "1").lower() not in ("0", "false", "no", "off"):
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "base-uri 'self'; "
+            "form-action 'self'; "
+            "frame-ancestors 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob:; "
+            "media-src 'self' data: blob:; "
+            "connect-src 'self'; "
+            "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
+        )
+    if cookie_secure(request) and os.getenv("BEA_ENABLE_HSTS", "").lower() in ("1", "true", "yes", "ja"):
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+
+
 @app.middleware("http")
 async def require_authenticated_member(request: Request, call_next):
     path = request.url.path
-    if private_network_only() and not request_from_private_network(request):
-        return JSONResponse(
+    if not request_has_valid_origin(request):
+        response = JSONResponse(
+            status_code=403,
+            content={"detail": {"message": "Anfrage wurde wegen ungültiger Herkunft blockiert."}},
+        )
+    elif private_network_only() and not request_from_private_network(request):
+        response = JSONResponse(
             status_code=403,
             content={"detail": {"message": "Bea ist nur im privaten Netzwerk oder per VPN erreichbar."}},
         )
+    else:
+        public_paths = {
+            "/login",
+            "/api/login",
+            "/register",
+            "/api/register",
+            "/password-reset",
+            "/password-reset/confirm",
+            "/api/password-reset/request",
+            "/api/password-reset/confirm",
+            "/logout",
+            "/favicon.ico",
+        }
+        if path in public_paths:
+            response = await call_next(request)
+        elif current_session(request):
+            response = await call_next(request)
+        elif path.startswith("/api") or path == "/update":
+            response = JSONResponse(
+                status_code=401,
+                content={"detail": {"message": "Bitte anmelden, bevor Daten gelesen oder geändert werden."}},
+            )
+        else:
+            response = login_redirect_for(request)
 
-    public_paths = {
-        "/login",
-        "/api/login",
-        "/register",
-        "/api/register",
-        "/password-reset",
-        "/password-reset/confirm",
-        "/api/password-reset/request",
-        "/api/password-reset/confirm",
-        "/logout",
-        "/favicon.ico",
-    }
-    if path in public_paths:
-        return await call_next(request)
-
-    if current_session(request):
-        return await call_next(request)
-
-    if path.startswith("/api") or path == "/update":
-        return JSONResponse(
-            status_code=401,
-            content={"detail": {"message": "Bitte anmelden, bevor Daten gelesen oder geändert werden."}},
-        )
-
-    return login_redirect_for(request)
+    add_security_headers(response, request)
+    return response
 
 
 def render_member_options(state: dict, selected: str = "") -> str:
@@ -4043,10 +4199,27 @@ async def api_login(request: Request):
     identifier = str(payload.get("identifier") or payload.get("member_id") or "")
     password = str(payload.get("password") or "")
     next_url = safe_next_url(str(payload.get("next") or "/"))
+    limit_key = rate_limit_key("login", identifier, request)
+    allowed, retry_after = check_rate_limit(LOGIN_RATE_LIMITS, limit_key)
+    if not allowed:
+        return HTMLResponse(render_login_page(rate_limit_text(retry_after), next_url), status_code=429)
+
     member = member_by_login(state, identifier)
     if not member or not password_is_configured(state, member["id"]) or not verify_member_password(state, member["id"], password):
-        return HTMLResponse(render_login_page("Benutzername, E-Mail oder Passwort stimmt nicht.", next_url), status_code=400)
+        allowed_after_failure, retry_after = record_rate_limit_event(
+            LOGIN_RATE_LIMITS,
+            limit_key,
+            _env_int("BEA_LOGIN_RATE_LIMIT_MAX_ATTEMPTS", 5),
+            _env_int("BEA_LOGIN_RATE_LIMIT_LOCKOUT_SECONDS", 300),
+        )
+        message = "Benutzername, E-Mail oder Passwort stimmt nicht."
+        status_code = 400
+        if not allowed_after_failure:
+            message = rate_limit_text(retry_after)
+            status_code = 429
+        return HTMLResponse(render_login_page(message, next_url), status_code=status_code)
 
+    clear_rate_limit(LOGIN_RATE_LIMITS, limit_key)
     response = RedirectResponse(next_url, status_code=303)
     set_session_cookie(response, request, create_session(member["id"]))
     return response
@@ -4056,14 +4229,32 @@ async def api_login(request: Request):
 async def api_register(request: Request):
     payload = parse_form_body(await request.body())
     next_url = safe_next_url(str(payload.get("next") or "/"))
+    limit_key = rate_limit_key("register", "", request)
+    allowed, retry_after = check_rate_limit(REGISTER_RATE_LIMITS, limit_key)
+    if not allowed:
+        safe_values = {key: payload.get(key, "") for key in ("full_name", "username", "birthday", "email")}
+        return HTMLResponse(render_register_page(rate_limit_text(retry_after), next_url, safe_values), status_code=429)
+
     try:
         state = load_state()
         member = register_member_account(state, payload)
         save_state(state)
     except ValueError as exc:
+        record_rate_limit_event(
+            REGISTER_RATE_LIMITS,
+            limit_key,
+            _env_int("BEA_REGISTER_RATE_LIMIT_MAX_ATTEMPTS", 8),
+            _env_int("BEA_REGISTER_RATE_LIMIT_LOCKOUT_SECONDS", 900),
+        )
         safe_values = {key: payload.get(key, "") for key in ("full_name", "username", "birthday", "email")}
         return HTMLResponse(render_register_page(str(exc), next_url, safe_values), status_code=400)
 
+    record_rate_limit_event(
+        REGISTER_RATE_LIMITS,
+        limit_key,
+        _env_int("BEA_REGISTER_RATE_LIMIT_MAX_ATTEMPTS", 8),
+        _env_int("BEA_REGISTER_RATE_LIMIT_LOCKOUT_SECONDS", 900),
+    )
     response = RedirectResponse(next_url, status_code=303)
     set_session_cookie(response, request, create_session(member["id"]))
     return response
@@ -4073,9 +4264,20 @@ async def api_register(request: Request):
 async def api_password_reset_request(request: Request):
     payload = parse_form_body(await request.body())
     identifier = str(payload.get("identifier") or "")
+    limit_key = rate_limit_key("password-reset-request", identifier, request)
+    allowed, retry_after = check_rate_limit(RESET_REQUEST_RATE_LIMITS, limit_key)
+    if not allowed:
+        return HTMLResponse(render_password_reset_request_page(rate_limit_text(retry_after), identifier=identifier), status_code=429)
+
     state = load_state()
     reset = create_password_reset_code(state, identifier)
     notice = "Wenn ein Konto gefunden wurde, wurde ein Code an die hinterlegte E-Mail-Adresse gesendet."
+    record_rate_limit_event(
+        RESET_REQUEST_RATE_LIMITS,
+        limit_key,
+        _env_int("BEA_RESET_REQUEST_RATE_LIMIT_MAX_ATTEMPTS", 5),
+        _env_int("BEA_RESET_REQUEST_RATE_LIMIT_LOCKOUT_SECONDS", 900),
+    )
 
     if not reset:
         save_state(state)
@@ -4104,6 +4306,11 @@ async def api_password_reset_confirm(request: Request):
     code = str(payload.get("code") or "")
     password = str(payload.get("password") or "")
     password_confirm = str(payload.get("password_confirm") or "")
+    limit_key = rate_limit_key("password-reset-confirm", email, request)
+    allowed, retry_after = check_rate_limit(RESET_CONFIRM_RATE_LIMITS, limit_key)
+    if not allowed:
+        return HTMLResponse(render_password_reset_confirm_page(rate_limit_text(retry_after), email=email), status_code=429)
+
     if password != password_confirm:
         return HTMLResponse(render_password_reset_confirm_page("Bitte neues Passwort identisch bestätigen.", email=email), status_code=400)
 
@@ -4112,8 +4319,15 @@ async def api_password_reset_confirm(request: Request):
         consume_password_reset_code(state, email, code, password)
         save_state(state)
     except ValueError as exc:
+        record_rate_limit_event(
+            RESET_CONFIRM_RATE_LIMITS,
+            limit_key,
+            _env_int("BEA_RESET_CONFIRM_RATE_LIMIT_MAX_ATTEMPTS", 5),
+            _env_int("BEA_RESET_CONFIRM_RATE_LIMIT_LOCKOUT_SECONDS", 900),
+        )
         return HTMLResponse(render_password_reset_confirm_page(str(exc), email=email), status_code=400)
 
+    clear_rate_limit(RESET_CONFIRM_RATE_LIMITS, limit_key)
     notice = urllib.parse.quote("Passwort wurde geändert. Du kannst dich jetzt anmelden.")
     return RedirectResponse(f"/login?notice={notice}", status_code=303)
 
@@ -7105,6 +7319,14 @@ def update_from_github() -> dict[str, str]:
         )
 
     try:
+        backup_path = create_update_backup()
+    except OSError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={"message": "Backup vor GitHub Update fehlgeschlagen.", "output": str(exc)},
+        ) from exc
+
+    try:
         result = subprocess.run(
             [git, "pull", "--ff-only"],
             cwd=PROJECT_ROOT,
@@ -7127,4 +7349,6 @@ def update_from_github() -> dict[str, str]:
         )
 
     message = _restart_service_soon()
+    if backup_path:
+        output = f"Backup: {backup_path}\n{output}"
     return {"message": message, "output": output}

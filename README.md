@@ -35,6 +35,10 @@ die Anmeldung läuft über Benutzername oder E-Mail-Adresse. Passwörter werden 
 als Salt + PBKDF2-Hash in der lokalen State-Datei abgelegt. Ohne gültige Anmeldung werden Seiten, APIs, Fotos und
 der GitHub-Update-Endpunkt blockiert.
 
+Zusätzlich setzt Bea Sicherheitsheader, prüft bei schreibenden Anfragen die Herkunft und begrenzt Login-,
+Registrierungs- und Passwort-Reset-Versuche serverseitig. Vor einem GitHub-Update wird automatisch ein ZIP-Backup von
+State-Datei und Fotos unter `data/backups/` angelegt. Details stehen in [`SECURITY.md`](SECURITY.md).
+
 Wenn ein Passwort vergessen wurde, kann ein zeitlich begrenzter Code an die hinterlegte E-Mail-Adresse geschickt
 werden. Dafür können auf dem Raspberry Pi SMTP-Daten in `/etc/default/bea` gesetzt werden:
 
@@ -66,6 +70,20 @@ Nur wenn die App bewusst hinter einem sicheren Reverse Proxy betrieben wird, kan
 BEA_PRIVATE_NETWORK_ONLY=0
 ```
 
+Wenn Bea hinter nginx/Caddy mit HTTPS läuft, sollte Uvicorn nur lokal lauschen:
+
+```bash
+BEA_HOST=127.0.0.1
+BEA_SECURE_COOKIE=1
+BEA_TRUST_PROXY_HEADERS=1
+```
+
+Eine nginx-Vorlage liegt unter `deploy/nginx/bea-https.conf.template`. Der Netzwerkcheck läuft auf dem Pi mit:
+
+```bash
+bash scripts/security_network_check.sh
+```
+
 ## Lokal starten
 
 ```powershell
@@ -85,6 +103,9 @@ http://localhost:8010
 
 Im Ordner `android/` liegt eine native Android-App als WebView-Hülle für Bea. Sie verbindet sich mit der laufenden
 Bea-Instanz auf dem Raspberry Pi und nutzt dieselben Logins, Daten und Foto-Uploads.
+
+Debug-Builds dürfen lokale HTTP-Adressen wie `http://raspidiss.local:8010` nutzen. Release-Builds erzwingen HTTPS und
+blockieren unverschlüsselte `http://`-Serveradressen.
 
 Build-Hinweise stehen in [`android/README.md`](android/README.md). Beim ersten Start der App als Server-Adresse nicht
 `localhost`, sondern den Raspberry-Pi-Host eintragen, zum Beispiel:
