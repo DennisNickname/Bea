@@ -343,9 +343,9 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             height: 2.55rem;
             place-items: center;
             border-radius: 0.45rem;
-            background: linear-gradient(135deg, var(--blue), var(--green) 55%, var(--gold));
+            background: #000000;
             color: #fff;
-            box-shadow: 0 0.7rem 1.4rem rgb(37 99 235 / 24%);
+            box-shadow: 0 0.7rem 1.4rem rgb(23 32 51 / 20%);
           }}
 
           .nav {{
@@ -1007,9 +1007,9 @@ def render_layout(active_path: str, title: str, body: str) -> str:
       </head>
       <body>
         <header class="topbar">
-          <a class="brand" href="/">
+          <a class="brand" href="/" aria-label="Bea Dashboard">
             <span class="brand-mark">B</span>
-            <span>Bea</span>
+            <span>ea</span>
           </a>
           <nav class="nav" aria-label="Hauptnavigation">
             {nav}
