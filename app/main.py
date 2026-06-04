@@ -50,6 +50,7 @@ from app.state import GOAL_LABELS
 from app.state import HEALTH_JOURNEY_LESSONS
 from app.state import INJURY_AREA_LABELS
 from app.state import MEAL_LABELS
+from app.state import MINDSET_EXERCISES
 from app.state import MOTIVATION_STYLE_LABELS
 from app.state import RECOVERY_LABELS
 from app.state import SLEEP_QUALITY_LABELS
@@ -62,6 +63,7 @@ from app.state import add_external_sport_entry
 from app.state import add_food_item
 from app.state import add_assignment
 from app.state import add_challenge_progress
+from app.state import add_mindset_entry
 from app.state import add_motivation
 from app.state import add_nutrition_entry
 from app.state import add_sport_entry
@@ -130,6 +132,7 @@ NAV_ITEMS = (
     ("/challenges", "Challenges"),
     ("/fitnessplan", "Fitnessplan"),
     ("/sport", "Sport"),
+    ("/mindset", "Mindset"),
     ("/nahrung", "Nahrung"),
     ("/fotos", "Fotos"),
     ("/integrationen", "Integrationen"),
@@ -139,7 +142,7 @@ NAV_GROUPS = (
     ("Planung", (("/", "Dashboard"), ("/fitnessplan", "Fitnessplan"), ("/fragebogen", "Check-in"))),
     ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/reise", "Reise"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
     ("Community", (("/freunde", "Freunde"), ("/gruppen", "Gruppen"), ("/challenges", "Challenges"))),
-    ("Tracking", (("/sport", "Sport"), ("/nahrung", "Nahrung"), ("/fotos", "Fotos"), ("/integrationen", "Integrationen"))),
+    ("Tracking", (("/sport", "Sport"), ("/mindset", "Mindset"), ("/nahrung", "Nahrung"), ("/fotos", "Fotos"), ("/integrationen", "Integrationen"))),
 )
 
 
@@ -289,6 +292,7 @@ def area_class(area: str) -> str:
         "endurance": "area-endurance",
         "strength": "area-strength",
         "nutrition": "area-nutrition",
+        "mindset": "area-mindset",
         "team": "area-team",
     }.get(area, "area-team")
 
@@ -512,6 +516,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             --gold: #d98b13;
             --violet: #7c3aed;
             --cyan: #0891b2;
+            --mindset: #8b5cf6;
             --shadow: 0 1rem 2.8rem rgb(23 32 51 / 10%);
           }}
 
@@ -901,6 +906,12 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             border-color: rgb(22 138 95 / 24%);
           }}
 
+          .card.area-mindset,
+          .level-meter.area-mindset {{
+            background: linear-gradient(135deg, #ffffff, #f4f0ff);
+            border-color: rgb(139 92 246 / 25%);
+          }}
+
           .card.area-team,
           .level-meter.area-team {{
             background: linear-gradient(135deg, #ffffff, #fff8e8);
@@ -1089,6 +1100,11 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           .area-nutrition .progress span,
           .tag.area-nutrition {{
             background: var(--green);
+          }}
+
+          .area-mindset .progress span,
+          .tag.area-mindset {{
+            background: var(--mindset);
           }}
 
           .area-team .progress span,
@@ -3405,6 +3421,7 @@ def dashboard(request: Request) -> str:
           <a class="quick-link blue" href="/fortschritt">Fortschritt</a>
           <a class="quick-link green" href="/gruppen">Gruppen</a>
           <a class="quick-link blue" href="/sport">Sport erfassen</a>
+          <a class="quick-link gold" href="/mindset">Mindset üben</a>
           <a class="quick-link green" href="/nahrung">Mahlzeit tracken</a>
           <a class="quick-link gold" href="/challenges">Challenge ansehen</a>
           <a class="quick-link red" href="/fotos">Fotovergleich</a>
@@ -4504,6 +4521,164 @@ def sport_page() -> str:
     return render_layout("/sport", "Sport", body)
 
 
+@app.get("/mindset", response_class=HTMLResponse)
+def mindset_page(request: Request) -> str:
+    state = load_state()
+    member_id = dashboard_member_id(state, request)
+    member_label = member_name(state, member_id)
+    entries = [
+        entry
+        for entry in state.setdefault("mindset_entries", [])
+        if entry.get("member_id") == member_id
+    ]
+    total_minutes = sum(int(entry.get("duration", 0)) for entry in entries)
+    total_xp = sum(int(entry.get("xp", 0)) for entry in entries)
+    latest = entries[0] if entries else {}
+    exercise_options = "\n".join(
+        f'<option value="{h(key)}">{h(item["label"])}</option>'
+        for key, item in MINDSET_EXERCISES.items()
+    )
+    exercise_cards = "".join(
+        f"""
+        <article class="card area-mindset">
+          <div class="row">
+            <h3>{h(item["label"])}</h3>
+            <span class="tag area-mindset">+{h(item["base_xp"])} Basis-XP</span>
+          </div>
+          <p class="subtle">{h(item["description"])}</p>
+          <p class="subtle" style="margin-top: 0.45rem;"><strong>Impuls:</strong> {h(item["prompt"])}</p>
+        </article>
+        """
+        for item in MINDSET_EXERCISES.values()
+    )
+    rows = "".join(
+        f"""
+        <tr>
+          <td>{h(entry["created_at"])}</td>
+          <td><span class="tag area-mindset">{h(MINDSET_EXERCISES.get(entry.get("exercise_type"), {}).get("label", "Mindset"))}</span></td>
+          <td>{h(entry.get("title", "Mindset"))}</td>
+          <td>{h(entry.get("duration", 0))} min</td>
+          <td>{h(entry.get("mood_before", "-"))}</td>
+          <td>{h(entry.get("mood_after", "-"))}</td>
+          <td>{h(entry.get("xp", 0))} XP</td>
+        </tr>
+        """
+        for entry in entries[:14]
+    )
+    if not rows:
+        rows = '<tr><td colspan="7">Noch keine Mindset-Übung eingetragen.</td></tr>'
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Mindset</p>
+          <h1>Innere Werte leveln</h1>
+        </div>
+        <p class="subtle">Meditation, Atemarbeit und Reflexion geben deinem Charakter eigene Mindset-XP.</p>
+      </section>
+
+      <section class="grid four">
+        <article class="stat-card">
+          <span>Charakter</span>
+          <strong>{h(member_label)}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Übungen</span>
+          <strong>{h(len(entries))}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Minuten</span>
+          <strong>{h(total_minutes)}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Mindset-XP</span>
+          <strong>{h(total_xp)}</strong>
+        </article>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Mindset-Übung eintragen</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/mindset">
+            <label>
+              Übung
+              <select name="exercise_type">{exercise_options}</select>
+            </label>
+            <label>
+              Intensität
+              <select name="effort">
+                <option value="1">Sehr ruhig</option>
+                <option value="2" selected>Ruhig</option>
+                <option value="3">Fokussiert</option>
+                <option value="4">Tief</option>
+                <option value="5">Sehr intensiv</option>
+              </select>
+            </label>
+            <label>
+              Titel
+              <input name="title" placeholder="Morgenmeditation">
+            </label>
+            <label>
+              Dauer in Minuten
+              <input name="duration" type="number" min="1" max="180" value="5">
+            </label>
+            <label>
+              Vorher
+              <input name="mood_before" placeholder="angespannt, müde, unruhig">
+            </label>
+            <label>
+              Nachher
+              <input name="mood_after" placeholder="ruhiger, klarer, geerdet">
+            </label>
+            <label class="full">
+              Reflexion
+              <textarea name="note" placeholder="Was hast du bemerkt? Was nimmst du mit?"></textarea>
+            </label>
+            <button class="button blue full" type="submit">Mindset-XP sammeln</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Heute sinnvoll</h2>
+          <div class="list" style="margin-top: 1rem;">
+            <article class="card area-mindset">
+              <h3>{h(latest.get("title", "5 Minuten bewusst werden"))}</h3>
+              <p class="subtle">{h(latest.get("note", "Starte klein: 5 Minuten atmen, meditieren oder drei Gedanken notieren."))}</p>
+            </article>
+            <article class="card area-team">
+              <h3>Level-Regel</h3>
+              <p class="subtle">Mindset-XP zählt wie Ausdauer, Kraft und Nahrung in dein Gesamtlevel. Kleine tägliche Einheiten sind wertvoller als seltene perfekte Sessions.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Übungsauswahl</h2>
+        <div class="grid two" style="margin-top: 1rem;">{exercise_cards}</div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Mindset-Verlauf</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Übung</th>
+              <th>Titel</th>
+              <th>Dauer</th>
+              <th>Vorher</th>
+              <th>Nachher</th>
+              <th>XP</th>
+            </tr>
+          </thead>
+          <tbody>{rows}</tbody>
+        </table>
+      </section>
+    """
+    return render_layout("/mindset", "Mindset", body)
+
+
 @app.get("/nahrung", response_class=HTMLResponse)
 def nutrition_page() -> str:
     state = load_state()
@@ -5270,6 +5445,16 @@ async def api_questionnaire(request: Request) -> dict[str, str]:
 @app.post("/api/sport")
 async def api_add_sport(request: Request) -> dict[str, str]:
     return save_action(add_sport_entry, await read_json_payload(request), "Sporteintrag gespeichert.")
+
+
+@app.post("/api/mindset")
+async def api_add_mindset(request: Request) -> dict[str, str]:
+    payload = await read_json_payload(request)
+    member_id = current_member_id(request)
+    if not member_id:
+        raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor Mindset-Übungen gespeichert werden."})
+    payload["member_id"] = member_id
+    return save_action(add_mindset_entry, payload, "Mindset-Übung gespeichert. XP wurden gutgeschrieben.")
 
 
 @app.post("/api/nutrition")

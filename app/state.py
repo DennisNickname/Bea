@@ -16,12 +16,13 @@ STATE_PATH = Path(os.getenv("BEA_STATE_PATH", PROJECT_ROOT / "data" / "bea_state
 CHECKIN_INTERVAL_DAYS = 90
 PASSWORD_ITERATIONS = 240_000
 
-AREAS = ("endurance", "strength", "nutrition", "team")
+AREAS = ("endurance", "strength", "nutrition", "mindset", "team")
 
 AREA_LABELS = {
     "endurance": "Ausdauer",
     "strength": "Kraft",
     "nutrition": "Nahrung",
+    "mindset": "Mindset",
     "team": "Teamgeist",
 }
 
@@ -178,6 +179,39 @@ FOOD_CATEGORIES = {
     "other": "Sonstiges",
 }
 
+MINDSET_EXERCISES = {
+    "meditation": {
+        "label": "Meditation",
+        "base_xp": 32,
+        "description": "Ruhig sitzen, Atem beobachten und Gedanken kommen lassen, ohne ihnen folgen zu müssen.",
+        "prompt": "Was ist nach der Meditation klarer oder ruhiger als vorher?",
+    },
+    "breathing": {
+        "label": "Atemübung",
+        "base_xp": 24,
+        "description": "Zum Beispiel 4 Sekunden einatmen, 6 Sekunden ausatmen, für mehrere ruhige Runden.",
+        "prompt": "Wie hat sich dein Stresslevel nach der Atemübung verändert?",
+    },
+    "journaling": {
+        "label": "Journaling",
+        "base_xp": 28,
+        "description": "Kurz notieren, was dich beschäftigt, was du brauchst und welcher nächste Schritt klein genug ist.",
+        "prompt": "Welcher Gedanke soll heute nicht den ganzen Tag bestimmen?",
+    },
+    "gratitude": {
+        "label": "Dankbarkeit",
+        "base_xp": 22,
+        "description": "Drei konkrete Dinge notieren, für die du heute dankbar bist.",
+        "prompt": "Welche drei kleinen Dinge waren heute gut?",
+    },
+    "visualization": {
+        "label": "Visualisierung",
+        "base_xp": 26,
+        "description": "Stell dir eine geplante Handlung sauber vor: Start, Hindernis, Reaktion und Abschluss.",
+        "prompt": "Welche Situation möchtest du heute mental vorwegnehmen?",
+    },
+}
+
 DEFAULT_FOOD_ITEMS = [
     {"id": "oats", "name": "Haferflocken", "category": "carbs", "calories": 372, "protein": 13.5, "carbs": 58.7, "fat": 7.0},
     {"id": "rice", "name": "Reis gekocht", "category": "carbs", "calories": 130, "protein": 2.7, "carbs": 28.0, "fat": 0.3},
@@ -270,6 +304,22 @@ RPG_DAILY_QUEST_POOL = [
         "reward_xp": 25,
         "damage": 18,
     },
+    {
+        "id": "mindful-5",
+        "title": "5 Minuten Mindset",
+        "description": "Meditation, Atemübung oder Journaling ruhig und ohne Ablenkung erledigen.",
+        "area": "mindset",
+        "reward_xp": 38,
+        "damage": 25,
+    },
+    {
+        "id": "breath-reset",
+        "title": "Atem-Reset",
+        "description": "Mindestens 3 Minuten bewusst langsam atmen und danach kurz notieren, wie du dich fühlst.",
+        "area": "mindset",
+        "reward_xp": 30,
+        "damage": 22,
+    },
 ]
 
 HEALTH_JOURNEY_LESSONS = [
@@ -352,7 +402,7 @@ HEALTH_JOURNEY_LESSONS = [
     {
         "id": "schlaf-regeneration",
         "title": "Schlaf ist Training im Hintergrund",
-        "area": "team",
+        "area": "mindset",
         "read_minutes": 4,
         "xp": 28,
         "summary": "Regeneration ist kein Bonus. Sie entscheidet, wie gut dein Körper Trainingsreize verarbeitet.",
@@ -409,7 +459,7 @@ HEALTH_JOURNEY_LESSONS = [
     {
         "id": "gewohnheiten-design",
         "title": "Gewohnheiten klein bauen",
-        "area": "team",
+        "area": "mindset",
         "read_minutes": 4,
         "xp": 26,
         "summary": "Große Ziele werden leichter, wenn die Einstiegshürde winzig ist.",
@@ -528,28 +578,28 @@ DEFAULT_STATE = {
             "id": "bea",
             "name": "Bea",
             "focus": "Kraft & Routine",
-            "xp": {"endurance": 360, "strength": 520, "nutrition": 310, "team": 260},
+            "xp": {"endurance": 360, "strength": 520, "nutrition": 310, "mindset": 180, "team": 260},
             "streak": 6,
         },
         {
             "id": "mara",
             "name": "Mara",
             "focus": "Laufen",
-            "xp": {"endurance": 610, "strength": 240, "nutrition": 220, "team": 330},
+            "xp": {"endurance": 610, "strength": 240, "nutrition": 220, "mindset": 120, "team": 330},
             "streak": 4,
         },
         {
             "id": "jonas",
             "name": "Jonas",
             "focus": "Ganzkörper",
-            "xp": {"endurance": 280, "strength": 470, "nutrition": 180, "team": 210},
+            "xp": {"endurance": 280, "strength": 470, "nutrition": 180, "mindset": 260, "team": 210},
             "streak": 3,
         },
         {
             "id": "nina",
             "name": "Nina",
             "focus": "Ernährung",
-            "xp": {"endurance": 190, "strength": 210, "nutrition": 540, "team": 390},
+            "xp": {"endurance": 190, "strength": 210, "nutrition": 540, "mindset": 310, "team": 390},
             "streak": 8,
         },
     ],
@@ -586,6 +636,20 @@ DEFAULT_STATE = {
             "calories": 620,
             "water": 0.7,
             "xp": 47,
+            "created_at": "2026-06-04",
+        }
+    ],
+    "mindset_entries": [
+        {
+            "id": "mindset-1",
+            "member_id": "bea",
+            "exercise_type": "meditation",
+            "title": "Morgenmeditation",
+            "duration": 8,
+            "mood_before": "unruhig",
+            "mood_after": "klarer",
+            "note": "Atem beobachtet und Tagesfokus gesetzt.",
+            "xp": 40,
             "created_at": "2026-06-04",
         }
     ],
@@ -2254,6 +2318,39 @@ def add_sport_entry(state: dict, payload: dict) -> dict:
     return entry
 
 
+def add_mindset_entry(state: dict, payload: dict) -> dict:
+    member_id = str(payload.get("member_id", ""))
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    exercise_type = str(payload.get("exercise_type") or "meditation")
+    if exercise_type not in MINDSET_EXERCISES:
+        raise ValueError("Mindset-Übung wurde nicht gefunden.")
+
+    duration = clamp(as_int(payload, "duration", 5), 1, 180)
+    effort = clamp(as_int(payload, "effort", 2), 1, 5)
+    exercise = MINDSET_EXERCISES[exercise_type]
+    title = str(payload.get("title") or exercise["label"]).strip()
+    xp = min(120, int(exercise["base_xp"]) + duration + effort * 5)
+    entry = {
+        "id": new_id("mindset"),
+        "member_id": member_id,
+        "exercise_type": exercise_type,
+        "title": title,
+        "duration": duration,
+        "effort": effort,
+        "mood_before": str(payload.get("mood_before") or "").strip(),
+        "mood_after": str(payload.get("mood_after") or "").strip(),
+        "note": str(payload.get("note") or "").strip(),
+        "xp": xp,
+        "created_at": today(),
+    }
+    state.setdefault("mindset_entries", []).insert(0, entry)
+    award_xp(state, member_id, "mindset", xp)
+    award_xp(state, member_id, "team", 4)
+    return entry
+
+
 def add_external_sport_entry(state: dict, payload: dict) -> dict | None:
     source = str(payload.get("external_source") or "").strip()
     external_id = str(payload.get("external_id") or "").strip()
@@ -2517,7 +2614,7 @@ def create_challenge(state: dict, payload: dict) -> dict:
         raise ValueError("Bitte einen Challenge-Titel eintragen.")
 
     category = str(payload.get("category") or "")
-    if category not in ("endurance", "strength", "nutrition", "team"):
+    if category not in AREAS:
         raise ValueError("Kategorie wurde nicht gefunden.")
 
     group_id = str(payload.get("group_id") or "").strip()
