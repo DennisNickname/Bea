@@ -303,35 +303,67 @@ DEFAULT_STATE = {
             "created_at": "2026-06-04",
         }
     ],
+    "groups": [
+        {
+            "id": "early-birds",
+            "name": "Early Birds",
+            "description": "Morgens aktiv werden, bevor der Tag laut wird.",
+            "focus": "Ausdauer",
+            "members": ["bea", "mara"],
+            "created_by": "bea",
+            "created_at": "2026-06-04",
+        },
+        {
+            "id": "iron-circle",
+            "name": "Iron Circle",
+            "description": "Krafttraining, Technik und saubere Routinen.",
+            "focus": "Kraft",
+            "members": ["bea", "jonas"],
+            "created_by": "jonas",
+            "created_at": "2026-06-04",
+        },
+        {
+            "id": "fuel-club",
+            "name": "Fuel Club",
+            "description": "Mahlzeiten planen, Protein treffen und Wasser nicht vergessen.",
+            "focus": "Nahrung",
+            "members": ["nina"],
+            "created_by": "nina",
+            "created_at": "2026-06-04",
+        },
+    ],
     "challenges": [
         {
             "id": "team-100",
             "title": "Team 100 Minuten Ausdauer",
             "category": "endurance",
+            "group_id": "early-birds",
             "goal": 100,
             "unit": "Minuten",
             "xp": 120,
-            "participants": {"bea": 30, "mara": 38, "jonas": 15, "nina": 12},
+            "participants": {"bea": 30, "mara": 38},
             "completed": [],
         },
         {
             "id": "protein-week",
             "title": "Protein Woche",
             "category": "nutrition",
+            "group_id": "fuel-club",
             "goal": 7,
             "unit": "Tage",
             "xp": 90,
-            "participants": {"bea": 3, "mara": 2, "jonas": 1, "nina": 5},
+            "participants": {"nina": 5},
             "completed": [],
         },
         {
             "id": "push-pull",
             "title": "Kraftzirkel",
             "category": "strength",
+            "group_id": "iron-circle",
             "goal": 5,
             "unit": "Einheiten",
             "xp": 110,
-            "participants": {"bea": 2, "mara": 1, "jonas": 3, "nina": 1},
+            "participants": {"bea": 2, "jonas": 3},
             "completed": [],
         },
     ],
@@ -1262,6 +1294,120 @@ def add_motivation(state: dict, payload: dict) -> dict:
     return motivation
 
 
+def groups(state: dict) -> list[dict]:
+    return state.setdefault("groups", copy.deepcopy(DEFAULT_STATE["groups"]))
+
+
+def group_by_id(state: dict, group_id: str) -> dict | None:
+    for group in groups(state):
+        if group.get("id") == group_id:
+            return group
+    return None
+
+
+def group_name(state: dict, group_id: str) -> str:
+    if not group_id:
+        return "Alle"
+    group = group_by_id(state, group_id)
+    return str(group.get("name")) if group else "Unbekannte Gruppe"
+
+
+def groups_for_member(state: dict, member_id: str) -> list[dict]:
+    return [group for group in groups(state) if member_id in group.setdefault("members", [])]
+
+
+def create_group(state: dict, payload: dict) -> dict:
+    creator = str(payload.get("created_by") or "")
+    if creator not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    name = str(payload.get("name") or "").strip()
+    if len(name) < 3:
+        raise ValueError("Bitte einen Gruppennamen mit mindestens 3 Zeichen eintragen.")
+
+    existing_names = {str(group.get("name", "")).lower() for group in groups(state)}
+    if name.lower() in existing_names:
+        raise ValueError("Diese Gruppe gibt es bereits.")
+
+    focus = str(payload.get("focus") or "Team")
+    group = {
+        "id": new_id("group"),
+        "name": name,
+        "description": str(payload.get("description") or "").strip(),
+        "focus": focus.strip() or "Team",
+        "members": [creator],
+        "created_by": creator,
+        "created_at": today(),
+    }
+    groups(state).insert(0, group)
+    award_xp(state, creator, "team", 20)
+    return group
+
+
+def join_group(state: dict, payload: dict) -> dict:
+    member_id = str(payload.get("member_id") or "")
+    group_id = str(payload.get("group_id") or "")
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    group = group_by_id(state, group_id)
+    if not group:
+        raise ValueError("Gruppe wurde nicht gefunden.")
+
+    members = group.setdefault("members", [])
+    if member_id not in members:
+        members.append(member_id)
+        award_xp(state, member_id, "team", 10)
+
+    for challenge in state.setdefault("challenges", []):
+        if challenge.get("group_id") == group_id:
+            challenge.setdefault("participants", {}).setdefault(member_id, 0)
+    return group
+
+
+def create_challenge(state: dict, payload: dict) -> dict:
+    creator = str(payload.get("created_by") or "")
+    if creator not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    title = str(payload.get("title") or "").strip()
+    if len(title) < 3:
+        raise ValueError("Bitte einen Challenge-Titel eintragen.")
+
+    category = str(payload.get("category") or "")
+    if category not in ("endurance", "strength", "nutrition", "team"):
+        raise ValueError("Kategorie wurde nicht gefunden.")
+
+    group_id = str(payload.get("group_id") or "").strip()
+    group = group_by_id(state, group_id) if group_id else None
+    if group_id and not group:
+        raise ValueError("Gruppe wurde nicht gefunden.")
+    if group and creator not in group.setdefault("members", []):
+        raise ValueError("Du musst der Gruppe beitreten, bevor du dort eine Challenge erstellst.")
+
+    goal = max(1, as_int(payload, "goal", 10))
+    unit = str(payload.get("unit") or "Punkte").strip() or "Punkte"
+    xp = clamp(as_int(payload, "xp", 100), 10, 1000)
+    member_ids = group.setdefault("members", []) if group else [member["id"] for member in state["members"]]
+    challenge = {
+        "id": new_id("challenge"),
+        "title": title,
+        "category": category,
+        "group_id": group_id,
+        "goal": goal,
+        "unit": unit,
+        "xp": xp,
+        "participants": {member_id: 0 for member_id in member_ids},
+        "completed": [],
+        "created_by": creator,
+        "description": str(payload.get("description") or "").strip(),
+        "created_at": today(),
+    }
+    state.setdefault("challenges", []).insert(0, challenge)
+    award_xp(state, creator, "team", 18)
+    return challenge
+
+
 def add_challenge_progress(state: dict, payload: dict) -> dict:
     challenge_id = str(payload.get("challenge_id") or "")
     member_id = str(payload.get("member_id") or "")
@@ -1273,6 +1419,12 @@ def add_challenge_progress(state: dict, payload: dict) -> dict:
     for challenge in state["challenges"]:
         if challenge["id"] != challenge_id:
             continue
+
+        group_id = str(challenge.get("group_id") or "")
+        if group_id:
+            group = group_by_id(state, group_id)
+            if group and member_id not in group.setdefault("members", []):
+                raise ValueError("Dieses Mitglied ist nicht in der Challenge-Gruppe.")
 
         participants = challenge.setdefault("participants", {})
         old_progress = int(participants.get(member_id, 0))

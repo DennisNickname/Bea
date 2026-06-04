@@ -54,10 +54,16 @@ from app.state import add_sport_entry
 from app.state import add_youtube_link
 from app.state import complete_assignment
 from app.state import complete_daily_quest
+from app.state import create_challenge
+from app.state import create_group
 from app.state import create_personal_plan
 from app.state import ensure_rpg_state
 from app.state import avatar_profile_for_member
 from app.state import food_items
+from app.state import group_name
+from app.state import groups
+from app.state import groups_for_member
+from app.state import join_group
 from app.state import latest_weight_for_member
 from app.state import leaderboard
 from app.state import level_for_xp
@@ -91,6 +97,7 @@ NAV_ITEMS = (
     ("/abenteuer", "Abenteuer"),
     ("/avatar", "Avatar"),
     ("/fortschritt", "Fortschritt"),
+    ("/gruppen", "Gruppen"),
     ("/fragebogen", "Fragebogen"),
     ("/freunde", "Freunde"),
     ("/challenges", "Challenges"),
@@ -157,11 +164,35 @@ def render_member_options(state: dict, selected: str = "") -> str:
     )
 
 
+def render_member_options_for_ids(state: dict, member_ids: list[str], selected: str = "") -> str:
+    allowed = set(member_ids)
+    options = [
+        member
+        for member in state["members"]
+        if not allowed or member["id"] in allowed
+    ]
+    if not options:
+        options = state["members"]
+    return "\n".join(
+        f'<option value="{h(member["id"])}" {"selected" if member["id"] == selected else ""}>{h(member["name"])}</option>'
+        for member in options
+    )
+
+
 def render_category_options(selected: str = "strength") -> str:
     return "\n".join(
         f'<option value="{h(area)}" {"selected" if area == selected else ""}>{h(AREA_LABELS[area])}</option>'
         for area in ("strength", "endurance", "nutrition")
     )
+
+
+def render_group_options(state: dict, selected: str = "", include_all: bool = True) -> str:
+    options = ['<option value="">Alle Mitglieder</option>'] if include_all else []
+    options.extend(
+        f'<option value="{h(group["id"])}" {"selected" if group["id"] == selected else ""}>{h(group["name"])}</option>'
+        for group in groups(state)
+    )
+    return "\n".join(options)
 
 
 def render_options(options: dict[str, str], selected: str = "") -> str:
@@ -1495,9 +1526,45 @@ def render_leaderboard(state: dict, limit: int | None = None) -> str:
     return "".join(rows)
 
 
+def render_group_card(state: dict, group: dict) -> str:
+    member_ids = group.setdefault("members", [])
+    member_tags = "".join(
+        f'<span class="tag area-team">{h(member_name(state, member_id))}</span>'
+        for member_id in member_ids
+    )
+    challenge_count = sum(1 for challenge in state.setdefault("challenges", []) if challenge.get("group_id") == group["id"])
+    return f"""
+      <article class="card area-team">
+        <div class="row">
+          <div>
+            <h3>{h(group["name"])}</h3>
+            <p class="subtle">{h(group.get("description", ""))}</p>
+          </div>
+          <span class="tag area-team">{h(group.get("focus", "Team"))}</span>
+        </div>
+        <div class="avatar-meta" style="margin-top: 0.75rem;">
+          {member_tags or '<span class="meta">Noch keine Mitglieder</span>'}
+        </div>
+        <p class="subtle" style="margin-top: 0.75rem;">{h(len(member_ids))} Mitglieder - {h(challenge_count)} Challenges</p>
+        <form class="form-grid" data-api-form data-endpoint="/api/groups/join" style="margin-top: 0.85rem;">
+          <input type="hidden" name="group_id" value="{h(group["id"])}">
+          <label>
+            Mitglied
+            <select name="member_id">{render_member_options(state, "bea")}</select>
+          </label>
+          <button class="button blue" type="submit">Gruppe beitreten</button>
+        </form>
+      </article>
+    """
+
+
 def render_challenge_card(state: dict, challenge: dict, with_form: bool = False) -> str:
     total_progress = sum(int(value) for value in challenge.get("participants", {}).values())
     progress = int((total_progress / max(1, int(challenge["goal"]))) * 100)
+    group_id = str(challenge.get("group_id") or "")
+    challenge_group = next((group for group in groups(state) if group.get("id") == group_id), None)
+    group_members = challenge_group.get("members", []) if challenge_group else []
+    group_label = group_name(state, group_id)
     participants = []
     for member_id, value in challenge.get("participants", {}).items():
         participants.append(
@@ -1511,7 +1578,7 @@ def render_challenge_card(state: dict, challenge: dict, with_form: bool = False)
             <input type="hidden" name="challenge_id" value="{h(challenge["id"])}">
             <label>
               Mitglied
-              <select name="member_id">{render_member_options(state)}</select>
+              <select name="member_id">{render_member_options_for_ids(state, group_members, "bea")}</select>
             </label>
             <label>
               Fortschritt
@@ -1526,7 +1593,8 @@ def render_challenge_card(state: dict, challenge: dict, with_form: bool = False)
         <div class="row">
           <div>
             <h3>{h(challenge["title"])}</h3>
-            <p class="subtle">{h(AREA_LABELS[challenge["category"]])} · Bonus {h(challenge["xp"])} XP</p>
+            <p class="subtle">{h(AREA_LABELS[challenge["category"]])} - Gruppe: {h(group_label)} - Bonus {h(challenge["xp"])} XP</p>
+            <p class="subtle">{h(challenge.get("description", ""))}</p>
           </div>
           <span class="tag {area_class(challenge["category"])}">{h(total_progress)} / {h(challenge["goal"])} {h(challenge["unit"])}</span>
         </div>
@@ -2104,6 +2172,7 @@ def dashboard() -> str:
           <a class="quick-link gold" href="/abenteuer">Abenteuer</a>
           <a class="quick-link red" href="/avatar">Avatar bauen</a>
           <a class="quick-link blue" href="/fortschritt">Fortschritt</a>
+          <a class="quick-link green" href="/gruppen">Gruppen</a>
           <a class="quick-link blue" href="/sport">Sport erfassen</a>
           <a class="quick-link green" href="/nahrung">Mahlzeit tracken</a>
           <a class="quick-link gold" href="/challenges">Challenge ansehen</a>
@@ -2632,6 +2701,79 @@ def friends_page() -> str:
     return render_layout("/freunde", "Freunde", body)
 
 
+@app.get("/gruppen", response_class=HTMLResponse)
+def groups_page() -> str:
+    state = load_state()
+    group_cards = "".join(render_group_card(state, group) for group in groups(state))
+    membership_rows = []
+    for member in state["members"]:
+        joined = groups_for_member(state, member["id"])
+        membership_rows.append(
+            f"""
+            <tr>
+              <td>{h(member["name"])}</td>
+              <td>{h(len(joined))}</td>
+              <td>{h(", ".join(group["name"] for group in joined) if joined else "Noch keine Gruppe")}</td>
+            </tr>
+            """
+        )
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Gruppen</p>
+          <h1>Squads finden</h1>
+        </div>
+        <p class="subtle">Tritt passenden Gruppen bei und startet eigene Challenges fuer genau diese Crew.</p>
+      </section>
+
+      <section class="grid two">
+        <div class="panel">
+          <h2>Gruppe erstellen</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/groups/create">
+            <label>
+              Erstellt von
+              <select name="created_by">{render_member_options(state, "bea")}</select>
+            </label>
+            <label>
+              Fokus
+              <input name="focus" placeholder="z.B. Laufen, Kraft, Meal Prep">
+            </label>
+            <label class="full">
+              Gruppenname
+              <input name="name" placeholder="Afterwork Athletes">
+            </label>
+            <label class="full">
+              Beschreibung
+              <textarea name="description" placeholder="Worum geht es in dieser Gruppe?"></textarea>
+            </label>
+            <button class="button blue full" type="submit">Gruppe erstellen</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Mitgliedschaften</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Mitglied</th>
+                <th>Gruppen</th>
+                <th>Beigetreten</th>
+              </tr>
+            </thead>
+            <tbody>{"".join(membership_rows)}</tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Verfuegbare Gruppen</h2>
+        <div class="grid three">{group_cards}</div>
+      </section>
+    """
+    return render_layout("/gruppen", "Gruppen", body)
+
+
 @app.get("/challenges", response_class=HTMLResponse)
 def challenges_page() -> str:
     state = load_state()
@@ -2642,7 +2784,48 @@ def challenges_page() -> str:
           <p class="eyebrow">Challenges</p>
           <h1>Gemeinsam ziehen</h1>
         </div>
+        <a class="button blue" href="/gruppen">Gruppen verwalten</a>
       </section>
+
+      <section class="panel" style="margin-bottom: 1rem;">
+        <h2>Challenge erstellen</h2>
+        <form class="form-grid" data-api-form data-endpoint="/api/challenges/create">
+          <label>
+            Erstellt von
+            <select name="created_by">{render_member_options(state, "bea")}</select>
+          </label>
+          <label>
+            Gruppe
+            <select name="group_id">{render_group_options(state, "", True)}</select>
+          </label>
+          <label>
+            Bereich
+            <select name="category">{render_options(AREA_LABELS, "team")}</select>
+          </label>
+          <label>
+            Zielwert
+            <input name="goal" type="number" min="1" value="10">
+          </label>
+          <label>
+            Einheit
+            <input name="unit" placeholder="Minuten, Tage, Einheiten" value="Punkte">
+          </label>
+          <label>
+            Bonus XP
+            <input name="xp" type="number" min="10" max="1000" value="100">
+          </label>
+          <label class="full">
+            Titel
+            <input name="title" placeholder="7 Tage Protein treffen">
+          </label>
+          <label class="full">
+            Beschreibung
+            <textarea name="description" placeholder="Was zaehlt und wie sammelt die Gruppe Fortschritt?"></textarea>
+          </label>
+          <button class="button blue full" type="submit">Challenge erstellen</button>
+        </form>
+      </section>
+
       <section class="grid two">
         {challenge_cards}
       </section>
@@ -3614,6 +3797,40 @@ async def api_complete_assignment(request: Request) -> dict[str, str]:
 @app.post("/api/motivations")
 async def api_add_motivation(request: Request) -> dict[str, str]:
     return save_action(add_motivation, await read_json_payload(request), "Motivation gesendet.")
+
+
+@app.post("/api/groups/create")
+async def api_create_group(request: Request) -> dict[str, str]:
+    state = load_state()
+    try:
+        group = create_group(state, await read_json_payload(request))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    return {"message": f"Gruppe {group['name']} erstellt."}
+
+
+@app.post("/api/groups/join")
+async def api_join_group(request: Request) -> dict[str, str]:
+    state = load_state()
+    payload = await read_json_payload(request)
+    try:
+        group = join_group(state, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    return {"message": f"{member_name(state, payload.get('member_id', ''))} ist jetzt in {group['name']}."}
+
+
+@app.post("/api/challenges/create")
+async def api_create_challenge(request: Request) -> dict[str, str]:
+    state = load_state()
+    try:
+        challenge = create_challenge(state, await read_json_payload(request))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    return {"message": f"Challenge {challenge['title']} erstellt."}
 
 
 @app.post("/api/challenges/progress")
