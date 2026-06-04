@@ -123,6 +123,38 @@ MOTIVATION_STYLE_LABELS = {
     "calm": "ruhige Routinen",
 }
 
+TRAINING_FOCUS_LABELS = {
+    "balanced": "Ausgewogen staerker werden",
+    "muscle": "Muskelaufbau",
+    "strength": "Kraftwerte steigern",
+    "endurance": "Ausdauer verbessern",
+    "fat_loss": "Fett reduzieren",
+    "posture": "Haltung & Ruecken",
+    "mobility": "Beweglichkeit & Kontrolle",
+}
+
+BODY_FOCUS_LABELS = {
+    "full_body": "Ganzkoerper",
+    "legs_glutes": "Beine & Gesaess",
+    "core": "Rumpf",
+    "back_posture": "Ruecken & Haltung",
+    "upper_body": "Oberkoerper",
+    "shoulders_arms": "Schultern & Arme",
+    "mobility": "Beweglichkeit",
+    "endurance_base": "Ausdauerbasis",
+}
+
+INJURY_AREA_LABELS = {
+    "none": "keine bekannten Einschraenkungen",
+    "shoulder": "Schulter",
+    "back": "Ruecken",
+    "knee": "Knie",
+    "hip": "Huefte",
+    "ankle": "Sprunggelenk / Fuss",
+    "wrist": "Handgelenk",
+    "other": "Sonstiges",
+}
+
 MEAL_LABELS = {
     "breakfast": "Fruehstueck",
     "lunch": "Mittagessen",
@@ -539,6 +571,27 @@ def as_optional_date(payload: dict, key: str) -> str:
     return parsed.isoformat()
 
 
+def as_choice_list(payload: dict, key: str, allowed: dict[str, str], default: list[str] | None = None) -> list[str]:
+    raw_value = payload.get(key, default or [])
+    if raw_value is None:
+        raw_values = []
+    elif isinstance(raw_value, list):
+        raw_values = raw_value
+    else:
+        raw_values = str(raw_value).split(",")
+
+    values = []
+    for raw_item in raw_values:
+        item = str(raw_item).strip()
+        if not item:
+            continue
+        if item not in allowed:
+            raise ValueError(f"{key} enthaelt einen unbekannten Wert.")
+        if item not in values:
+            values.append(item)
+    return values
+
+
 def clamp(value: int, minimum: int, maximum: int) -> int:
     return min(maximum, max(minimum, value))
 
@@ -565,6 +618,258 @@ def calculate_macros(profile: dict, calories: int) -> dict[str, int]:
     fat = max(45, round(weight * 0.8))
     carbs = max(80, round((calories - protein * 4 - fat * 9) / 4))
     return {"protein_g": protein, "fat_g": fat, "carbs_g": carbs}
+
+
+def suggested_focus_areas(goal: str, training_focus: str) -> list[str]:
+    suggestions = {
+        "lose": ["full_body", "endurance_base", "core"],
+        "maintain": ["full_body", "back_posture", "mobility"],
+        "gain": ["legs_glutes", "upper_body", "core"],
+        "performance": ["legs_glutes", "core", "endurance_base"],
+    }.get(goal, ["full_body", "core"])
+    focus_boosts = {
+        "muscle": ["legs_glutes", "upper_body"],
+        "strength": ["legs_glutes", "back_posture"],
+        "endurance": ["endurance_base", "core"],
+        "fat_loss": ["full_body", "endurance_base"],
+        "posture": ["back_posture", "core", "mobility"],
+        "mobility": ["mobility", "core"],
+        "balanced": ["full_body"],
+    }.get(training_focus, ["full_body"])
+    ordered = []
+    for item in suggestions + focus_boosts:
+        if item not in ordered:
+            ordered.append(item)
+    return ordered[:4]
+
+
+def active_injury_areas(profile: dict) -> list[str]:
+    return [area for area in profile.get("injury_areas", []) if area != "none"]
+
+
+def injury_considerations(profile: dict) -> list[dict]:
+    injuries = active_injury_areas(profile)
+    if not injuries and not profile.get("injury_notes"):
+        return [
+            {
+                "title": "Keine Verletzungshistorie angegeben",
+                "details": "Trotzdem gilt: Schmerz ist ein Stoppsignal, Technik geht vor Gewicht, Steigerungen bleiben klein.",
+            }
+        ]
+
+    templates = {
+        "shoulder": "Keine Uebung in stechenden Schulterwinkel erzwingen. Druecken neutral greifen, Ellenbogen etwa 30-45 Grad vom Koerper fuehren, Ueberkopf-Last nur schmerzfrei.",
+        "back": "Ruecken neutral halten, Rumpf vor jeder Wiederholung anspannen, schwere Hinge- oder Hebevarianten erst nach sauberer Technik steigern.",
+        "knee": "Knie folgen den Zehen, Spruenge und tiefe Kniebeugen nur schmerzfrei. Starte mit Box Squat, Step-up niedrig oder Beinpresse kontrolliert.",
+        "hip": "Huefte nicht in Schmerzbereiche pressen. Schrittlaenge verkleinern, Tempo reduzieren und Gesaessaktivierung vor Beintraining nutzen.",
+        "ankle": "Bei Lauf- oder Sprungbelastung vorsichtig dosieren. Rad, Ergometer, Walking oder Laufband mit geringer Steigung sind die erste Wahl.",
+        "wrist": "Handgelenke neutral halten. Fuer Liegestuetze Griffe nutzen, Kurzhanteln neutral greifen und starke Beugung vermeiden.",
+        "other": "Unklare Beschwerden konservativ behandeln: Last reduzieren, Bewegungsausmass begrenzen und bei Unsicherheit medizinisch abklaeren.",
+    }
+    notes = [
+        {"title": INJURY_AREA_LABELS.get(area, "Einschraenkung"), "details": templates.get(area, templates["other"])}
+        for area in injuries
+    ]
+    if profile.get("injury_notes"):
+        notes.append({"title": "Deine Notiz", "details": profile["injury_notes"]})
+    return notes
+
+
+def exercise_item(
+    name: str,
+    sets: str,
+    reps: str,
+    explanation: str,
+    cues: list[str],
+    avoid: str,
+    alternative: str,
+    rest: str = "60-90 s",
+) -> dict:
+    return {
+        "name": name,
+        "sets": sets,
+        "reps": reps,
+        "rest": rest,
+        "explanation": explanation,
+        "cues": cues,
+        "avoid": avoid,
+        "alternative": alternative,
+    }
+
+
+def strength_exercises(profile: dict, session_index: int, equipment: str) -> list[dict]:
+    injuries = set(active_injury_areas(profile))
+    focus = set(profile.get("focus_areas", []))
+    experience = profile.get("experience", "beginner")
+    sets = "2-3" if experience == "beginner" else "3-4" if experience == "intermediate" else "4"
+    reps = "8-10" if profile.get("goal") in ("gain", "strength") else "8-12"
+
+    if profile["training_location"] == "gym":
+        squat_name = "Beinpresse kontrolliert" if "knee" in injuries else "Goblet Squat oder Beinpresse"
+        row_name = "Brustgestuetztes Rudern" if "back" in injuries else "Kabelrudern"
+        push_name = "Brustpresse neutral" if "shoulder" in injuries or "wrist" in injuries else "Kurzhantel-Bankdruecken"
+        hinge_name = "Hip Thrust Maschine" if "back" in injuries else "Rumaenisches Kreuzheben leicht"
+    elif profile["training_location"] == "home":
+        squat_name = "Box Squat zum Stuhl" if "knee" in injuries else "Goblet Squat mit Rucksack"
+        row_name = "Einarmiges Rudern abgestuetzt"
+        push_name = "Erhoehte Liegestuetze mit Griffen" if "wrist" in injuries or "shoulder" in injuries else "Erhoehte Liegestuetze"
+        hinge_name = "Hip Hinge mit Rucksack" if "back" not in injuries else "Glute Bridge"
+    else:
+        squat_name = "Goblet Squat oder Beinpresse" if "knee" not in injuries else "Box Squat oder Beinpresse kurz"
+        row_name = "Rudern abgestuetzt oder Kabelrudern"
+        push_name = "Brustpresse neutral oder erhoehte Liegestuetze" if "shoulder" in injuries else "Kurzhantel-Druecken oder Liegestuetze"
+        hinge_name = "Hip Thrust oder Rumaenisches Kreuzheben leicht" if "back" not in injuries else "Hip Thrust"
+
+    base = [
+        exercise_item(
+            squat_name,
+            sets,
+            reps,
+            "Trainiert Beine, Gesaess und Rumpf als Hauptbewegung.",
+            ["Fuesse fest, Gewicht ueber Mittelfuss", "Knie folgen den Zehen", "Brustkorb ruhig, Bauch fest"],
+            "Nicht in den unteren Ruecken fallen und keine schmerzhaften Kniepositionen erzwingen.",
+            "Bei Beschwerden: kleineres Bewegungsausmass oder nur Sitz-zu-Stand.",
+        ),
+        exercise_item(
+            row_name,
+            sets,
+            "10-12",
+            "Staerkt oberen Ruecken und Haltung, wichtig als Ausgleich zu Drueckuebungen.",
+            ["Schulterblaetter nach hinten unten ziehen", "Nacken lang lassen", "Zug aus dem Ellenbogen fuehren"],
+            "Nicht mit Schwung reissen und nicht ins Hohlkreuz ausweichen.",
+            "Bei Rueckenstress: Brust abstuetzen oder Band-Rudern im Sitzen.",
+        ),
+        exercise_item(
+            push_name,
+            sets,
+            "8-12",
+            "Trainiert Brust, Schultern und Arme mit kontrollierter Druckbewegung.",
+            ["Handgelenke neutral", "Ellenbogen leicht schraeg am Koerper", "Langsam ablassen, kraftvoll hochdruecken"],
+            "Keine stechenden Schulterwinkel, kein Durchhaengen im unteren Ruecken.",
+            "Bei Schulterthema: Bewegungsradius kleiner und neutraler Griff.",
+        ),
+        exercise_item(
+            hinge_name,
+            sets,
+            "8-10",
+            "Staerkt Gesaess, Beinrueckseite und Hueftstreckung.",
+            ["Huefte nach hinten schieben", "Ruecken neutral", "Gewicht nah am Koerper halten"],
+            "Nicht aus dem Ruecken heben und nicht in Schmerz hineinziehen.",
+            "Bei Rueckenhistorie: Glute Bridge oder Hip Thrust statt freiem Heben.",
+        ),
+        exercise_item(
+            "Dead Bug" if "core" in focus or session_index % 2 == 0 else "Pallof Press",
+            "2-3",
+            "8-12 je Seite",
+            "Schult Rumpfspannung, damit Kraftuebungen stabiler und sicherer werden.",
+            ["Rippen unten halten", "Langsam ausatmen", "Becken ruhig halten"],
+            "Nicht ins Hohlkreuz kippen und nicht hektisch arbeiten.",
+            "Bei Nackenstress: Kopf ablegen und Bewegung kleiner machen.",
+            "45-60 s",
+        ),
+    ]
+
+    if "back_posture" in focus:
+        base.append(
+            exercise_item(
+                "Face Pull oder Band Pull-Apart",
+                "2-3",
+                "12-15",
+                "Extra-Fokus fuer Haltung, Schulterblattkontrolle und oberen Ruecken.",
+                ["Daumen Richtung Ohren", "Schultern tief", "Langsam zurueckfuehren"],
+                "Nicht ins Hohlkreuz ziehen und nicht mit dem Nacken arbeiten.",
+                "Bei Schulterreiz: Band leichter waehlen oder Bewegung kleiner.",
+                "45-60 s",
+            )
+        )
+    if "legs_glutes" in focus and "hip" not in injuries:
+        base.append(
+            exercise_item(
+                "Glute Bridge Pause Reps",
+                "2-3",
+                "10-14",
+                "Zusaetzlicher Gesaessfokus ohne hohe Gelenkbelastung.",
+                ["Oben 1 Sekunde halten", "Rippen unten", "Druck ueber Fersen"],
+                "Nicht aus dem unteren Ruecken ueberstrecken.",
+                "Bei Hueftreiz: Bewegungsradius verkleinern.",
+                "45-60 s",
+            )
+        )
+
+    return base[:6]
+
+
+def endurance_blocks(profile: dict, session_index: int, endurance_place: str) -> list[dict]:
+    injuries = set(active_injury_areas(profile))
+    low_impact = bool(injuries.intersection({"knee", "ankle", "hip", "back"}))
+    if low_impact:
+        mode = "Rad, Ergometer, Crosstrainer oder Walking"
+    elif profile["endurance_preference"] == "indoor":
+        mode = "Laufband, Ruderergometer oder Bike"
+    elif profile["endurance_preference"] == "outdoor":
+        mode = "Laufen, Radfahren oder Wandern draussen"
+    else:
+        mode = f"Laufen, Radfahren, Wandern oder Studiooption {endurance_place}"
+
+    if profile["goal"] == "performance" and session_index % 2 == 1 and not low_impact:
+        main = "6 x 1 min zuegig, dazwischen 2 min locker. Nur ausfuehren, wenn Schlaf und Gelenke gut sind."
+    else:
+        main = "25-40 min Zone 2: du kannst noch kurze Saetze sprechen und atmest kontrolliert."
+
+    return [
+        exercise_item(
+            "Warm-up",
+            "1",
+            "6-8 min",
+            f"Locker starten mit {mode}, Puls und Gelenke vorbereiten.",
+            ["Tempo langsam steigern", "Schultern locker", "Schmerzfrei bleiben"],
+            "Nicht kalt in Intervalle oder Steigungen starten.",
+            "Bei Beschwerden: 5 min gehen und Belastung abbrechen.",
+            "ohne Pause",
+        ),
+        exercise_item(
+            "Hauptteil",
+            "1",
+            main,
+            "Der Hauptreiz fuer Herz-Kreislauf, Fettstoffwechsel oder Leistungsaufbau.",
+            ["Atmung kontrollieren", "Schritte oder Trittfrequenz gleichmaessig", "Intensitaet nicht durch Ego treiben lassen"],
+            "Kein Sprinten bei Knie-, Hueft- oder Sprunggelenkschmerz.",
+            "Bei Belastungsproblemen: Bike oder Crosstrainer statt Laufbelastung.",
+            "nach Bedarf",
+        ),
+        exercise_item(
+            "Cooldown",
+            "1",
+            "5-8 min",
+            "Puls langsam senken und Regeneration einleiten.",
+            ["Tempo schrittweise senken", "Locker ausschwingen", "Danach Wasser und kurzer Energie-Check"],
+            "Nicht abrupt nach hoher Intensitaet stoppen.",
+            "Bei Schwindel: hinsetzen, trinken, Training dokumentieren.",
+            "ohne Pause",
+        ),
+    ]
+
+
+def focus_recommendations(profile: dict) -> list[dict]:
+    selected = [BODY_FOCUS_LABELS[item] for item in profile.get("focus_areas", []) if item in BODY_FOCUS_LABELS]
+    suggested = [BODY_FOCUS_LABELS[item] for item in suggested_focus_areas(profile["goal"], profile["training_focus"])]
+    goal_label = GOAL_LABELS.get(profile["goal"], "Fitnessziel")
+    focus_label = TRAINING_FOCUS_LABELS.get(profile["training_focus"], "Ausgewogen staerker werden")
+    recommendations = [
+        {
+            "title": "Dein Fokus",
+            "details": ", ".join(selected) if selected else "Keine Auswahl: Bea nutzt den Zielvorschlag.",
+        },
+        {
+            "title": "Bea Vorschlag",
+            "details": f"Fuer {goal_label} mit Fokus {focus_label}: {', '.join(suggested)}.",
+        },
+        {
+            "title": "Progression",
+            "details": "Steigere zuerst Technik und Wiederholungen, dann Gewicht. Wenn Schmerz oder Schlafproblem auftaucht, bleibt die Last stabil.",
+        },
+    ]
+    return recommendations
 
 
 def training_sessions(profile: dict) -> list[dict]:
@@ -611,13 +916,18 @@ def training_sessions(profile: dict) -> list[dict]:
         intensity = f"{intensity}, mit messbarer Progression"
 
     sessions = []
+    safety_notes = injury_considerations(profile)
+    focus_label = TRAINING_FOCUS_LABELS.get(profile.get("training_focus", "balanced"), "Ausgewogen staerker werden")
     for index in range(strength_count):
         sessions.append(
             {
                 "type": "Kraft",
                 "title": f"Kraft Einheit {index + 1}",
                 "duration": "45-60 min",
-                "details": f"Ganzkoerper mit {equipment}: Kniebeuge/Beinpresse, Zug, Druck, Rumpf. Intensitaet: {intensity}.",
+                "focus": focus_label,
+                "details": f"Ganzkoerper mit {equipment}: Unterkoerper, Zug, Druck, Huefte und Rumpf. Intensitaet: {intensity}.",
+                "exercises": strength_exercises(profile, index, equipment),
+                "safety_notes": safety_notes,
             }
         )
 
@@ -633,7 +943,10 @@ def training_sessions(profile: dict) -> list[dict]:
                 "type": "Ausdauer",
                 "title": f"Ausdauer Einheit {index + 1}",
                 "duration": "30-50 min",
+                "focus": "Ausdauerbasis und Belastungssteuerung",
                 "details": f"{detail} Ort: {endurance_place}.",
+                "exercises": endurance_blocks(profile, index, endurance_place),
+                "safety_notes": safety_notes,
             }
         )
 
@@ -791,6 +1104,10 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
     sleep_hours = as_optional_float(payload, "sleep_hours")
     recovery_days = as_optional_int(payload, "recovery_days_per_week")
     mobility_minutes = as_optional_int(payload, "mobility_minutes")
+    focus_areas = as_choice_list(payload, "focus_areas", BODY_FOCUS_LABELS)
+    injury_areas = as_choice_list(payload, "injury_areas", INJURY_AREA_LABELS, ["none"])
+    if len(injury_areas) > 1 and "none" in injury_areas:
+        injury_areas = [area for area in injury_areas if area != "none"]
 
     profile = {
         "member_id": member_id,
@@ -822,6 +1139,10 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
         "recovery_days_per_week": clamp(recovery_days if recovery_days is not None else 2, 1, 4),
         "mobility_minutes": clamp(mobility_minutes if mobility_minutes is not None else 12, 0, 60),
         "recovery_style": str(payload.get("recovery_style") or "balanced"),
+        "training_focus": str(payload.get("training_focus") or "balanced"),
+        "focus_areas": focus_areas,
+        "injury_areas": injury_areas or ["none"],
+        "injury_notes": str(payload.get("injury_notes") or "").strip(),
         "character_name": str(payload.get("character_name") or "").strip(),
         "character_origin": str(payload.get("character_origin") or "").strip(),
         "adventure_role": str(payload.get("adventure_role") or "guardian"),
@@ -865,10 +1186,14 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
         raise ValueError("Stresslevel wurde nicht gefunden.")
     if profile["recovery_style"] not in RECOVERY_LABELS:
         raise ValueError("Regenerationsstil wurde nicht gefunden.")
+    if profile["training_focus"] not in TRAINING_FOCUS_LABELS:
+        raise ValueError("Trainingsfokus wurde nicht gefunden.")
     if profile["adventure_role"] not in ADVENTURE_ROLE_LABELS:
         raise ValueError("Abenteuerrolle wurde nicht gefunden.")
     if profile["motivation_style"] not in MOTIVATION_STYLE_LABELS:
         raise ValueError("Motivationsart wurde nicht gefunden.")
+    if not profile["focus_areas"]:
+        profile["focus_areas"] = suggested_focus_areas(profile["goal"], profile["training_focus"])
 
     bmr = calculate_bmr(profile)
     maintenance = round(bmr * ACTIVITY_FACTORS[profile["activity"]])
@@ -891,6 +1216,12 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
         "training": training,
         "regeneration": regeneration,
         "nutrition": meal_templates(profile, target_calories, macros),
+        "training_focus": {
+            "label": TRAINING_FOCUS_LABELS[profile["training_focus"]],
+            "areas": [BODY_FOCUS_LABELS[area] for area in profile["focus_areas"]],
+            "recommendations": focus_recommendations(profile),
+            "injury_considerations": injury_considerations(profile),
+        },
         "goal_tracking": goal_tracking_plan(profile, calories, training + regeneration),
         "adventure": adventure_profile(profile),
         "lifestyle": {
@@ -907,6 +1238,8 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
     }
     if profile["restrictions"]:
         plan["notes"].append(f"Ruecksicht auf: {profile['restrictions']}.")
+    if active_injury_areas(profile) or profile["injury_notes"]:
+        plan["notes"].append("Verletzungshistorie wurde beruecksichtigt. Bei akuten Schmerzen, Taubheit oder Unsicherheit bitte medizinisch abklaeren.")
 
     state.setdefault("profiles", {})[member_id] = profile
     state.setdefault("generated_plans", {})[member_id] = plan

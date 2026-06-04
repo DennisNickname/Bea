@@ -39,17 +39,20 @@ from app.state import ADVENTURE_ROLE_LABELS
 from app.state import add_weight_entry
 from app.state import AREA_LABELS
 from app.state import AREAS
+from app.state import BODY_FOCUS_LABELS
 from app.state import DIET_LABELS
 from app.state import ENDURANCE_LABELS
 from app.state import FOOD_CATEGORIES
 from app.state import GOAL_METRIC_LABELS
 from app.state import GOAL_LABELS
+from app.state import INJURY_AREA_LABELS
 from app.state import MEAL_LABELS
 from app.state import MOTIVATION_STYLE_LABELS
 from app.state import RECOVERY_LABELS
 from app.state import SLEEP_QUALITY_LABELS
 from app.state import STRESS_LABELS
 from app.state import TRACKING_FREQUENCY_LABELS
+from app.state import TRAINING_FOCUS_LABELS
 from app.state import TRAINING_LABELS
 from app.state import WORK_STYLE_LABELS
 from app.state import add_external_sport_entry
@@ -214,6 +217,19 @@ def render_group_options(state: dict, selected: str = "", include_all: bool = Tr
 def render_options(options: dict[str, str], selected: str = "") -> str:
     return "\n".join(
         f'<option value="{h(value)}" {"selected" if value == selected else ""}>{h(label)}</option>'
+        for value, label in options.items()
+    )
+
+
+def render_checkbox_options(options: dict[str, str], name: str, selected: tuple[str, ...] = ()) -> str:
+    selected_values = set(selected)
+    return "\n".join(
+        f"""
+        <label class="choice-option">
+          <input type="checkbox" name="{h(name)}" value="{h(value)}" {"checked" if value in selected_values else ""}>
+          <span>{h(label)}</span>
+        </label>
+        """
         for value, label in options.items()
     )
 
@@ -1003,6 +1019,30 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             margin-bottom: 0.25rem;
           }}
 
+          .choice-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.55rem;
+          }}
+
+          .choice-option {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-height: 2.65rem;
+            border: 1px solid var(--line);
+            border-radius: 0.5rem;
+            padding: 0.55rem 0.65rem;
+            background: rgb(255 255 255 / 72%);
+            color: var(--ink);
+            font-size: 0.86rem;
+          }}
+
+          .choice-option input {{
+            width: auto;
+            accent-color: var(--blue);
+          }}
+
           label {{
             display: grid;
             gap: 0.35rem;
@@ -1033,6 +1073,33 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           textarea {{
             min-height: 5.5rem;
             resize: vertical;
+          }}
+
+          .exercise-list {{
+            display: grid;
+            gap: 0.7rem;
+            margin-top: 0.85rem;
+          }}
+
+          .exercise-item {{
+            border-top: 1px solid var(--line);
+            padding-top: 0.7rem;
+          }}
+
+          .exercise-item:first-child {{
+            border-top: 0;
+            padding-top: 0;
+          }}
+
+          .exercise-item .meta {{
+            display: block;
+            margin-bottom: 0.35rem;
+          }}
+
+          .cue-list {{
+            margin: 0.45rem 0 0;
+            padding-left: 1.1rem;
+            color: var(--muted);
           }}
 
           table {{
@@ -1195,6 +1262,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             .grid.three,
             .grid.four,
             .form-grid,
+            .choice-grid,
             .photo-grid,
             .compare-board {{
               grid-template-columns: 1fr;
@@ -1253,6 +1321,22 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             return data;
           }}
 
+          function payloadFromForm(form) {{
+            const payload = {{}};
+            new FormData(form).forEach((value, key) => {{
+              if (Object.prototype.hasOwnProperty.call(payload, key)) {{
+                if (Array.isArray(payload[key])) {{
+                  payload[key].push(value);
+                }} else {{
+                  payload[key] = [payload[key], value];
+                }}
+              }} else {{
+                payload[key] = value;
+              }}
+            }});
+            return payload;
+          }}
+
           document.querySelectorAll("[data-api-form]").forEach((form) => {{
             form.addEventListener("submit", async (event) => {{
               event.preventDefault();
@@ -1261,7 +1345,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
                 button.disabled = true;
               }}
               try {{
-                const payload = Object.fromEntries(new FormData(form).entries());
+                const payload = payloadFromForm(form);
                 const data = await postJson(form.dataset.endpoint, payload);
                 showStatus(data.message || "Gespeichert.");
                 window.setTimeout(() => window.location.reload(), 650);
@@ -2130,6 +2214,44 @@ def render_battle_log(state: dict, rpg: dict) -> str:
     return "".join(rows)
 
 
+def render_exercise_list(exercises: list[dict]) -> str:
+    if not exercises:
+        return ""
+    items = []
+    for exercise in exercises:
+        cues = "".join(f"<li>{h(cue)}</li>" for cue in exercise.get("cues", []))
+        items.append(
+            f"""
+            <div class="exercise-item">
+              <div class="row">
+                <h3>{h(exercise.get("name", "Uebung"))}</h3>
+                <span class="tag area-team">{h(exercise.get("sets", "-"))} x {h(exercise.get("reps", "-"))}</span>
+              </div>
+              <span class="meta">Pause: {h(exercise.get("rest", "60-90 s"))}</span>
+              <p class="subtle">{h(exercise.get("explanation", ""))}</p>
+              <ul class="cue-list">{cues}</ul>
+              <p class="subtle" style="margin-top: 0.45rem;"><strong>Vermeiden:</strong> {h(exercise.get("avoid", ""))}</p>
+              <p class="subtle" style="margin-top: 0.35rem;"><strong>Alternative:</strong> {h(exercise.get("alternative", ""))}</p>
+            </div>
+            """
+        )
+    return f'<div class="exercise-list">{"".join(items)}</div>'
+
+
+def render_plan_info_cards(items: list[dict], empty_text: str) -> str:
+    if not items:
+        return f'<article class="card"><p class="subtle">{h(empty_text)}</p></article>'
+    return "".join(
+        f"""
+        <article class="card">
+          <h3>{h(item.get("title", "Hinweis"))}</h3>
+          <p class="subtle">{h(item.get("details", ""))}</p>
+        </article>
+        """
+        for item in items
+    )
+
+
 def render_generated_plan(state: dict, plan: dict) -> str:
     calories = plan["calories"]
     macros = plan["macros"]
@@ -2141,7 +2263,9 @@ def render_generated_plan(state: dict, plan: dict) -> str:
             <span class="meta">{h(item["duration"])}</span>
           </div>
           <h3>{h(item["title"])}</h3>
+          <p class="subtle"><strong>Fokus:</strong> {h(item.get("focus", "Allgemeine Fitness"))}</p>
           <p class="subtle">{h(item["details"])}</p>
+          {render_exercise_list(item.get("exercises", []))}
         </article>
         """
         for item in plan.get("training", [])
@@ -2177,6 +2301,19 @@ def render_generated_plan(state: dict, plan: dict) -> str:
     calorie_delta_label = f"{calorie_delta:+}"
     adventure = plan.get("adventure", {})
     lifestyle = plan.get("lifestyle", {})
+    training_focus = plan.get("training_focus", {})
+    focus_area_tags = "".join(
+        f'<span class="tag area-strength">{h(area)}</span>'
+        for area in training_focus.get("areas", [])
+    )
+    focus_cards = render_plan_info_cards(
+        training_focus.get("recommendations", []),
+        "Nach dem naechsten Fragebogen entstehen Fokusvorschlaege.",
+    )
+    injury_cards = render_plan_info_cards(
+        training_focus.get("injury_considerations", []),
+        "Keine Verletzungshistorie angegeben. Technik bleibt trotzdem wichtiger als Gewicht.",
+    )
     regeneration = "".join(
         f"""
         <article class="card area-team">
@@ -2259,6 +2396,26 @@ def render_generated_plan(state: dict, plan: dict) -> str:
             <p class="subtle" style="margin-top: 0.45rem;">Alltag: {h(adventure.get("daily_life", lifestyle.get("work_style_label", "abwechslungsreich")))}</p>
             <p class="subtle" style="margin-top: 0.45rem;">Motivation: {h(adventure.get("motivation_label", "Story, Quests und Abenteuer"))}</p>
           </article>
+        </section>
+
+        <section class="grid two" style="margin-top: 1rem;">
+          <div>
+            <h2>Fokus & Vorschlaege</h2>
+            <article class="card area-strength">
+              <div class="row">
+                <div>
+                  <span class="tag area-strength">Trainingsfokus</span>
+                  <h3 style="margin-top: 0.65rem;">{h(training_focus.get("label", "Ausgewogen staerker werden"))}</h3>
+                </div>
+              </div>
+              <div class="row" style="justify-content: flex-start; margin-top: 0.75rem;">{focus_area_tags or '<span class="meta">Ganzkoerper</span>'}</div>
+            </article>
+            <div class="list" style="margin-top: 0.8rem;">{focus_cards}</div>
+          </div>
+          <div>
+            <h2>Verletzungen & Sicherheit</h2>
+            <div class="list">{injury_cards}</div>
+          </div>
         </section>
 
         <section class="grid two" style="margin-top: 1rem;">
@@ -2798,6 +2955,27 @@ def questionnaire_page() -> str:
               <select name="experience">{render_options(experience_options, "beginner")}</select>
             </label>
             <label>
+              Trainingsfokus
+              <select name="training_focus">{render_options(TRAINING_FOCUS_LABELS, "balanced")}</select>
+            </label>
+            <div class="full">
+              <label>Koerperbereiche, die du besonders trainieren moechtest</label>
+              <div class="choice-grid" style="margin-top: 0.45rem;">
+                {render_checkbox_options(BODY_FOCUS_LABELS, "focus_areas", ("full_body", "core"))}
+              </div>
+              <p class="subtle" style="margin-top: 0.45rem;">Wenn du nichts aenderst, nutzt Bea diese Auswahl plus Zielvorschlaege.</p>
+            </div>
+            <div class="full">
+              <label>Vergangene Verletzungen oder sensible Bereiche</label>
+              <div class="choice-grid" style="margin-top: 0.45rem;">
+                {render_checkbox_options(INJURY_AREA_LABELS, "injury_areas", ("none",))}
+              </div>
+            </div>
+            <label class="full">
+              Verletzungsnotizen
+              <textarea name="injury_notes" placeholder="z.B. rechtes Knie nach Laufbelastung, Schulter beim Ueberkopfdruecken, Bandscheibenvorfall 2021"></textarea>
+            </label>
+            <label>
               Regenerationsstil
               <select name="recovery_style">{render_options(RECOVERY_LABELS, "balanced")}</select>
             </label>
@@ -2872,7 +3050,15 @@ def questionnaire_page() -> str:
             </article>
             <article class="card">
               <span class="tag area-strength">Training</span>
-              <p class="subtle" style="margin-top: 0.65rem;">Kraft, Ausdauer und Regeneration passend zu Ziel, Schlaf, Stress und Alltag.</p>
+              <p class="subtle" style="margin-top: 0.65rem;">Konkrete Uebungen, Saetze, Wiederholungen, Ausfuehrung und Alternativen.</p>
+            </article>
+            <article class="card">
+              <span class="tag area-strength">Fokus</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Koerperbereiche werden mit Zielvorschlaegen abgeglichen, damit der Plan sinnvoll bleibt.</p>
+            </article>
+            <article class="card">
+              <span class="tag area-team">Sicherheit</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Vergangene Verletzungen steuern Uebungsauswahl, Technikhinweise und Schonvarianten.</p>
             </article>
             <article class="card">
               <span class="tag area-nutrition">Ernaehrung</span>
