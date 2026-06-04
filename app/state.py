@@ -19,6 +19,8 @@ CHECKIN_INTERVAL_DAYS = 90
 PASSWORD_ITERATIONS = 240_000
 PASSWORD_RESET_TTL_SECONDS = 15 * 60
 USERNAME_ALLOWED_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789._-")
+CHALLENGE_BONUS_XP_HARD_CAP = 250
+CHALLENGE_PROGRESS_XP_HARD_CAP = 80
 
 AREAS = ("endurance", "strength", "nutrition", "mindset", "team")
 
@@ -3168,6 +3170,79 @@ def join_group(state: dict, payload: dict) -> dict:
     return group
 
 
+def _challenge_unit_rule(unit: str) -> tuple[str, float]:
+    normalized = str(unit or "").strip().lower()
+    normalized = normalized.replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
+    if normalized in ("min", "mins") or any(token in normalized for token in ("minute", "minuten", " min", "min.")):
+        return "Minuten", 0.80
+    if any(token in normalized for token in ("stunde", "stunden", "hour")):
+        return "Stunden", 42.0
+    if any(token in normalized for token in ("tag", "tage", "day")):
+        return "Tage", 10.0
+    if any(token in normalized for token in ("einheit", "einheiten", "training", "workout")):
+        return "Einheiten", 14.0
+    if any(token in normalized for token in ("kilometer", " km", "km", "meile", "mile")):
+        return "Strecke", 8.0
+    if any(token in normalized for token in ("portion", "mahlzeit", "rezept")):
+        return "Mahlzeiten", 9.0
+    return "Punkte", 5.0
+
+
+def challenge_xp_guideline(category: str, goal: int, unit: str) -> dict[str, int | float | str]:
+    try:
+        safe_goal = int(goal)
+    except (TypeError, ValueError):
+        safe_goal = 10
+    safe_goal = clamp(safe_goal, 1, 10_000)
+    unit_label, unit_factor = _challenge_unit_rule(unit)
+    category_factor = {
+        "endurance": 1.0,
+        "strength": 1.05,
+        "nutrition": 0.85,
+        "mindset": 0.75,
+        "team": 0.9,
+    }.get(category, 0.9)
+
+    effort_score = safe_goal * unit_factor
+    suggested = clamp(round((30 + effort_score) * category_factor), 20, CHALLENGE_BONUS_XP_HARD_CAP)
+    maximum = clamp(round(suggested * 1.45), 30, CHALLENGE_BONUS_XP_HARD_CAP)
+    return {
+        "minimum": 10,
+        "suggested": suggested,
+        "maximum": max(10, maximum),
+        "hard_cap": CHALLENGE_BONUS_XP_HARD_CAP,
+        "unit_label": unit_label,
+        "unit_factor": unit_factor,
+    }
+
+
+def challenge_bonus_xp(challenge: dict) -> int:
+    guideline = challenge_xp_guideline(
+        str(challenge.get("category") or "team"),
+        int(challenge.get("goal") or 10),
+        str(challenge.get("unit") or "Punkte"),
+    )
+    try:
+        raw_xp = int(challenge.get("xp", guideline["suggested"]))
+    except (TypeError, ValueError):
+        raw_xp = int(guideline["suggested"])
+    return clamp(raw_xp, int(guideline["minimum"]), int(guideline["maximum"]))
+
+
+def challenge_progress_xp(challenge: dict, actual_delta: int) -> int:
+    if actual_delta <= 0:
+        return 0
+    guideline = challenge_xp_guideline(
+        str(challenge.get("category") or "team"),
+        int(challenge.get("goal") or 10),
+        str(challenge.get("unit") or "Punkte"),
+    )
+    goal = max(1, int(challenge.get("goal") or 1))
+    progress_pool = max(10, round(int(guideline["suggested"]) * 0.65))
+    xp = round((actual_delta / goal) * progress_pool)
+    return clamp(xp, 0, CHALLENGE_PROGRESS_XP_HARD_CAP)
+
+
 def create_challenge(state: dict, payload: dict) -> dict:
     creator = str(payload.get("created_by") or "")
     if creator not in members_by_id(state):
@@ -3190,7 +3265,8 @@ def create_challenge(state: dict, payload: dict) -> dict:
 
     goal = max(1, as_int(payload, "goal", 10))
     unit = str(payload.get("unit") or "Punkte").strip() or "Punkte"
-    xp = clamp(as_int(payload, "xp", 100), 10, 1000)
+    xp_guideline = challenge_xp_guideline(category, goal, unit)
+    xp = clamp(as_int(payload, "xp", int(xp_guideline["suggested"])), int(xp_guideline["minimum"]), int(xp_guideline["maximum"]))
     member_ids = group.setdefault("members", []) if group else [member["id"] for member in state["members"]]
     challenge = {
         "id": new_id("challenge"),
@@ -3200,6 +3276,7 @@ def create_challenge(state: dict, payload: dict) -> dict:
         "goal": goal,
         "unit": unit,
         "xp": xp,
+        "xp_guideline": xp_guideline,
         "participants": {member_id: 0 for member_id in member_ids},
         "completed": [],
         "created_by": creator,
@@ -3238,12 +3315,16 @@ def add_challenge_progress(state: dict, payload: dict) -> dict:
 
         category = challenge["category"]
         if actual_delta:
-            award_xp(state, member_id, category, actual_delta * 10)
+            progress_xp = challenge_progress_xp(challenge, actual_delta)
+            if progress_xp:
+                award_xp(state, member_id, category, progress_xp)
 
         completed = challenge.setdefault("completed", [])
         if new_progress >= int(challenge["goal"]) and member_id not in completed:
             completed.append(member_id)
             if old_progress < goal:
+                challenge["xp"] = challenge_bonus_xp(challenge)
+                challenge["xp_guideline"] = challenge_xp_guideline(category, int(challenge["goal"]), str(challenge.get("unit") or "Punkte"))
                 award_xp(state, member_id, category, int(challenge["xp"]))
                 award_xp(state, member_id, "team", 20)
 

@@ -44,6 +44,7 @@ from app.state import add_weight_entry
 from app.state import AREA_LABELS
 from app.state import AREAS
 from app.state import BODY_FOCUS_LABELS
+from app.state import CHALLENGE_BONUS_XP_HARD_CAP
 from app.state import DIET_LABELS
 from app.state import DRINK_TYPES
 from app.state import ENDURANCE_LABELS
@@ -75,6 +76,8 @@ from app.state import add_nutrition_entry
 from app.state import add_sport_entry
 from app.state import add_youtube_link
 from app.state import append_auth_mail_outbox
+from app.state import challenge_bonus_xp
+from app.state import challenge_xp_guideline
 from app.state import complete_assignment
 from app.state import complete_daily_quest
 from app.state import complete_health_journey_lesson
@@ -2111,6 +2114,15 @@ def render_group_comments(state: dict, group_id: str, viewer_member_id: str) -> 
     return "".join(render_group_comment_card(state, comment, viewer_member_id) for comment in comments)
 
 
+def render_challenge_xp_help(category: str = "team", goal: int = 10, unit: str = "Punkte") -> str:
+    guideline = challenge_xp_guideline(category, goal, unit)
+    return (
+        f'<p class="subtle full">Richtwert: {h(guideline["suggested"])} XP, '
+        f'maximal {h(guideline["maximum"])} XP für dieses Ziel. '
+        f'Bea begrenzt Bonus-XP serverseitig nach Zielwert, Einheit und Bereich.</p>'
+    )
+
+
 def render_challenge_card(state: dict, challenge: dict, with_form: bool = False) -> str:
     total_progress = sum(int(value) for value in challenge.get("participants", {}).values())
     progress = int((total_progress / max(1, int(challenge["goal"]))) * 100)
@@ -2118,6 +2130,8 @@ def render_challenge_card(state: dict, challenge: dict, with_form: bool = False)
     challenge_group = next((group for group in groups(state) if group.get("id") == group_id), None)
     group_members = challenge_group.get("members", []) if challenge_group else []
     group_label = group_name(state, group_id)
+    guideline = challenge.get("xp_guideline") or challenge_xp_guideline(challenge["category"], int(challenge["goal"]), str(challenge.get("unit") or "Punkte"))
+    bonus_xp = challenge_bonus_xp(challenge)
     participants = []
     for member_id, value in challenge.get("participants", {}).items():
         participants.append(
@@ -2146,7 +2160,8 @@ def render_challenge_card(state: dict, challenge: dict, with_form: bool = False)
         <div class="row">
           <div>
             <h3>{h(challenge["title"])}</h3>
-            <p class="subtle">{h(AREA_LABELS[challenge["category"]])} - Gruppe: {h(group_label)} - Bonus {h(challenge["xp"])} XP</p>
+            <p class="subtle">{h(AREA_LABELS[challenge["category"]])} - Gruppe: {h(group_label)} - Bonus {h(bonus_xp)} XP</p>
+            <p class="subtle">Richtwert {h(guideline["suggested"])} XP, Maximum {h(guideline["maximum"])} XP für {h(challenge["goal"])} {h(challenge["unit"])}.</p>
             <p class="subtle">{h(challenge.get("description", ""))}</p>
           </div>
           <span class="tag {area_class(challenge["category"])}">{h(total_progress)} / {h(challenge["goal"])} {h(challenge["unit"])}</span>
@@ -4888,8 +4903,9 @@ def group_detail_page(request: Request, group_id: str) -> str:
             </label>
             <label>
               Bonus XP
-              <input name="xp" type="number" min="10" max="1000" value="100">
+              <input name="xp" type="number" min="10" max="{CHALLENGE_BONUS_XP_HARD_CAP}" value="{h(challenge_xp_guideline('team', 10, 'Punkte')['suggested'])}">
             </label>
+            {render_challenge_xp_help("team", 10, "Punkte")}
             <label class="full">
               Titel
               <input name="title" placeholder="7 Tage drangeblieben">
@@ -5019,8 +5035,9 @@ def challenges_page() -> str:
           </label>
           <label>
             Bonus XP
-            <input name="xp" type="number" min="10" max="1000" value="100">
+            <input name="xp" type="number" min="10" max="{CHALLENGE_BONUS_XP_HARD_CAP}" value="{h(challenge_xp_guideline('team', 10, 'Punkte')['suggested'])}">
           </label>
+          {render_challenge_xp_help("team", 10, "Punkte")}
           <label class="full">
             Titel
             <input name="title" placeholder="7 Tage Protein treffen">
@@ -6409,7 +6426,8 @@ async def api_create_challenge(request: Request) -> dict[str, str]:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
     save_state(state)
-    return {"message": f"Challenge {challenge['title']} erstellt."}
+    guideline = challenge.get("xp_guideline") or challenge_xp_guideline(challenge["category"], int(challenge["goal"]), str(challenge.get("unit") or "Punkte"))
+    return {"message": f"Challenge {challenge['title']} erstellt. Bonus: {challenge_bonus_xp(challenge)} XP, Richtwert: {guideline['suggested']} XP."}
 
 
 @app.post("/api/challenges/progress")

@@ -14,6 +14,10 @@ FastAPI-App für gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, 
 - `Fotos`: Private Vergleichsfotos mit PIN-Schutz und optionaler Community-Freigabe
 - `Integrationen`: Strava verbinden und externe Ausdauereinheiten importieren
 
+Challenge-Bonus-XP sind Richtwerte: Bea berechnet sie aus Zielwert, Einheit und Bereich, begrenzt Eingaben
+serverseitig und verteilt Fortschritts-XP proportional zum Aufwand. So kann niemand durch frei gewählte Fantasie-XP
+schneller hochleveln.
+
 Die App speichert Live-Daten lokal in `data/bea_state.json`. Diese Datei wird nicht in Git committed.
 Private Fotos werden lokal unter `data/photos/` gespeichert und ebenfalls nicht committed.
 
