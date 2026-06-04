@@ -200,6 +200,18 @@ RPG_TITLES = [
     (12, "Legende"),
 ]
 
+AVATAR_DEFAULTS = {
+    "height_cm": 170,
+    "shoulder_width": 100,
+    "waist_width": 92,
+    "hip_width": 98,
+    "muscle": 45,
+    "body_fat": 35,
+    "skin_color": "#d59f7a",
+    "hair_color": "#2f241f",
+    "outfit_color": "#2563eb",
+}
+
 DEFAULT_STATE = {
     "members": [
         {
@@ -342,6 +354,7 @@ DEFAULT_STATE = {
     "meal_ideas": DEFAULT_MEAL_IDEAS,
     "youtube_links": [],
     "rpg": {},
+    "avatars": {},
 }
 
 
@@ -815,6 +828,99 @@ def complete_daily_quest(state: dict, payload: dict) -> dict:
         "daily_result": daily_result,
         "weekly_result": weekly_result,
     }
+
+
+def clean_hex_color(value: object, default: str) -> str:
+    clean = str(value or "").strip().lower()
+    if len(clean) != 7 or not clean.startswith("#"):
+        return default
+    if any(char not in "0123456789abcdef" for char in clean[1:]):
+        return default
+    return clean
+
+
+def avatar_body_label(profile: dict) -> str:
+    muscle = int(profile.get("muscle", 45))
+    body_fat = int(profile.get("body_fat", 35))
+    waist = int(profile.get("waist_width", 92))
+    hips = int(profile.get("hip_width", 98))
+
+    if muscle >= 70 and body_fat <= 45:
+        return "athletisch"
+    if muscle >= 70:
+        return "kraftvoll"
+    if hips - waist >= 16:
+        return "kurvig"
+    if body_fat <= 30 and waist <= 88:
+        return "schlank"
+    if body_fat >= 60:
+        return "weich"
+    return "ausgeglichen"
+
+
+def avatar_profile_for_member(state: dict, member_id: str) -> dict:
+    member = members_by_id(state).get(member_id)
+    if not member:
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    stored = copy.deepcopy(state.setdefault("avatars", {}).get(member_id, {}))
+    profile = copy.deepcopy(AVATAR_DEFAULTS)
+    profile.update(stored)
+    profile["member_id"] = member_id
+    profile["name"] = member["name"]
+    profile["body_label"] = avatar_body_label(profile)
+    profile.setdefault("front_photo_id", "")
+    profile.setdefault("side_photo_id", "")
+    profile.setdefault("calibration", "Noch nicht kalibriert")
+    return profile
+
+
+def save_avatar_profile(state: dict, payload: dict, photo_ids: dict[str, str] | None = None) -> dict:
+    member_id = str(payload.get("member_id") or "")
+    members = members_by_id(state)
+    if member_id not in members:
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    existing = state.setdefault("avatars", {}).get(member_id, {})
+    photo_ids = photo_ids or {}
+    has_new_photo = bool(photo_ids.get("front_photo_id") or photo_ids.get("side_photo_id"))
+    if not existing and not has_new_photo:
+        raise ValueError("Bitte mindestens ein Ganzkoerperbild fuer den Avatar hochladen.")
+
+    profile = copy.deepcopy(existing) if existing else {}
+    profile.update(
+        {
+            "member_id": member_id,
+            "height_cm": clamp(as_int(payload, "height_cm", int(existing.get("height_cm", AVATAR_DEFAULTS["height_cm"]))), 120, 230),
+            "shoulder_width": clamp(as_int(payload, "shoulder_width", int(existing.get("shoulder_width", AVATAR_DEFAULTS["shoulder_width"]))), 60, 140),
+            "waist_width": clamp(as_int(payload, "waist_width", int(existing.get("waist_width", AVATAR_DEFAULTS["waist_width"]))), 55, 150),
+            "hip_width": clamp(as_int(payload, "hip_width", int(existing.get("hip_width", AVATAR_DEFAULTS["hip_width"]))), 60, 150),
+            "muscle": clamp(as_int(payload, "muscle", int(existing.get("muscle", AVATAR_DEFAULTS["muscle"]))), 0, 100),
+            "body_fat": clamp(as_int(payload, "body_fat", int(existing.get("body_fat", AVATAR_DEFAULTS["body_fat"]))), 0, 100),
+            "skin_color": clean_hex_color(payload.get("skin_color"), str(existing.get("skin_color", AVATAR_DEFAULTS["skin_color"]))),
+            "hair_color": clean_hex_color(payload.get("hair_color"), str(existing.get("hair_color", AVATAR_DEFAULTS["hair_color"]))),
+            "outfit_color": clean_hex_color(payload.get("outfit_color"), str(existing.get("outfit_color", AVATAR_DEFAULTS["outfit_color"]))),
+            "updated_at": today(),
+        }
+    )
+    if not profile.get("created_at"):
+        profile["created_at"] = today()
+    if photo_ids.get("front_photo_id"):
+        profile["front_photo_id"] = photo_ids["front_photo_id"]
+    if photo_ids.get("side_photo_id"):
+        profile["side_photo_id"] = photo_ids["side_photo_id"]
+
+    references = []
+    if profile.get("front_photo_id"):
+        references.append("Front")
+    if profile.get("side_photo_id"):
+        references.append("Seite")
+    profile["calibration"] = " + ".join(references) if references else "Manuell"
+    profile["body_label"] = avatar_body_label(profile)
+
+    state.setdefault("avatars", {})[member_id] = profile
+    award_xp(state, member_id, "team", 15)
+    return profile
 
 
 def food_items(state: dict) -> list[dict]:

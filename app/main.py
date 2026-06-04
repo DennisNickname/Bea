@@ -30,6 +30,7 @@ from app.photos import photo_pin_is_set
 from app.photos import private_photos_for_member
 from app.photos import public_photos
 from app.photos import publish_photo
+from app.photos import require_photo_pin
 from app.photos import set_photo_pin
 from app.state import ACTIVITY_LABELS
 from app.state import AREA_LABELS
@@ -52,6 +53,7 @@ from app.state import complete_assignment
 from app.state import complete_daily_quest
 from app.state import create_personal_plan
 from app.state import ensure_rpg_state
+from app.state import avatar_profile_for_member
 from app.state import food_items
 from app.state import leaderboard
 from app.state import level_for_xp
@@ -61,6 +63,7 @@ from app.state import member_name
 from app.state import rpg_character
 from app.state import rpg_completion_key
 from app.state import save_state
+from app.state import save_avatar_profile
 from app.state import strava_consume_pending
 from app.state import strava_get_connection
 from app.state import strava_set_connection
@@ -80,6 +83,7 @@ SERVICE_NAME = os.getenv("BEA_SERVICE_NAME", "bea.service")
 NAV_ITEMS = (
     ("/", "Dashboard"),
     ("/abenteuer", "Abenteuer"),
+    ("/avatar", "Avatar"),
     ("/fragebogen", "Fragebogen"),
     ("/freunde", "Freunde"),
     ("/challenges", "Challenges"),
@@ -648,6 +652,50 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             font-size: 1.45rem;
             font-weight: 900;
             box-shadow: 0 0.7rem 1.4rem rgb(23 32 51 / 18%);
+          }}
+
+          .avatar-stage {{
+            display: grid;
+            min-height: 28rem;
+            place-items: center;
+            border: 1px solid rgb(216 224 234 / 82%);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            background:
+              linear-gradient(180deg, rgb(255 255 255 / 72%), rgb(255 248 236 / 76%)),
+              repeating-linear-gradient(90deg, rgb(37 99 235 / 8%) 0 1px, transparent 1px 3rem);
+          }}
+
+          .avatar-svg {{
+            width: min(100%, 18rem);
+            height: auto;
+            filter: drop-shadow(0 1rem 1.4rem rgb(23 32 51 / 14%));
+          }}
+
+          .avatar-card {{
+            display: grid;
+            gap: 0.85rem;
+          }}
+
+          .avatar-meta {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+          }}
+
+          .swatch-row {{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+          }}
+
+          input[type="color"] {{
+            height: 2.8rem;
+            padding: 0.2rem;
+          }}
+
+          input[type="range"] {{
+            accent-color: var(--blue);
           }}
 
           .boss-card {{
@@ -1245,6 +1293,49 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             }});
           }}
 
+          document.querySelectorAll("input[type='range'][data-output]").forEach((input) => {{
+            const output = document.querySelector(input.dataset.output);
+            const syncOutput = () => {{
+              if (output) {{
+                output.textContent = input.value;
+              }}
+            }};
+            input.addEventListener("input", syncOutput);
+            syncOutput();
+          }});
+
+          const avatarForm = document.querySelector("#avatar-form");
+          if (avatarForm) {{
+            avatarForm.addEventListener("submit", async (event) => {{
+              event.preventDefault();
+              const button = avatarForm.querySelector("button[type='submit']");
+              const frontInput = avatarForm.querySelector("input[name='front_photo_file']");
+              const sideInput = avatarForm.querySelector("input[name='side_photo_file']");
+              if (button) {{
+                button.disabled = true;
+              }}
+              try {{
+                const payload = Object.fromEntries(new FormData(avatarForm).entries());
+                delete payload.front_photo_file;
+                delete payload.side_photo_file;
+                if (frontInput && frontInput.files[0]) {{
+                  payload.front_image_data = await readFileAsDataUrl(frontInput.files[0]);
+                }}
+                if (sideInput && sideInput.files[0]) {{
+                  payload.side_image_data = await readFileAsDataUrl(sideInput.files[0]);
+                }}
+                const data = await postJson("/api/avatar", payload);
+                showStatus(data.message || "Avatar gespeichert.");
+                window.setTimeout(() => window.location.reload(), 650);
+              }} catch (error) {{
+                showStatus(error.message || "Avatar konnte nicht gespeichert werden.");
+                if (button) {{
+                  button.disabled = false;
+                }}
+              }}
+            }});
+          }}
+
           const photoGalleryForm = document.querySelector("#photo-gallery-form");
           if (photoGalleryForm) {{
             photoGalleryForm.addEventListener("submit", async (event) => {{
@@ -1508,6 +1599,83 @@ def render_character_cards(state: dict) -> str:
     return "".join(cards)
 
 
+def render_avatar_svg(profile: dict) -> str:
+    height_cm = int(profile.get("height_cm", 170))
+    shoulders = int(profile.get("shoulder_width", 100))
+    waist = int(profile.get("waist_width", 92))
+    hips = int(profile.get("hip_width", 98))
+    muscle = int(profile.get("muscle", 45))
+    body_fat = int(profile.get("body_fat", 35))
+
+    shoulder_width = 72 + (shoulders - 100) * 0.45 + muscle * 0.12
+    waist_width = 50 + (waist - 92) * 0.42 + body_fat * 0.18
+    hip_width = 64 + (hips - 98) * 0.42 + body_fat * 0.12
+    arm_width = 10 + muscle * 0.08 + body_fat * 0.03
+    leg_width = 15 + muscle * 0.05 + body_fat * 0.06
+    height_shift = max(-14, min(22, (height_cm - 170) * 0.22))
+
+    center = 100
+    torso_top = 78
+    waist_y = 136 + height_shift * 0.2
+    hip_y = 176 + height_shift * 0.35
+    knee_y = 236 + height_shift * 0.65
+    foot_y = 296 + height_shift
+
+    skin = h(profile.get("skin_color", "#d59f7a"))
+    hair = h(profile.get("hair_color", "#2f241f"))
+    outfit = h(profile.get("outfit_color", "#2563eb"))
+
+    return f"""
+      <svg class="avatar-svg" viewBox="0 0 200 320" role="img" aria-label="Avatar von {h(profile.get("name", "Mitglied"))}">
+        <ellipse cx="100" cy="304" rx="52" ry="8" fill="rgb(23 32 51 / 16%)"></ellipse>
+        <path d="M78 73 C80 51 91 39 100 39 C116 39 124 52 122 73 C113 65 94 63 78 73 Z" fill="{hair}"></path>
+        <circle cx="100" cy="58" r="22" fill="{skin}"></circle>
+        <path d="M78 55 C83 35 113 30 123 52 C112 45 94 44 78 55 Z" fill="{hair}"></path>
+        <rect x="91" y="76" width="18" height="18" rx="6" fill="{skin}"></rect>
+        <path d="
+          M {center - shoulder_width / 2:.1f} {torso_top:.1f}
+          C {center - shoulder_width / 2 - 4:.1f} {waist_y - 36:.1f}, {center - waist_width / 2:.1f} {waist_y - 14:.1f}, {center - waist_width / 2:.1f} {waist_y:.1f}
+          L {center - hip_width / 2:.1f} {hip_y:.1f}
+          L {center + hip_width / 2:.1f} {hip_y:.1f}
+          L {center + waist_width / 2:.1f} {waist_y:.1f}
+          C {center + waist_width / 2:.1f} {waist_y - 14:.1f}, {center + shoulder_width / 2 + 4:.1f} {waist_y - 36:.1f}, {center + shoulder_width / 2:.1f} {torso_top:.1f}
+          Z" fill="{outfit}"></path>
+        <path d="M{center - shoulder_width / 2:.1f} 86 C50 116 48 154 57 190" fill="none" stroke="{skin}" stroke-width="{arm_width:.1f}" stroke-linecap="round"></path>
+        <path d="M{center + shoulder_width / 2:.1f} 86 C150 116 152 154 143 190" fill="none" stroke="{skin}" stroke-width="{arm_width:.1f}" stroke-linecap="round"></path>
+        <rect x="{center - hip_width / 4 - leg_width:.1f}" y="{hip_y - 2:.1f}" width="{leg_width * 1.35:.1f}" height="{knee_y - hip_y + 8:.1f}" rx="9" fill="{outfit}"></rect>
+        <rect x="{center + hip_width / 4 - leg_width * 0.35:.1f}" y="{hip_y - 2:.1f}" width="{leg_width * 1.35:.1f}" height="{knee_y - hip_y + 8:.1f}" rx="9" fill="{outfit}"></rect>
+        <rect x="{center - hip_width / 4 - leg_width * 0.82:.1f}" y="{knee_y:.1f}" width="{leg_width:.1f}" height="{foot_y - knee_y:.1f}" rx="8" fill="{skin}"></rect>
+        <rect x="{center + hip_width / 4 - leg_width * 0.18:.1f}" y="{knee_y:.1f}" width="{leg_width:.1f}" height="{foot_y - knee_y:.1f}" rx="8" fill="{skin}"></rect>
+        <ellipse cx="{center - hip_width / 4 - leg_width * 0.28:.1f}" cy="{foot_y + 3:.1f}" rx="13" ry="5" fill="{hair}"></ellipse>
+        <ellipse cx="{center + hip_width / 4 + leg_width * 0.32:.1f}" cy="{foot_y + 3:.1f}" rx="13" ry="5" fill="{hair}"></ellipse>
+      </svg>
+    """
+
+
+def render_avatar_card(profile: dict) -> str:
+    return f"""
+      <article class="card avatar-card">
+        <div class="avatar-stage">
+          {render_avatar_svg(profile)}
+        </div>
+        <div>
+          <div class="row">
+            <div>
+              <h3>{h(profile["name"])}</h3>
+              <p class="subtle">Koerperbau: {h(profile["body_label"])} - Kalibrierung: {h(profile["calibration"])}</p>
+            </div>
+            <span class="tag area-team">{h(profile["height_cm"])} cm</span>
+          </div>
+          <div class="avatar-meta" style="margin-top: 0.75rem;">
+            <span class="tag area-strength">Muskel {h(profile["muscle"])}</span>
+            <span class="tag area-nutrition">Form {h(profile["body_fat"])}</span>
+            <span class="tag area-endurance">Schulter {h(profile["shoulder_width"])}</span>
+          </div>
+        </div>
+      </article>
+    """
+
+
 def render_daily_quest_card(state: dict, rpg: dict, quest: dict) -> str:
     completions = rpg.get("completed_quests", {})
     completed_members = [
@@ -1704,6 +1872,7 @@ def dashboard() -> str:
         </div>
         <div class="quick-actions" aria-label="Schnellaktionen">
           <a class="quick-link gold" href="/abenteuer">Abenteuer</a>
+          <a class="quick-link red" href="/avatar">Avatar bauen</a>
           <a class="quick-link blue" href="/sport">Sport erfassen</a>
           <a class="quick-link green" href="/nahrung">Mahlzeit tracken</a>
           <a class="quick-link gold" href="/challenges">Challenge ansehen</a>
@@ -1820,6 +1989,95 @@ def adventure_page() -> str:
       </section>
     """
     return render_layout("/abenteuer", "Abenteuer", body)
+
+
+@app.get("/avatar", response_class=HTMLResponse)
+def avatar_page() -> str:
+    state = load_state()
+    profiles = [avatar_profile_for_member(state, member["id"]) for member in state["members"]]
+    default_profile = avatar_profile_for_member(state, "bea")
+    avatar_cards = "".join(render_avatar_card(profile) for profile in profiles)
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Avatar Studio</p>
+          <h1>Dein Charakter</h1>
+        </div>
+        <p class="subtle">Ganzkoerperbilder bleiben privat und kalibrieren den stilisierten Charakter.</p>
+      </section>
+
+      <section class="grid two">
+        <div class="panel">
+          <h2>Avatar-Galerie</h2>
+          <div class="grid two">{avatar_cards}</div>
+        </div>
+        <div class="panel">
+          <h2>Avatar erstellen</h2>
+          <form class="form-grid" id="avatar-form">
+            <label>
+              Mitglied
+              <select name="member_id">{render_member_options(state, "bea")}</select>
+            </label>
+            <label>
+              Foto-PIN
+              <input name="pin" type="password" autocomplete="current-password">
+            </label>
+            <label>
+              Groesse in cm
+              <input name="height_cm" type="number" min="120" max="230" value="{h(default_profile["height_cm"])}">
+            </label>
+            <label>
+              Frontbild
+              <input name="front_photo_file" type="file" accept="image/jpeg,image/png,image/webp">
+            </label>
+            <label class="full">
+              Seitenbild
+              <input name="side_photo_file" type="file" accept="image/jpeg,image/png,image/webp">
+            </label>
+
+            <label>
+              Schultern <span id="avatar-shoulders-value"></span>
+              <input name="shoulder_width" type="range" min="60" max="140" value="{h(default_profile["shoulder_width"])}" data-output="#avatar-shoulders-value">
+            </label>
+            <label>
+              Taille <span id="avatar-waist-value"></span>
+              <input name="waist_width" type="range" min="55" max="150" value="{h(default_profile["waist_width"])}" data-output="#avatar-waist-value">
+            </label>
+            <label>
+              Huefte <span id="avatar-hips-value"></span>
+              <input name="hip_width" type="range" min="60" max="150" value="{h(default_profile["hip_width"])}" data-output="#avatar-hips-value">
+            </label>
+            <label>
+              Muskulatur <span id="avatar-muscle-value"></span>
+              <input name="muscle" type="range" min="0" max="100" value="{h(default_profile["muscle"])}" data-output="#avatar-muscle-value">
+            </label>
+            <label>
+              Koerperform <span id="avatar-fat-value"></span>
+              <input name="body_fat" type="range" min="0" max="100" value="{h(default_profile["body_fat"])}" data-output="#avatar-fat-value">
+            </label>
+
+            <div class="swatch-row full">
+              <label>
+                Haut
+                <input name="skin_color" type="color" value="{h(default_profile["skin_color"])}">
+              </label>
+              <label>
+                Haare
+                <input name="hair_color" type="color" value="{h(default_profile["hair_color"])}">
+              </label>
+              <label>
+                Outfit
+                <input name="outfit_color" type="color" value="{h(default_profile["outfit_color"])}">
+              </label>
+            </div>
+
+            <button class="button blue full" type="submit">Avatar speichern</button>
+          </form>
+        </div>
+      </section>
+    """
+    return render_layout("/avatar", "Avatar", body)
 
 
 @app.get("/fragebogen", response_class=HTMLResponse)
@@ -2592,6 +2850,8 @@ def photos_page() -> str:
                 <option>Front</option>
                 <option>Seite</option>
                 <option>Ruecken</option>
+                <option>Avatar Ganzkoerper Front</option>
+                <option>Avatar Ganzkoerper Seite</option>
                 <option selected>Check-in</option>
               </select>
             </label>
@@ -3143,6 +3403,50 @@ async def api_set_photo_pin(request: Request) -> dict[str, str]:
         raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
     save_state(state)
     return {"message": "Foto-PIN gespeichert."}
+
+
+@app.post("/api/avatar")
+async def api_save_avatar(request: Request) -> dict[str, str]:
+    payload = await read_json_payload(request)
+    state = load_state()
+    member_id = str(payload.get("member_id") or "")
+    pin = str(payload.get("pin") or "")
+
+    try:
+        require_photo_pin(state, member_id, pin)
+        photo_ids = {}
+        if payload.get("front_image_data"):
+            photo = add_private_photo(
+                state,
+                {
+                    "member_id": member_id,
+                    "pin": pin,
+                    "image_data": payload.get("front_image_data"),
+                    "title": f"Avatar Front {member_name(state, member_id)}",
+                    "photo_type": "Avatar Ganzkoerper Front",
+                    "note": "Privates Kalibrierfoto fuer den Avatar.",
+                },
+            )
+            photo_ids["front_photo_id"] = photo["id"]
+        if payload.get("side_image_data"):
+            photo = add_private_photo(
+                state,
+                {
+                    "member_id": member_id,
+                    "pin": pin,
+                    "image_data": payload.get("side_image_data"),
+                    "title": f"Avatar Seite {member_name(state, member_id)}",
+                    "photo_type": "Avatar Ganzkoerper Seite",
+                    "note": "Privates Kalibrierfoto fuer den Avatar.",
+                },
+            )
+            photo_ids["side_photo_id"] = photo["id"]
+        profile = save_avatar_profile(state, payload, photo_ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+
+    save_state(state)
+    return {"message": f"Avatar gespeichert: Koerperbau {profile['body_label']}. Kalibrierfotos bleiben privat."}
 
 
 @app.post("/api/photos/upload")
