@@ -78,8 +78,11 @@ from app.state import add_nutrition_entry
 from app.state import add_sport_entry
 from app.state import add_youtube_link
 from app.state import append_auth_mail_outbox
+from app.state import achievement_statuses
+from app.state import boss_phase
 from app.state import challenge_bonus_xp
 from app.state import challenge_xp_guideline
+from app.state import coach_message
 from app.state import complete_assignment
 from app.state import complete_daily_quest
 from app.state import complete_health_journey_lesson
@@ -88,6 +91,8 @@ from app.state import create_challenge
 from app.state import create_group
 from app.state import create_personal_plan
 from app.state import create_password_reset_code
+from app.state import current_story_chapter
+from app.state import daily_chest_status
 from app.state import ensure_rpg_state
 from app.state import avatar_profile_for_member
 from app.state import AVATAR_CLOTHING_STYLES
@@ -97,6 +102,7 @@ from app.state import group_name
 from app.state import group_by_id
 from app.state import group_comments
 from app.state import group_member_ranking
+from app.state import group_raid_statuses
 from app.state import groups
 from app.state import groups_for_member
 from app.state import health_journey_status
@@ -109,10 +115,12 @@ from app.state import latest_weight_for_member
 from app.state import leaderboard
 from app.state import level_for_xp
 from app.state import load_state
+from app.state import loot_items_for_member
 from app.state import meal_ideas
 from app.state import member_by_login
 from app.state import member_name
 from app.state import members_by_id
+from app.state import open_daily_chest
 from app.state import password_is_configured
 from app.state import questionnaire_status
 from app.state import redeem_reward
@@ -124,6 +132,7 @@ from app.state import rpg_level_glossary
 from app.state import save_state
 from app.state import save_avatar_profile
 from app.state import like_group_comment
+from app.state import streak_shield_status
 from app.state import strava_consume_pending
 from app.state import strava_get_connection
 from app.state import strava_set_connection
@@ -148,6 +157,7 @@ SESSIONS: dict[str, dict] = {}
 
 NAV_ITEMS = (
     ("/", "Dashboard"),
+    ("/heute", "Heute"),
     ("/abenteuer", "Abenteuer"),
     ("/glossar", "Glossar"),
     ("/reise", "Reise"),
@@ -169,7 +179,7 @@ NAV_ITEMS = (
 
 NAV_GROUPS = (
     ("Planung", (("/", "Dashboard"), ("/fitnessplan", "Fitnessplan"), ("/fragebogen", "Check-in"))),
-    ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/glossar", "Glossar"), ("/reise", "Reise"), ("/belohnungen", "Belohnungen"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
+    ("Abenteuer", (("/heute", "Heute"), ("/abenteuer", "Abenteuer"), ("/glossar", "Glossar"), ("/reise", "Reise"), ("/belohnungen", "Belohnungen"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
     ("Community", (("/freunde", "Freunde"), ("/gruppen", "Gruppen"), ("/challenges", "Challenges"))),
     ("Tracking", (("/sport", "Sport"), ("/mindset", "Mindset"), ("/nahrung", "Nahrung"), ("/fluessigkeit", "Flüssigkeit"), ("/fotos", "Fotos"), ("/integrationen", "Integrationen"))),
 )
@@ -3238,7 +3248,7 @@ def render_start_daily_plan(state: dict, rpg: dict, member_id: str) -> str:
             <h2>Heute erledigen</h2>
             <p class="subtle">{h(rpg.get("daily_date", ""))} · {h(done_count)} von {h(total)} Quests geschafft</p>
           </div>
-          <a class="button blue" href="/abenteuer">Zum Abenteuer</a>
+          <a class="button blue" href="/heute">Heute öffnen</a>
         </div>
         <div style="margin-top: 0.85rem;">{progress_bar(int((done_count / total) * 100), "Tagesquests")}</div>
         <div class="grid two" style="margin-top: 1rem;">
@@ -3554,6 +3564,219 @@ def render_start_rewards_summary(state: dict, member_id: str) -> str:
         <div class="grid" style="margin-top: 1rem;">{card}</div>
       </article>
     """
+
+
+def render_today_coach_panel(state: dict, member_id: str) -> str:
+    shield = streak_shield_status(state, member_id)
+    return f"""
+      <article class="panel">
+        <div class="row">
+          <div>
+            <p class="eyebrow">Coach</p>
+            <h2>Heute zählt ein guter Zug</h2>
+            <p class="subtle">{h(coach_message(state, member_id))}</p>
+          </div>
+          <span class="tag area-mindset">{h(shield["count"])} / {h(shield["max"])} Streak-Schutz</span>
+        </div>
+      </article>
+    """
+
+
+def render_personal_questboard(state: dict, rpg: dict, member_id: str) -> str:
+    completions = rpg.get("completed_quests", {})
+    cards = []
+    for quest in rpg.get("daily_quests", []):
+        completion_key = rpg_completion_key(rpg["daily_date"], member_id, quest["id"])
+        done = completion_key in completions
+        action = (
+            '<span class="tag area-team">Erledigt</span>'
+            if done
+            else f"""
+            <form data-api-form data-endpoint="/api/rpg/quests/complete">
+              <input type="hidden" name="member_id" value="{h(member_id)}">
+              <input type="hidden" name="quest_id" value="{h(quest["id"])}">
+              <button class="button blue" type="submit">Abschließen</button>
+            </form>
+            """
+        )
+        cards.append(
+            f"""
+            <article class="card {area_class(quest["area"])}">
+              <div class="row">
+                <span class="tag {area_class(quest["area"])}">{h(AREA_LABELS[quest["area"]])}</span>
+                <span class="meta">+{h(quest["reward_xp"])} XP · {h(quest["damage"])} Schaden</span>
+              </div>
+              <h3 style="margin-top: 0.55rem;">{h(quest["title"])}</h3>
+              <p class="subtle">{h(quest["description"])}</p>
+              <div class="row" style="justify-content: flex-start; margin-top: 0.85rem;">{action}</div>
+            </article>
+            """
+        )
+    return f"""
+      <article class="panel">
+        <div class="row">
+          <div>
+            <p class="eyebrow">Questboard</p>
+            <h2>Tägliche Aufgaben</h2>
+            <p class="subtle">Drei Abschlüsse öffnen die Tageskiste. Jede Quest verursacht Boss-Schaden.</p>
+          </div>
+          <span class="tag area-team">{h(rpg.get("daily_date", ""))}</span>
+        </div>
+        <div class="grid two" style="margin-top: 1rem;">{"".join(cards)}</div>
+      </article>
+    """
+
+
+def render_daily_chest_card(state: dict, member_id: str) -> str:
+    status = daily_chest_status(state, member_id)
+    progress = int((status["progress"] / max(1, status["target"])) * 100)
+    loot = status.get("loot")
+    if status["opened"]:
+        action = f"""
+          <span class="tag area-team">Geöffnet</span>
+          <p class="subtle" style="margin-top: 0.65rem;">Loot: {h(loot["name"] if loot else "XP-Beutel")} · +{h(status["xp"])} XP</p>
+        """
+    elif status["can_open"]:
+        action = f"""
+          <form data-api-form data-endpoint="/api/rpg/chest/open" style="margin-top: 0.85rem;">
+            <button class="button blue" type="submit">Tageskiste öffnen</button>
+          </form>
+        """
+    else:
+        missing = max(0, int(status["target"]) - int(status["progress"]))
+        action = f'<p class="subtle" style="margin-top: 0.65rem;">Noch {h(missing)} Quest bis zur Kiste.</p>'
+    return f"""
+      <article class="card area-team">
+        <div class="row">
+          <div>
+            <span class="tag area-team">Loot</span>
+            <h3 style="margin-top: 0.55rem;">Tageskiste</h3>
+            <p class="subtle">{h(status["progress"])} von {h(status["target"])} Tagesquests geschafft.</p>
+          </div>
+          <span class="tag area-team">+30 XP</span>
+        </div>
+        <div style="margin-top: 0.85rem;">{progress_bar(progress, "Tageskiste")}</div>
+        {action}
+      </article>
+    """
+
+
+def render_inventory_cards(state: dict, member_id: str) -> str:
+    items = loot_items_for_member(state, member_id)
+    if not items:
+        return '<article class="card"><p class="subtle">Noch keine Ausrüstung gefunden. Tageskiste öffnen oder Bosse besiegen.</p></article>'
+    return "".join(
+        f"""
+        <article class="card {area_class(item["area"])}">
+          <div class="row">
+            <span class="tag {area_class(item["area"])}">{h(item["rarity"])}</span>
+            <span class="meta">{h(item["slot"])}</span>
+          </div>
+          <h3 style="margin-top: 0.55rem;">{h(item["name"])}</h3>
+          <p class="subtle">{h(item["description"])}</p>
+          <p class="subtle" style="margin-top: 0.45rem;">Gefunden: {h(item.get("earned_at", ""))}</p>
+        </article>
+        """
+        for item in items[:6]
+    )
+
+
+def render_achievement_cards(state: dict, member_id: str) -> str:
+    statuses = achievement_statuses(state, member_id)
+    return "".join(
+        f"""
+        <article class="card {area_class(item["area"])}">
+          <div class="row">
+            <span class="tag {area_class(item["area"])}">{h("Freigeschaltet" if item["unlocked"] else "Offen")}</span>
+            <span class="meta">{h(item["raw_progress"])} / {h(item["target"])}</span>
+          </div>
+          <h3 style="margin-top: 0.55rem;">{h(item["name"])}</h3>
+          <p class="subtle">{h(item["description"])}</p>
+          <div style="margin-top: 0.75rem;">{progress_bar(int((item["progress"] / max(1, item["target"])) * 100), item["name"])}</div>
+        </article>
+        """
+        for item in statuses
+    )
+
+
+def render_story_chapter_card(state: dict, member_id: str) -> str:
+    story = current_story_chapter(state, member_id)
+    chapter = story["current"]
+    next_chapter = story["next"]
+    next_note = (
+        "Alle aktuellen Kapitel sind freigeschaltet."
+        if not next_chapter
+        else f'Nächstes Kapitel ab {next_chapter["unlock_quests"]} abgeschlossenen Quests: {next_chapter["title"]}.'
+    )
+    return f"""
+      <article class="card {area_class(chapter["area"])}">
+        <div class="row">
+          <span class="tag {area_class(chapter["area"])}">Story</span>
+          <span class="meta">{h(story["completed_quests"])} Quests</span>
+        </div>
+        <h3 style="margin-top: 0.55rem;">{h(chapter["title"])}</h3>
+        <p class="subtle">{h(chapter["summary"])}</p>
+        <div style="margin-top: 0.85rem;">{progress_bar(story["progress_to_next"], "Story-Fortschritt")}</div>
+        <p class="subtle" style="margin-top: 0.65rem;">{h(next_note)}</p>
+      </article>
+    """
+
+
+def render_today_phase_boss_card(boss: dict) -> str:
+    max_hp = max(1, int(boss.get("max_hp", 1)))
+    hp = max(0, int(boss.get("hp", max_hp)))
+    damage_progress = int(((max_hp - hp) / max_hp) * 100)
+    defeated = hp <= 0
+    phase = boss_phase(boss)
+    return f"""
+      <article class="card boss-card {"is-defeated" if defeated else ""}">
+        <div class="row">
+          <div>
+            <span class="tag area-team">{h(boss.get("title", "Boss"))}</span>
+            <h3 style="margin-top: 0.65rem;">{h(boss.get("name", "Boss"))}</h3>
+            <p class="subtle">Schwäche: {h(boss.get("weakness", "Konstanz"))}</p>
+          </div>
+          <span class="tag {"area-nutrition" if defeated else "area-strength"}">{h(phase["label"])}</span>
+        </div>
+        <div class="boss-hp" style="margin-top: 0.9rem;">{progress_bar(damage_progress, f'{boss.get("name", "Boss")} Schaden')}</div>
+        <div class="mini-metric" style="margin-top: 0.85rem;">
+          <span>Bossphase</span>
+          <strong>{h(phase["label"])}</strong>
+          <p class="subtle" style="margin-top: 0.35rem;">{h(phase["note"])}</p>
+        </div>
+        <p class="subtle" style="margin-top: 0.65rem;">{h(hp)} / {h(max_hp)} LP übrig</p>
+      </article>
+    """
+
+
+def render_today_boss_cards(rpg: dict) -> str:
+    return "".join(
+        render_today_phase_boss_card(boss)
+        for boss in (rpg.get("daily_boss", {}), rpg.get("weekly_boss", {}))
+    )
+
+
+def render_group_raid_cards(state: dict, member_id: str) -> str:
+    raids = group_raid_statuses(state, member_id)
+    if not raids:
+        return '<article class="card"><p class="subtle">Tritt einer Gruppe bei, um Wochen-Raids und Gruppenfortschritt zu sehen.</p></article>'
+    return "".join(
+        f"""
+        <article class="card area-team">
+          <div class="row">
+            <div>
+              <span class="tag area-team">Gruppen-Raid</span>
+              <h3 style="margin-top: 0.55rem;">{h(raid["group_name"])} gegen {h(raid["boss_name"])}</h3>
+              <p class="subtle">{h(raid["member_count"])} Mitglieder · {h(raid["challenge_count"])} Challenges</p>
+            </div>
+            <span class="tag area-team">{h(raid["damage"])} / {h(raid["target"])}</span>
+          </div>
+          <div style="margin-top: 0.85rem;">{progress_bar(raid["progress"], raid["group_name"])}</div>
+          <a class="button secondary" href="/gruppen/{h(raid["group_id"])}" style="margin-top: 0.85rem;">Zur Gruppe</a>
+        </article>
+        """
+        for raid in raids
+    )
 
 
 def render_auth_page(title: str, intro: str, content: str, error: str = "", message: str = "") -> str:
@@ -3905,6 +4128,65 @@ async def logout(request: Request):
     return response
 
 
+@app.get("/heute", response_class=HTMLResponse)
+def today_page(request: Request) -> str:
+    state = load_state()
+    rpg = ensure_rpg_state(state)
+    member_id = dashboard_member_id(state, request)
+    achievement_statuses(state, member_id)
+    save_state(state)
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Spielzentrale</p>
+          <h1>Heute</h1>
+        </div>
+        <div class="quick-actions" aria-label="Heute Schnellaktionen">
+          <a class="quick-link blue" href="/sport">Training tracken</a>
+          <a class="quick-link green" href="/nahrung">Mahlzeit tracken</a>
+          <a class="quick-link gold" href="/gruppen">Gruppe öffnen</a>
+          <a class="quick-link red" href="/belohnungen">Belohnungen</a>
+        </div>
+      </section>
+
+      <section class="grid two">
+        {render_today_coach_panel(state, member_id)}
+        {render_daily_chest_card(state, member_id)}
+      </section>
+
+      <section style="margin-top: 1rem;">
+        {render_personal_questboard(state, rpg, member_id)}
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        {render_today_boss_cards(rpg)}
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Story-Fortschritt</h2>
+          <div class="list">{render_story_chapter_card(state, member_id)}</div>
+        </div>
+        <div class="panel">
+          <h2>Gruppen-Raids</h2>
+          <div class="list">{render_group_raid_cards(state, member_id)}</div>
+        </div>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Ausrüstung</h2>
+          <div class="list">{render_inventory_cards(state, member_id)}</div>
+        </div>
+        <div class="panel">
+          <h2>Achievements</h2>
+          <div class="list">{render_achievement_cards(state, member_id)}</div>
+        </div>
+      </section>
+    """
+    return render_layout("/heute", "Heute", body)
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request) -> str:
     state = load_state()
@@ -3932,6 +4214,7 @@ def dashboard(request: Request) -> str:
           <h1>Hallo {h(member_label)}</h1>
         </div>
         <div class="quick-actions" aria-label="Schnellaktionen">
+          <a class="quick-link blue" href="/heute">Heute spielen</a>
           <a class="quick-link gold" href="/abenteuer">Abenteuer</a>
           <a class="quick-link gold" href="/reise">Reise lernen</a>
           <a class="quick-link gold" href="/belohnungen">Belohnungen</a>
@@ -3948,6 +4231,11 @@ def dashboard(request: Request) -> str:
       </section>
 
       {plan_hint}
+
+      <section class="grid two" style="margin-top: 1rem;">
+        {render_today_coach_panel(state, member_id)}
+        {render_daily_chest_card(state, member_id)}
+      </section>
 
       <section class="grid two">
         {render_start_avatar_panel(state, member_id, rpg)}
@@ -6564,7 +6852,28 @@ async def api_complete_rpg_quest(request: Request) -> dict[str, str]:
         messages.append("Tagesboss besiegt.")
     if result["weekly_result"]["defeated"]:
         messages.append("Wochenboss besiegt.")
+    for loot_key in ("daily_loot", "weekly_loot"):
+        if result.get(loot_key):
+            messages.append(f'Loot gefunden: {result[loot_key]["name"]}.')
+    if result.get("shield_earned"):
+        messages.append("Streak-Schutz verdient.")
     return {"message": " ".join(messages)}
+
+
+@app.post("/api/rpg/chest/open")
+async def api_open_rpg_chest(request: Request) -> dict[str, str]:
+    state = load_state()
+    member_id = current_member_id(request)
+    if not member_id:
+        raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor die Tageskiste geöffnet wird."})
+    try:
+        result = open_daily_chest(state, member_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    item = result.get("item")
+    loot_text = f' Loot: {item["name"]}.' if item else " Alle Ausrüstungsstücke sind bereits gefunden."
+    return {"message": f"Tageskiste geöffnet. +{result['xp']} XP.{loot_text}"}
 
 
 @app.post("/api/journey/complete")

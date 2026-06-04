@@ -595,6 +595,170 @@ RPG_LEVELS = [
 
 RPG_TITLES = [(entry["level"], entry["name"]) for entry in RPG_LEVELS]
 
+LOOT_CATALOG = [
+    {
+        "id": "trail_shoes",
+        "name": "Trail-Schuhe der Morgenrunde",
+        "slot": "Schuhe",
+        "rarity": "gewöhnlich",
+        "area": "endurance",
+        "description": "Gibt deinem Avatar einen Ausdauer-Look und erinnert an lockere Outdoor-Einheiten.",
+    },
+    {
+        "id": "iron_gloves",
+        "name": "Eisenhandschuhe",
+        "slot": "Hände",
+        "rarity": "gewöhnlich",
+        "area": "strength",
+        "description": "Symbol für saubere Wiederholungen, Griffkraft und kontrollierte Steigerungen.",
+    },
+    {
+        "id": "hydration_flask",
+        "name": "Hydra-Flasche",
+        "slot": "Ausrüstung",
+        "rarity": "selten",
+        "area": "nutrition",
+        "description": "Markiert Tage, an denen Trinken und Planung ernst genommen wurden.",
+    },
+    {
+        "id": "focus_band",
+        "name": "Fokusband",
+        "slot": "Kopf",
+        "rarity": "selten",
+        "area": "mindset",
+        "description": "Steht für Meditation, Atmung und das kurze Sortieren vor dem nächsten Schritt.",
+    },
+    {
+        "id": "recovery_cloak",
+        "name": "Mantel der Regeneration",
+        "slot": "Rücken",
+        "rarity": "episch",
+        "area": "mindset",
+        "description": "Erinnert daran, dass Schlaf, Pausen und Mobilität echte Trainingsbestandteile sind.",
+    },
+    {
+        "id": "protein_satchel",
+        "name": "Protein-Tasche",
+        "slot": "Tasche",
+        "rarity": "gewöhnlich",
+        "area": "nutrition",
+        "description": "Für vorbereitete Mahlzeiten, die den Plan leichter machen.",
+    },
+    {
+        "id": "guild_badge",
+        "name": "Gildenabzeichen",
+        "slot": "Abzeichen",
+        "rarity": "selten",
+        "area": "team",
+        "description": "Zeigt, dass Motivation, Kommentare und Gruppenfortschritt Teil der Reise sind.",
+    },
+    {
+        "id": "boss_shard",
+        "name": "Bosssplitter",
+        "slot": "Trophäe",
+        "rarity": "episch",
+        "area": "team",
+        "description": "Eine Trophäe für Tage, an denen der innere Widerstand sichtbar Schaden genommen hat.",
+    },
+]
+
+ACHIEVEMENT_CATALOG = [
+    {
+        "id": "first_quest",
+        "name": "Erste Quest",
+        "description": "Schließe deine erste Tagesquest ab.",
+        "area": "team",
+        "target": 1,
+    },
+    {
+        "id": "daily_triple",
+        "name": "Tagesheld",
+        "description": "Schließe an einem Tag drei Quests ab und öffne damit die Tageskiste.",
+        "area": "team",
+        "target": 3,
+    },
+    {
+        "id": "seven_quests",
+        "name": "Serienfunke",
+        "description": "Sammle insgesamt sieben abgeschlossene Tagesquests.",
+        "area": "mindset",
+        "target": 7,
+    },
+    {
+        "id": "first_training",
+        "name": "Trainingssignal",
+        "description": "Tracke deine erste Sporteinheit.",
+        "area": "strength",
+        "target": 1,
+    },
+    {
+        "id": "hydration_keeper",
+        "name": "Quellhüter",
+        "description": "Tracke mindestens drei Flüssigkeits-Einträge.",
+        "area": "nutrition",
+        "target": 3,
+    },
+    {
+        "id": "group_voice",
+        "name": "Gildenstimme",
+        "description": "Schreibe deinen ersten Kommentar in einer Gruppe.",
+        "area": "team",
+        "target": 1,
+    },
+    {
+        "id": "boss_finisher",
+        "name": "Bossknacker",
+        "description": "Sei an einem besiegten Tages- oder Wochenboss beteiligt.",
+        "area": "strength",
+        "target": 1,
+    },
+]
+
+STORY_CHAPTERS = [
+    {
+        "id": "awakening",
+        "title": "Kapitel 1: Das Erwachen",
+        "unlock_quests": 0,
+        "area": "team",
+        "summary": "Der Charakter entsteht aus echten Gewohnheiten. Kleine Tagesaktionen zählen ab jetzt als Abenteuer.",
+    },
+    {
+        "id": "forest_excuses",
+        "title": "Kapitel 2: Wald der Ausreden",
+        "unlock_quests": 4,
+        "area": "mindset",
+        "summary": "Du lernst, schwere Tage mit Mini-Versionen zu überbrücken, statt die Reise abzubrechen.",
+    },
+    {
+        "id": "kitchen_foundry",
+        "title": "Kapitel 3: Schmiede der Mahlzeiten",
+        "unlock_quests": 8,
+        "area": "nutrition",
+        "summary": "Ernährung wird planbarer: Protein, Flüssigkeit und bewusste Belohnungen arbeiten zusammen.",
+    },
+    {
+        "id": "training_arena",
+        "title": "Kapitel 4: Arena der Progression",
+        "unlock_quests": 14,
+        "area": "strength",
+        "summary": "Gewichte, Wiederholungen und Technik steigen kontrolliert, während Verletzungsrisiken beachtet werden.",
+    },
+    {
+        "id": "guild_road",
+        "title": "Kapitel 5: Straße der Gilde",
+        "unlock_quests": 21,
+        "area": "team",
+        "summary": "Gruppen, Kommentare, Raids und Challenges machen Fortschritt sichtbar und gemeinschaftlich.",
+    },
+    {
+        "id": "summit",
+        "title": "Kapitel 6: Gipfel der Beständigkeit",
+        "unlock_quests": 30,
+        "area": "endurance",
+        "summary": "Aus einzelnen Tagen wird eine Geschichte, die Training, Alltag, Schlaf und Erholung verbindet.",
+    },
+]
+
 AVATAR_DEFAULTS = {
     "height_cm": 170,
     "weight_kg": 70,
@@ -2428,6 +2592,278 @@ def apply_boss_damage(boss: dict, damage: int) -> dict:
     return {"damage": actual_damage, "defeated": defeated}
 
 
+def boss_phase(boss: dict) -> dict:
+    max_hp = max(1, int(boss.get("max_hp", 1)))
+    hp = max(0, int(boss.get("hp", max_hp)))
+    remaining = hp / max_hp
+    if hp <= 0:
+        return {
+            "label": "Besiegt",
+            "note": "Der Boss ist erledigt. Jetzt zählt Regeneration und bewusstes Feiern.",
+            "progress": 100,
+        }
+    if remaining <= 0.25:
+        return {
+            "label": "Finalphase",
+            "note": "Der Boss wankt. Eine saubere Quest kann den Unterschied machen.",
+            "progress": 75,
+        }
+    if remaining <= 0.50:
+        return {
+            "label": "Gebrochen",
+            "note": "Die Hälfte ist geschafft. Dranbleiben, aber nicht hektisch werden.",
+            "progress": 50,
+        }
+    if remaining <= 0.75:
+        return {
+            "label": "Angekratzt",
+            "note": "Die ersten Treffer sitzen. Jetzt wird aus Startenergie Routine.",
+            "progress": 25,
+        }
+    return {
+        "label": "Frisch",
+        "note": "Der Boss ist noch stabil. Starte mit der kleinsten machbaren Quest.",
+        "progress": 0,
+    }
+
+
+def rpg_member_state(state: dict, member_id: str) -> dict:
+    rpg = ensure_rpg_state(state)
+    member_rpg = rpg.setdefault("members", {}).setdefault(member_id, {})
+    member_rpg.setdefault("inventory", [])
+    member_rpg.setdefault("daily_chests", {})
+    member_rpg.setdefault("achievements", {})
+    member_rpg.setdefault("equipped", {})
+    member_rpg.setdefault("streak_shields", 0)
+    member_rpg.setdefault("shield_awards", {})
+    return member_rpg
+
+
+def loot_item_by_id(item_id: str) -> dict | None:
+    return next((item for item in LOOT_CATALOG if item["id"] == item_id), None)
+
+
+def loot_items_for_member(state: dict, member_id: str) -> list[dict]:
+    member_rpg = rpg_member_state(state, member_id)
+    items = []
+    for entry in member_rpg.get("inventory", []):
+        item = loot_item_by_id(str(entry.get("item_id") or ""))
+        if item:
+            decorated = copy.deepcopy(item)
+            decorated.update(
+                {
+                    "earned_at": entry.get("earned_at", ""),
+                    "source": entry.get("source", ""),
+                }
+            )
+            items.append(decorated)
+    return items
+
+
+def award_loot(state: dict, member_id: str, source_key: str, preferred_area: str = "team") -> dict | None:
+    member_rpg = rpg_member_state(state, member_id)
+    inventory = member_rpg.setdefault("inventory", [])
+    owned = {str(entry.get("item_id") or "") for entry in inventory}
+    available = [item for item in LOOT_CATALOG if item["id"] not in owned]
+    if not available:
+        return None
+
+    preferred = [item for item in available if item.get("area") == preferred_area]
+    pool = preferred or available
+    seed = sum(ord(char) for char in f"{member_id}:{source_key}:{today()}")
+    item = pool[seed % len(pool)]
+    inventory.insert(
+        0,
+        {
+            "item_id": item["id"],
+            "earned_at": today(),
+            "source": source_key,
+        },
+    )
+    return copy.deepcopy(item)
+
+
+def completed_quest_count_for_member(state: dict, member_id: str) -> int:
+    rpg = ensure_rpg_state(state)
+    return sum(
+        1
+        for completion in rpg.get("completed_quests", {}).values()
+        if completion.get("member_id") == member_id
+    )
+
+
+def todays_completed_quest_count(state: dict, member_id: str) -> int:
+    rpg = ensure_rpg_state(state)
+    return sum(
+        1
+        for quest in rpg.get("daily_quests", [])
+        if rpg_completion_key(rpg["daily_date"], member_id, quest["id"]) in rpg.get("completed_quests", {})
+    )
+
+
+def _member_group_comment_count(state: dict, member_id: str) -> int:
+    return sum(1 for comment in state.setdefault("group_comments", []) if comment.get("member_id") == member_id)
+
+
+def _member_boss_defeat_count(state: dict, member_id: str) -> int:
+    rpg = ensure_rpg_state(state)
+    return sum(
+        1
+        for item in rpg.get("battle_log", [])
+        if item.get("member_id") == member_id and (item.get("daily_defeated") or item.get("weekly_defeated"))
+    )
+
+
+def achievement_progress(state: dict, member_id: str, achievement_id: str) -> int:
+    if achievement_id in ("first_quest", "seven_quests"):
+        return completed_quest_count_for_member(state, member_id)
+    if achievement_id == "daily_triple":
+        return todays_completed_quest_count(state, member_id)
+    if achievement_id == "first_training":
+        return sum(1 for entry in state.setdefault("sport_entries", []) if entry.get("member_id") == member_id)
+    if achievement_id == "hydration_keeper":
+        return sum(1 for entry in state.setdefault("hydration_entries", []) if entry.get("member_id") == member_id)
+    if achievement_id == "group_voice":
+        return _member_group_comment_count(state, member_id)
+    if achievement_id == "boss_finisher":
+        return _member_boss_defeat_count(state, member_id)
+    return 0
+
+
+def achievement_statuses(state: dict, member_id: str) -> list[dict]:
+    member_rpg = rpg_member_state(state, member_id)
+    unlocked = member_rpg.setdefault("achievements", {})
+    statuses = []
+    for achievement in ACHIEVEMENT_CATALOG:
+        progress = achievement_progress(state, member_id, achievement["id"])
+        is_unlocked = progress >= int(achievement["target"])
+        if is_unlocked and achievement["id"] not in unlocked:
+            unlocked[achievement["id"]] = {
+                "unlocked_at": today(),
+                "progress": progress,
+            }
+            award_xp(state, member_id, achievement["area"], 18)
+        statuses.append(
+            {
+                **achievement,
+                "progress": min(progress, int(achievement["target"])),
+                "raw_progress": progress,
+                "unlocked": is_unlocked,
+                "unlocked_at": unlocked.get(achievement["id"], {}).get("unlocked_at", ""),
+            }
+        )
+    return statuses
+
+
+def daily_chest_status(state: dict, member_id: str) -> dict:
+    rpg = ensure_rpg_state(state)
+    member_rpg = rpg_member_state(state, member_id)
+    date_key = rpg["daily_date"]
+    chest = member_rpg.setdefault("daily_chests", {}).get(date_key, {})
+    progress = todays_completed_quest_count(state, member_id)
+    target = 3
+    opened = bool(chest.get("opened_at"))
+    loot = loot_item_by_id(str(chest.get("loot_id") or ""))
+    return {
+        "date": date_key,
+        "progress": progress,
+        "target": target,
+        "opened": opened,
+        "can_open": progress >= target and not opened,
+        "loot": loot,
+        "xp": int(chest.get("xp", 0)),
+        "opened_at": chest.get("opened_at", ""),
+    }
+
+
+def open_daily_chest(state: dict, member_id: str) -> dict:
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+    status = daily_chest_status(state, member_id)
+    if status["opened"]:
+        raise ValueError("Die Tageskiste wurde heute bereits geöffnet.")
+    if not status["can_open"]:
+        missing = max(0, int(status["target"]) - int(status["progress"]))
+        raise ValueError(f"Noch {missing} Tagesquests bis zur Tageskiste.")
+
+    item = award_loot(state, member_id, f"daily_chest:{status['date']}", "team")
+    xp = 30
+    award_xp(state, member_id, "team", xp)
+    member_rpg = rpg_member_state(state, member_id)
+    member_rpg.setdefault("daily_chests", {})[status["date"]] = {
+        "opened_at": today(),
+        "loot_id": item["id"] if item else "",
+        "xp": xp,
+    }
+    achievement_statuses(state, member_id)
+    return {
+        "item": item,
+        "xp": xp,
+        "status": daily_chest_status(state, member_id),
+    }
+
+
+def streak_shield_status(state: dict, member_id: str) -> dict:
+    member_rpg = rpg_member_state(state, member_id)
+    return {
+        "count": int(member_rpg.get("streak_shields", 0)),
+        "max": 3,
+        "earned_today": today() in member_rpg.setdefault("shield_awards", {}),
+    }
+
+
+def earn_streak_shield(state: dict, member_id: str, reason: str) -> bool:
+    member_rpg = rpg_member_state(state, member_id)
+    awards = member_rpg.setdefault("shield_awards", {})
+    if today() in awards:
+        return False
+    current = int(member_rpg.get("streak_shields", 0))
+    if current >= 3:
+        return False
+    member_rpg["streak_shields"] = current + 1
+    awards[today()] = reason
+    return True
+
+
+def current_story_chapter(state: dict, member_id: str) -> dict:
+    completed = completed_quest_count_for_member(state, member_id)
+    current = STORY_CHAPTERS[0]
+    next_chapter = None
+    for chapter in STORY_CHAPTERS:
+        if completed >= int(chapter["unlock_quests"]):
+            current = chapter
+        elif next_chapter is None:
+            next_chapter = chapter
+
+    return {
+        "current": current,
+        "next": next_chapter,
+        "completed_quests": completed,
+        "progress_to_next": 100 if not next_chapter else int((completed / max(1, int(next_chapter["unlock_quests"]))) * 100),
+    }
+
+
+def coach_message(state: dict, member_id: str) -> str:
+    rpg = ensure_rpg_state(state)
+    chest = daily_chest_status(state, member_id)
+    if chest["can_open"]:
+        return "Deine Tageskiste ist bereit. Erst öffnen, dann bewusst entscheiden, welche Quest noch Freude macht."
+    if chest["progress"] == 0:
+        return "Starte heute klein: Eine Quest reicht, um den Boss sichtbar anzukratzen."
+    if chest["progress"] < chest["target"]:
+        missing = chest["target"] - chest["progress"]
+        return f"Noch {missing} Quest bis zur Tageskiste. Nimm die Aufgabe, die am besten in deinen Alltag passt."
+
+    daily_phase = boss_phase(rpg["daily_boss"])
+    if rpg["daily_boss"].get("hp", 0) > 0:
+        return f"Tagesboss-Phase: {daily_phase['label']}. {daily_phase['note']}"
+
+    open_rewards = rewards_for_member(state, member_id, "open")
+    if open_rewards:
+        return "Du hast eine offene Belohnung. Genieße sie bewusst, nicht nebenbei."
+    return "Solider Tag. Wenn Energie übrig ist, wäre jetzt Team-Motivation oder Regeneration stark."
+
+
 def complete_daily_quest(state: dict, payload: dict) -> dict:
     rpg = ensure_rpg_state(state)
     member_id = str(payload.get("member_id") or "")
@@ -2464,6 +2900,8 @@ def complete_daily_quest(state: dict, payload: dict) -> dict:
         "created_at": today(),
     }
 
+    daily_loot = None
+    weekly_loot = None
     if daily_result["defeated"]:
         award_xp(state, member_id, "team", 35)
         award_reward(
@@ -2474,6 +2912,7 @@ def complete_daily_quest(state: dict, payload: dict) -> dict:
             rpg["daily_boss"]["id"],
             f'Tagesboss besiegt: {rpg["daily_boss"].get("name", "Boss")}.',
         )
+        daily_loot = award_loot(state, member_id, f'daily_boss:{rpg["daily_boss"]["id"]}', quest["area"])
     if weekly_result["defeated"]:
         award_xp(state, member_id, "team", 90)
         award_reward(
@@ -2484,6 +2923,7 @@ def complete_daily_quest(state: dict, payload: dict) -> dict:
             rpg["weekly_boss"]["id"],
             f'Wochenboss besiegt: {rpg["weekly_boss"].get("name", "Boss")}.',
         )
+        weekly_loot = award_loot(state, member_id, f'weekly_boss:{rpg["weekly_boss"]["id"]}', "team")
 
     rpg.setdefault("battle_log", []).insert(
         0,
@@ -2500,6 +2940,10 @@ def complete_daily_quest(state: dict, payload: dict) -> dict:
         },
     )
     rpg["battle_log"] = rpg["battle_log"][:25]
+    shield_earned = False
+    if todays_completed_quest_count(state, member_id) >= 3:
+        shield_earned = earn_streak_shield(state, member_id, "Drei Tagesquests abgeschlossen.")
+    achievements = achievement_statuses(state, member_id)
 
     return {
         "quest": quest,
@@ -2508,6 +2952,10 @@ def complete_daily_quest(state: dict, payload: dict) -> dict:
         "weekly_boss": rpg["weekly_boss"],
         "daily_result": daily_result,
         "weekly_result": weekly_result,
+        "daily_loot": daily_loot,
+        "weekly_loot": weekly_loot,
+        "shield_earned": shield_earned,
+        "achievements": achievements,
     }
 
 
@@ -3087,6 +3535,33 @@ def group_name(state: dict, group_id: str) -> str:
 
 def groups_for_member(state: dict, member_id: str) -> list[dict]:
     return [group for group in groups(state) if member_id in group.setdefault("members", [])]
+
+
+def group_raid_statuses(state: dict, member_id: str) -> list[dict]:
+    rpg = ensure_rpg_state(state)
+    weekly_boss = rpg.get("weekly_boss", weekly_boss_for(week_key_for()))
+    statuses = []
+    for group in groups_for_member(state, member_id):
+        member_ids = set(group.setdefault("members", []))
+        damage = sum(
+            int(item.get("weekly_damage", 0))
+            for item in rpg.get("battle_log", [])
+            if item.get("member_id") in member_ids
+        )
+        target = max(1, int(weekly_boss.get("max_hp", 1)))
+        statuses.append(
+            {
+                "group_id": group["id"],
+                "group_name": group["name"],
+                "boss_name": weekly_boss.get("name", "Wochenboss"),
+                "damage": min(damage, target),
+                "target": target,
+                "progress": min(100, int((damage / target) * 100)),
+                "member_count": len(member_ids),
+                "challenge_count": sum(1 for challenge in state.setdefault("challenges", []) if challenge.get("group_id") == group["id"]),
+            }
+        )
+    return statuses
 
 
 def group_member_ranking(state: dict, group_id: str) -> list[dict]:

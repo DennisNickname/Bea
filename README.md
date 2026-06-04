@@ -5,6 +5,7 @@ FastAPI-App für gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, 
 ## Bereiche
 
 - `Dashboard`: Rangliste, Team-XP, aktive Challenges und Motivation
+- `Heute`: Persönliches Questboard mit Coach-Hinweis, Tageskiste, Loot, Ausrüstung, Story, Achievements und Gruppen-Raids
 - `Check-in`: Beim ersten Anmelden den Startplan erstellen und alle 90 Tage Fortschritte neu bewerten
 - `Glossar`: Levelnamen, XP-Bereiche, Tagesbosse und wöchentliche Endgegner
 - `Freunde`: Mitgliedervergleich, Motivation senden und Übungen zuweisen
