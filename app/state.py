@@ -212,6 +212,30 @@ MINDSET_EXERCISES = {
     },
 }
 
+REWARD_CATALOG = {
+    "chocolate_bar": {
+        "title": "Schokoriegel",
+        "area": "nutrition",
+        "trigger": "Gutes Training getrackt",
+        "condition": "ab 30 Minuten mit mittlerer Belastung oder ab 20 Minuten mit harter Belastung",
+        "description": "Ein bewusst genossener Schokoriegel als kleine Belohnung nach einer starken Einheit.",
+    },
+    "recovery_pause": {
+        "title": "20 Minuten Genusszeit",
+        "area": "mindset",
+        "trigger": "Großer Abschluss",
+        "condition": "für besondere Meilensteine wie Boss-Siege gedacht",
+        "description": "Eine ruhige Pause, Lieblingsgetränk oder ein Kapitel lesen, ohne schlechtes Gewissen.",
+    },
+    "free_choice": {
+        "title": "Freie Mini-Belohnung",
+        "area": "team",
+        "trigger": "Team-Erfolg",
+        "condition": "für spätere Challenges und Gruppenziele",
+        "description": "Eine kleine Belohnung, die vorher fair mit sich selbst vereinbart wurde.",
+    },
+}
+
 DEFAULT_FOOD_ITEMS = [
     {"id": "oats", "name": "Haferflocken", "category": "carbs", "calories": 372, "protein": 13.5, "carbs": 58.7, "fat": 7.0},
     {"id": "rice", "name": "Reis gekocht", "category": "carbs", "calories": 130, "protein": 2.7, "carbs": 28.0, "fat": 0.3},
@@ -763,6 +787,7 @@ DEFAULT_STATE = {
     "health_journey": {},
     "avatars": {},
     "weight_entries": [],
+    "earned_rewards": [],
     "auth": {
         "passwords": {},
     },
@@ -1773,6 +1798,83 @@ def award_xp(state: dict, member_id: str, area: str, xp: int) -> None:
     member["xp"][area] = int(member["xp"].get(area, 0)) + max(0, int(xp))
 
 
+def earned_rewards(state: dict) -> list[dict]:
+    return state.setdefault("earned_rewards", [])
+
+
+def rewards_for_member(state: dict, member_id: str, status: str = "") -> list[dict]:
+    rewards = [
+        reward
+        for reward in earned_rewards(state)
+        if reward.get("member_id") == member_id and (not status or reward.get("status") == status)
+    ]
+    return sorted(rewards, key=lambda item: item.get("earned_at", ""), reverse=True)
+
+
+def award_reward(
+    state: dict,
+    member_id: str,
+    reward_id: str,
+    source_type: str,
+    source_id: str,
+    reason: str,
+) -> dict | None:
+    if member_id not in members_by_id(state):
+        return None
+    template = REWARD_CATALOG.get(reward_id)
+    if not template:
+        return None
+    for reward in earned_rewards(state):
+        if (
+            reward.get("member_id") == member_id
+            and reward.get("reward_id") == reward_id
+            and reward.get("source_type") == source_type
+            and reward.get("source_id") == source_id
+        ):
+            return None
+
+    reward = {
+        "id": new_id("reward"),
+        "member_id": member_id,
+        "reward_id": reward_id,
+        "title": template["title"],
+        "description": template["description"],
+        "area": template["area"],
+        "source_type": source_type,
+        "source_id": source_id,
+        "reason": reason,
+        "status": "open",
+        "earned_at": today(),
+        "redeemed_at": "",
+    }
+    earned_rewards(state).insert(0, reward)
+    return reward
+
+
+def reward_for_good_training(state: dict, entry: dict) -> dict | None:
+    duration = int(entry.get("duration", 0))
+    effort = int(entry.get("effort", 0))
+    if not ((duration >= 30 and effort >= 3) or (duration >= 20 and effort >= 4)):
+        return None
+    reason = f'Gutes Training getrackt: {entry.get("title", "Training")} ({duration} Minuten, Belastung {effort}/5).'
+    return award_reward(state, entry["member_id"], "chocolate_bar", "sport", entry["id"], reason)
+
+
+def redeem_reward(state: dict, member_id: str, reward_id: str) -> dict:
+    for reward in earned_rewards(state):
+        if reward.get("id") != reward_id:
+            continue
+        if reward.get("member_id") != member_id:
+            raise ValueError("Diese Belohnung gehört einem anderen Mitglied.")
+        if reward.get("status") == "redeemed":
+            raise ValueError("Diese Belohnung wurde bereits eingelöst.")
+        reward["status"] = "redeemed"
+        reward["redeemed_at"] = today()
+        award_xp(state, member_id, "mindset", 5)
+        return reward
+    raise ValueError("Belohnung wurde nicht gefunden.")
+
+
 def health_journey_progress(state: dict, member_id: str) -> dict:
     progress = state.setdefault("health_journey", {}).setdefault(
         member_id,
@@ -2010,8 +2112,24 @@ def complete_daily_quest(state: dict, payload: dict) -> dict:
 
     if daily_result["defeated"]:
         award_xp(state, member_id, "team", 35)
+        award_reward(
+            state,
+            member_id,
+            "recovery_pause",
+            "daily_boss",
+            rpg["daily_boss"]["id"],
+            f'Tagesboss besiegt: {rpg["daily_boss"].get("name", "Boss")}.',
+        )
     if weekly_result["defeated"]:
         award_xp(state, member_id, "team", 90)
+        award_reward(
+            state,
+            member_id,
+            "free_choice",
+            "weekly_boss",
+            rpg["weekly_boss"]["id"],
+            f'Wochenboss besiegt: {rpg["weekly_boss"].get("name", "Boss")}.',
+        )
 
     rpg.setdefault("battle_log", []).insert(
         0,
@@ -2315,6 +2433,10 @@ def add_sport_entry(state: dict, payload: dict) -> dict:
     }
     state["sport_entries"].insert(0, entry)
     award_xp(state, member_id, sport_type, xp)
+    reward = reward_for_good_training(state, entry)
+    if reward:
+        entry["reward_unlocked"] = reward["title"]
+        entry["reward_entry_id"] = reward["id"]
     return entry
 
 

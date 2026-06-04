@@ -53,6 +53,7 @@ from app.state import MEAL_LABELS
 from app.state import MINDSET_EXERCISES
 from app.state import MOTIVATION_STYLE_LABELS
 from app.state import RECOVERY_LABELS
+from app.state import REWARD_CATALOG
 from app.state import SLEEP_QUALITY_LABELS
 from app.state import STRESS_LABELS
 from app.state import TRACKING_FREQUENCY_LABELS
@@ -93,6 +94,8 @@ from app.state import member_name
 from app.state import members_by_id
 from app.state import password_is_configured
 from app.state import questionnaire_status
+from app.state import redeem_reward
+from app.state import rewards_for_member
 from app.state import rpg_character
 from app.state import rpg_completion_key
 from app.state import save_state
@@ -124,6 +127,7 @@ NAV_ITEMS = (
     ("/", "Dashboard"),
     ("/abenteuer", "Abenteuer"),
     ("/reise", "Reise"),
+    ("/belohnungen", "Belohnungen"),
     ("/avatar", "Avatar"),
     ("/fortschritt", "Fortschritt"),
     ("/gruppen", "Gruppen"),
@@ -140,7 +144,7 @@ NAV_ITEMS = (
 
 NAV_GROUPS = (
     ("Planung", (("/", "Dashboard"), ("/fitnessplan", "Fitnessplan"), ("/fragebogen", "Check-in"))),
-    ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/reise", "Reise"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
+    ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/reise", "Reise"), ("/belohnungen", "Belohnungen"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
     ("Community", (("/freunde", "Freunde"), ("/gruppen", "Gruppen"), ("/challenges", "Challenges"))),
     ("Tracking", (("/sport", "Sport"), ("/mindset", "Mindset"), ("/nahrung", "Nahrung"), ("/fotos", "Fotos"), ("/integrationen", "Integrationen"))),
 )
@@ -3232,6 +3236,75 @@ def render_journey_lesson(status: dict) -> str:
     """
 
 
+def render_reward_card(reward: dict, redeemable: bool = True) -> str:
+    status_label = "Offen" if reward.get("status") == "open" else f'Eingelöst am {reward.get("redeemed_at", "-")}'
+    action = ""
+    if redeemable and reward.get("status") == "open":
+        action = f"""
+          <form data-api-form data-endpoint="/api/rewards/redeem" style="margin-top: 0.85rem;">
+            <input type="hidden" name="reward_id" value="{h(reward["id"])}">
+            <button class="button blue" type="submit">Einlösen</button>
+          </form>
+        """
+    return f"""
+      <article class="card {area_class(reward.get("area", "team"))}">
+        <div class="row">
+          <span class="tag {area_class(reward.get("area", "team"))}">{h(status_label)}</span>
+          <span class="meta">{h(reward.get("earned_at", ""))}</span>
+        </div>
+        <h3 style="margin-top: 0.55rem;">{h(reward.get("title", "Belohnung"))}</h3>
+        <p class="subtle">{h(reward.get("description", ""))}</p>
+        <p class="subtle" style="margin-top: 0.45rem;"><strong>Verdient durch:</strong> {h(reward.get("reason", "Abschluss"))}</p>
+        {action}
+      </article>
+    """
+
+
+def render_reward_catalog_cards() -> str:
+    return "".join(
+        f"""
+        <article class="card {area_class(item["area"])}">
+          <div class="row">
+            <h3>{h(item["title"])}</h3>
+            <span class="tag {area_class(item["area"])}">{h(item["trigger"])}</span>
+          </div>
+          <p class="subtle">{h(item["description"])}</p>
+          <p class="subtle" style="margin-top: 0.45rem;"><strong>Regel:</strong> {h(item["condition"])}</p>
+        </article>
+        """
+        for item in REWARD_CATALOG.values()
+    )
+
+
+def render_start_rewards_summary(state: dict, member_id: str) -> str:
+    open_rewards = rewards_for_member(state, member_id, "open")
+    latest = open_rewards[0] if open_rewards else None
+    if latest:
+        card = render_reward_card(latest, False)
+        note = "Du hast eine offene Belohnung verdient."
+    else:
+        card = """
+          <article class="card area-nutrition">
+            <h3>Schokoriegel freischalten</h3>
+            <p class="subtle">Tracke ein gutes Training, um dir bewusst eine kleine Genuss-Belohnung zu verdienen.</p>
+          </article>
+        """
+        note = "Noch keine offene Belohnung."
+    return f"""
+      <article class="panel">
+        <div class="row">
+          <div>
+            <p class="eyebrow">Belohnungen</p>
+            <h2>Verdienter Genuss</h2>
+            <p class="subtle">{h(note)}</p>
+          </div>
+          <a class="button blue" href="/belohnungen">Belohnungen öffnen</a>
+        </div>
+        <div class="grid" style="margin-top: 1rem;">{card}</div>
+      </article>
+    """
+
+
 def render_login_page(error: str = "", next_url: str = "/") -> str:
     state = load_state()
     member_options = "\n".join(
@@ -3417,6 +3490,7 @@ def dashboard(request: Request) -> str:
         <div class="quick-actions" aria-label="Schnellaktionen">
           <a class="quick-link gold" href="/abenteuer">Abenteuer</a>
           <a class="quick-link gold" href="/reise">Reise lernen</a>
+          <a class="quick-link gold" href="/belohnungen">Belohnungen</a>
           <a class="quick-link red" href="/avatar">Avatar bauen</a>
           <a class="quick-link blue" href="/fortschritt">Fortschritt</a>
           <a class="quick-link green" href="/gruppen">Gruppen</a>
@@ -3441,6 +3515,10 @@ def dashboard(request: Request) -> str:
 
       <section class="grid" style="margin-top: 1rem;">
         {render_start_training_summary(state, member_id)}
+      </section>
+
+      <section class="grid" style="margin-top: 1rem;">
+        {render_start_rewards_summary(state, member_id)}
       </section>
 
       <section class="grid four" style="margin-top: 1rem;">
@@ -3605,6 +3683,73 @@ def journey_page(request: Request) -> str:
       </section>
     """
     return render_layout("/reise", "Reise", body)
+
+
+@app.get("/belohnungen", response_class=HTMLResponse)
+def rewards_page(request: Request) -> str:
+    state = load_state()
+    member_id = dashboard_member_id(state, request)
+    member_label = member_name(state, member_id)
+    open_rewards = rewards_for_member(state, member_id, "open")
+    redeemed_rewards = rewards_for_member(state, member_id, "redeemed")
+    open_cards = "".join(render_reward_card(reward) for reward in open_rewards)
+    redeemed_cards = "".join(render_reward_card(reward, False) for reward in redeemed_rewards[:6])
+    if not open_cards:
+        open_cards = """
+          <article class="card area-nutrition">
+            <h3>Noch keine offene Belohnung</h3>
+            <p class="subtle">Tracke ein gutes Training: ab 30 Minuten mit mittlerer Belastung oder ab 20 Minuten mit harter Belastung wird ein Schokoriegel freigeschaltet.</p>
+            <a class="button blue" href="/sport" style="margin-top: 0.75rem;">Training tracken</a>
+          </article>
+        """
+    if not redeemed_cards:
+        redeemed_cards = '<article class="card"><p class="subtle">Noch nichts eingelöst. Die guten Sachen liegen bereit.</p></article>'
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Belohnungen</p>
+          <h1>Verdienter Genuss</h1>
+        </div>
+        <p class="subtle">Belohnungen werden durch klare Abschlüsse freigeschaltet und bewusst eingelöst, nicht zufällig nebenbei.</p>
+      </section>
+
+      <section class="grid four">
+        <article class="stat-card">
+          <span>Charakter</span>
+          <strong>{h(member_label)}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Offen</span>
+          <strong>{h(len(open_rewards))}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Eingelöst</span>
+          <strong>{h(len(redeemed_rewards))}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Nächste Chance</span>
+          <strong>Training</strong>
+        </article>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Offene Belohnungen</h2>
+          <div class="list" style="margin-top: 1rem;">{open_cards}</div>
+        </div>
+        <div class="panel">
+          <h2>Eingelöst</h2>
+          <div class="list" style="margin-top: 1rem;">{redeemed_cards}</div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Belohnungsregeln</h2>
+        <div class="grid three" style="margin-top: 1rem;">{render_reward_catalog_cards()}</div>
+      </section>
+    """
+    return render_layout("/belohnungen", "Belohnungen", body)
 
 
 @app.get("/avatar", response_class=HTMLResponse)
@@ -5444,7 +5589,16 @@ async def api_questionnaire(request: Request) -> dict[str, str]:
 
 @app.post("/api/sport")
 async def api_add_sport(request: Request) -> dict[str, str]:
-    return save_action(add_sport_entry, await read_json_payload(request), "Sporteintrag gespeichert.")
+    state = load_state()
+    try:
+        entry = add_sport_entry(state, await read_json_payload(request))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    message = "Sporteintrag gespeichert."
+    if entry.get("reward_unlocked"):
+        message += f' Belohnung verdient: {entry["reward_unlocked"]}.'
+    return {"message": message}
 
 
 @app.post("/api/mindset")
@@ -5465,6 +5619,21 @@ async def api_add_nutrition(request: Request) -> dict[str, str]:
 @app.post("/api/weight")
 async def api_add_weight(request: Request) -> dict[str, str]:
     return save_action(add_weight_entry, await read_json_payload(request), "Gewicht gespeichert.")
+
+
+@app.post("/api/rewards/redeem")
+async def api_redeem_reward(request: Request) -> dict[str, str]:
+    payload = await read_json_payload(request)
+    state = load_state()
+    member_id = current_member_id(request)
+    if not member_id:
+        raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor Belohnungen eingelöst werden."})
+    try:
+        reward = redeem_reward(state, member_id, str(payload.get("reward_id") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    return {"message": f"Belohnung eingelöst: {reward['title']}. Bewusst genießen."}
 
 
 @app.post("/api/foods")
