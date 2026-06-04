@@ -49,13 +49,17 @@ from app.state import add_nutrition_entry
 from app.state import add_sport_entry
 from app.state import add_youtube_link
 from app.state import complete_assignment
+from app.state import complete_daily_quest
 from app.state import create_personal_plan
+from app.state import ensure_rpg_state
 from app.state import food_items
 from app.state import leaderboard
 from app.state import level_for_xp
 from app.state import load_state
 from app.state import meal_ideas
 from app.state import member_name
+from app.state import rpg_character
+from app.state import rpg_completion_key
 from app.state import save_state
 from app.state import strava_consume_pending
 from app.state import strava_get_connection
@@ -75,6 +79,7 @@ SERVICE_NAME = os.getenv("BEA_SERVICE_NAME", "bea.service")
 
 NAV_ITEMS = (
     ("/", "Dashboard"),
+    ("/abenteuer", "Abenteuer"),
     ("/fragebogen", "Fragebogen"),
     ("/freunde", "Freunde"),
     ("/challenges", "Challenges"),
@@ -623,6 +628,48 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           .level-meter.area-team {{
             background: linear-gradient(135deg, #ffffff, #fff8e8);
             border-color: rgb(217 139 19 / 28%);
+          }}
+
+          .character-card {{
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 0.85rem;
+            align-items: center;
+          }}
+
+          .character-avatar {{
+            display: grid;
+            width: 3.4rem;
+            height: 3.4rem;
+            place-items: center;
+            border-radius: 0.5rem;
+            background: linear-gradient(135deg, var(--ink), var(--violet));
+            color: #fff;
+            font-size: 1.45rem;
+            font-weight: 900;
+            box-shadow: 0 0.7rem 1.4rem rgb(23 32 51 / 18%);
+          }}
+
+          .boss-card {{
+            overflow: hidden;
+            border-color: rgb(124 58 237 / 28%);
+            background:
+              linear-gradient(135deg, rgb(124 58 237 / 10%), transparent 18rem),
+              linear-gradient(315deg, rgb(223 63 88 / 10%), transparent 16rem),
+              rgb(255 255 255 / 92%);
+          }}
+
+          .boss-card.is-defeated {{
+            border-color: rgb(22 138 95 / 32%);
+            background: linear-gradient(135deg, #ffffff, #ecfdf3);
+          }}
+
+          .boss-hp .progress span {{
+            background: linear-gradient(90deg, var(--red), var(--violet));
+          }}
+
+          .boss-card.is-defeated .boss-hp .progress span {{
+            background: linear-gradient(90deg, var(--green), var(--cyan));
           }}
 
           .stat-card {{
@@ -1409,6 +1456,123 @@ def render_assignment_card(state: dict, assignment: dict) -> str:
     """
 
 
+def render_rpg_boss_card(boss: dict) -> str:
+    max_hp = max(1, int(boss.get("max_hp", 1)))
+    hp = max(0, int(boss.get("hp", max_hp)))
+    damage_progress = int(((max_hp - hp) / max_hp) * 100)
+    defeated = hp <= 0
+    status = "Besiegt" if defeated else "Aktiv"
+    status_class = "area-nutrition" if defeated else "area-strength"
+    card_class = "boss-card is-defeated" if defeated else "boss-card"
+    return f"""
+      <article class="card {card_class}">
+        <div class="row">
+          <div>
+            <span class="tag area-team">{h(boss.get("title", "Boss"))}</span>
+            <h3 style="margin-top: 0.65rem;">{h(boss.get("name", "Boss"))}</h3>
+            <p class="subtle">Schwaeche: {h(boss.get("weakness", "Konstanz"))}</p>
+          </div>
+          <span class="tag {status_class}">{status}</span>
+        </div>
+        <div class="boss-hp" style="margin-top: 0.9rem;">
+          {progress_bar(damage_progress, f'{boss.get("name", "Boss")} Schaden')}
+        </div>
+        <p class="subtle" style="margin-top: 0.65rem;">{hp} / {max_hp} LP uebrig</p>
+      </article>
+    """
+
+
+def render_character_cards(state: dict) -> str:
+    cards = []
+    for member in leaderboard(state):
+        character = rpg_character(member)
+        initial = str(character["name"] or "?")[0].upper()
+        cards.append(
+            f"""
+            <article class="card character-card {area_class(character["strongest_area"])}">
+              <span class="character-avatar">{h(initial)}</span>
+              <div>
+                <div class="row">
+                  <div>
+                    <h3>{h(character["name"])}</h3>
+                    <p class="subtle">{h(character["title"])} der Klasse {h(character["class_name"])}</p>
+                  </div>
+                  <span class="tag {area_class(character["strongest_area"])}">Level {h(character["level"])}</span>
+                </div>
+                <div style="margin-top: 0.65rem;">{progress_bar(character["progress"], f'{character["name"]} Charakterfortschritt')}</div>
+                <p class="subtle" style="margin-top: 0.45rem;">{h(character["total_xp"])} XP - Serie {h(character["streak"])} Tage</p>
+              </div>
+            </article>
+            """
+        )
+    return "".join(cards)
+
+
+def render_daily_quest_card(state: dict, rpg: dict, quest: dict) -> str:
+    completions = rpg.get("completed_quests", {})
+    completed_members = [
+        member
+        for member in state["members"]
+        if rpg_completion_key(rpg["daily_date"], member["id"], quest["id"]) in completions
+    ]
+    completion_tags = "".join(
+        f'<span class="tag area-team">{h(member["name"])}</span>'
+        for member in completed_members
+    )
+    completed_count = len(completed_members)
+    total_members = max(1, len(state["members"]))
+    return f"""
+      <article class="card {area_class(quest["area"])}">
+        <div class="row">
+          <div>
+            <span class="tag {area_class(quest["area"])}">{h(AREA_LABELS[quest["area"]])}</span>
+            <h3 style="margin-top: 0.65rem;">{h(quest["title"])}</h3>
+            <p class="subtle">{h(quest["description"])}</p>
+          </div>
+          <span class="tag area-team">+{h(quest["reward_xp"])} XP</span>
+        </div>
+        <div style="margin-top: 0.9rem;">{progress_bar(int((completed_count / total_members) * 100), quest["title"])}</div>
+        <div class="row" style="justify-content: flex-start; margin-top: 0.8rem;">
+          {completion_tags or '<span class="meta">Noch niemand</span>'}
+        </div>
+        <form class="form-grid" data-api-form data-endpoint="/api/rpg/quests/complete" style="margin-top: 0.85rem;">
+          <input type="hidden" name="quest_id" value="{h(quest["id"])}">
+          <label>
+            Charakter
+            <select name="member_id">{render_member_options(state, "bea")}</select>
+          </label>
+          <button class="button blue" type="submit">Quest abschliessen</button>
+        </form>
+      </article>
+    """
+
+
+def render_battle_log(state: dict, rpg: dict) -> str:
+    rows = []
+    for item in rpg.get("battle_log", [])[:8]:
+        extra = []
+        if item.get("daily_defeated"):
+            extra.append("Tagesboss besiegt")
+        if item.get("weekly_defeated"):
+            extra.append("Wochenboss besiegt")
+        rows.append(
+            f"""
+            <article class="card">
+              <div class="row">
+                <div>
+                  <h3>{h(member_name(state, item["member_id"]))} erledigt {h(item["quest_title"])}</h3>
+                  <p class="subtle">{h(item["created_at"])} - {h(item["daily_damage"])} Tagesschaden, {h(item["weekly_damage"])} Wochenschaden</p>
+                </div>
+                <span class="tag area-team">{h(", ".join(extra) if extra else "Treffer")}</span>
+              </div>
+            </article>
+            """
+        )
+    if not rows:
+        return '<article class="card"><p class="subtle">Noch keine Kaempfe protokolliert. Schliesst die erste Tagesquest ab.</p></article>'
+    return "".join(rows)
+
+
 def render_generated_plan(state: dict, plan: dict) -> str:
     calories = plan["calories"]
     macros = plan["macros"]
@@ -1505,6 +1669,7 @@ def render_plan_collection(state: dict) -> str:
 @app.get("/", response_class=HTMLResponse)
 def dashboard() -> str:
     state = load_state()
+    rpg = ensure_rpg_state(state)
     totals = team_totals(state)
     level_cards = "".join(level_meter(AREA_LABELS[area], totals[area], area) for area in AREAS)
     challenges = "".join(render_challenge_card(state, challenge) for challenge in state["challenges"][:3])
@@ -1538,6 +1703,7 @@ def dashboard() -> str:
           <h1>Hallo Bea</h1>
         </div>
         <div class="quick-actions" aria-label="Schnellaktionen">
+          <a class="quick-link gold" href="/abenteuer">Abenteuer</a>
           <a class="quick-link blue" href="/sport">Sport erfassen</a>
           <a class="quick-link green" href="/nahrung">Mahlzeit tracken</a>
           <a class="quick-link gold" href="/challenges">Challenge ansehen</a>
@@ -1546,6 +1712,20 @@ def dashboard() -> str:
       </section>
 
       {plan_hint}
+
+      <section class="panel" style="margin-bottom: 1rem;">
+        <div class="row">
+          <div>
+            <h2>Heutiges Abenteuer</h2>
+            <p class="subtle">Schliesst Tagesquests ab, macht Schaden und besiegt gemeinsam Tages- und Wochenboss.</p>
+          </div>
+          <a class="button blue" href="/abenteuer">Zum Abenteuer</a>
+        </div>
+        <div class="grid two" style="margin-top: 1rem;">
+          {render_rpg_boss_card(rpg["daily_boss"])}
+          {render_rpg_boss_card(rpg["weekly_boss"])}
+        </div>
+      </section>
 
       <section class="grid four">
         {stat_cards(state)}
@@ -1576,6 +1756,70 @@ def dashboard() -> str:
       </section>
     """
     return render_layout("/", "Dashboard", body)
+
+
+@app.get("/abenteuer", response_class=HTMLResponse)
+def adventure_page() -> str:
+    state = load_state()
+    rpg = ensure_rpg_state(state)
+    quest_cards = "".join(render_daily_quest_card(state, rpg, quest) for quest in rpg["daily_quests"])
+    completed_today = sum(
+        1
+        for key in rpg.get("completed_quests", {})
+        if key.startswith(f'{rpg["daily_date"]}:')
+    )
+    total_daily_slots = len(state["members"]) * len(rpg["daily_quests"])
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Rollenspiel</p>
+          <h1>Charakter-Abenteuer</h1>
+        </div>
+        <p class="subtle">Dein Charakter bist du selbst: Training, Nahrung und Teamgeist werden zu Quests, Schaden und Leveln.</p>
+      </section>
+
+      <section class="grid four">
+        <article class="stat-card">
+          <span>Datum</span>
+          <strong>{h(rpg["daily_date"])}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Quests heute</span>
+          <strong>{h(completed_today)} / {h(total_daily_slots)}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Tagesboss LP</span>
+          <strong>{h(rpg["daily_boss"]["hp"])}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Wochenboss LP</span>
+          <strong>{h(rpg["weekly_boss"]["hp"])}</strong>
+        </article>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        {render_rpg_boss_card(rpg["daily_boss"])}
+        {render_rpg_boss_card(rpg["weekly_boss"])}
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Taegliche Aufgaben</h2>
+          <div class="list">{quest_cards}</div>
+        </div>
+        <div class="panel">
+          <h2>Charaktere</h2>
+          <div class="list">{render_character_cards(state)}</div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Kampfprotokoll</h2>
+        <div class="list">{render_battle_log(state, rpg)}</div>
+      </section>
+    """
+    return render_layout("/abenteuer", "Abenteuer", body)
 
 
 @app.get("/fragebogen", response_class=HTMLResponse)
@@ -2763,6 +3007,27 @@ async def api_add_motivation(request: Request) -> dict[str, str]:
 @app.post("/api/challenges/progress")
 async def api_add_challenge_progress(request: Request) -> dict[str, str]:
     return save_action(add_challenge_progress, await read_json_payload(request), "Challenge aktualisiert.")
+
+
+@app.post("/api/rpg/quests/complete")
+async def api_complete_rpg_quest(request: Request) -> dict[str, str]:
+    state = load_state()
+    try:
+        result = complete_daily_quest(state, await read_json_payload(request))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+
+    messages = [
+        f'{result["character"]["name"]} hat die Quest abgeschlossen.',
+        f'{result["daily_result"]["damage"]} Schaden am Tagesboss.',
+        f'{result["weekly_result"]["damage"]} Schaden am Wochenboss.',
+    ]
+    if result["daily_result"]["defeated"]:
+        messages.append("Tagesboss besiegt.")
+    if result["weekly_result"]["defeated"]:
+        messages.append("Wochenboss besiegt.")
+    return {"message": " ".join(messages)}
 
 
 @app.post("/api/settings/location")

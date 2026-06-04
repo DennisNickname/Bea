@@ -127,6 +127,79 @@ DEFAULT_MEAL_IDEAS = [
     {"id": "shake_banana", "meal_type": "snack", "title": "Proteinshake Banane", "description": "Proteinpulver, Milch und Banane.", "calories": 360, "protein": 38, "carbs": 42, "fat": 6, "youtube_url": ""},
 ]
 
+RPG_DAILY_QUEST_POOL = [
+    {
+        "id": "move-20",
+        "title": "20 Minuten Bewegung",
+        "description": "Spaziergang, lockerer Lauf, Rad oder Laufband zaehlen.",
+        "area": "endurance",
+        "reward_xp": 40,
+        "damage": 28,
+    },
+    {
+        "id": "strength-set",
+        "title": "Kraftanker setzen",
+        "description": "Mindestens eine Kraftuebung mit sauberer Technik erledigen.",
+        "area": "strength",
+        "reward_xp": 45,
+        "damage": 32,
+    },
+    {
+        "id": "protein-meal",
+        "title": "Protein-Mahlzeit tracken",
+        "description": "Eine Mahlzeit mit Proteinquelle eintragen.",
+        "area": "nutrition",
+        "reward_xp": 35,
+        "damage": 24,
+    },
+    {
+        "id": "water-check",
+        "title": "Wasser-Rune aktivieren",
+        "description": "Mindestens 0,7 Liter Wasser in einer Mahlzeit oder als Snack eintragen.",
+        "area": "nutrition",
+        "reward_xp": 30,
+        "damage": 20,
+    },
+    {
+        "id": "motivate-friend",
+        "title": "Verbuendeten staerken",
+        "description": "Einer Person Motivation schicken oder eine faire Aufgabe zuweisen.",
+        "area": "team",
+        "reward_xp": 35,
+        "damage": 26,
+    },
+    {
+        "id": "plan-check",
+        "title": "Plan pruefen",
+        "description": "Fitnessplan, Wetter oder heutige Mahlzeiten ansehen und den Tag bewusst planen.",
+        "area": "team",
+        "reward_xp": 25,
+        "damage": 18,
+    },
+]
+
+RPG_DAILY_BOSSES = [
+    {"name": "Schweinehund-Schatten", "title": "Tagesboss", "weakness": "Routine", "max_hp": 220},
+    {"name": "Sofa-Magier", "title": "Tagesboss", "weakness": "Bewegung", "max_hp": 210},
+    {"name": "Snack-Sphinx", "title": "Tagesboss", "weakness": "Protein", "max_hp": 230},
+    {"name": "Ausreden-Golem", "title": "Tagesboss", "weakness": "Teamgeist", "max_hp": 240},
+]
+
+RPG_WEEKLY_BOSSES = [
+    {"name": "Plateau-Drache", "title": "Woechentlicher Endgegner", "weakness": "Konstanz", "max_hp": 1100},
+    {"name": "Chaos-Titan", "title": "Woechentlicher Endgegner", "weakness": "Planung", "max_hp": 1000},
+    {"name": "Zucker-Hydra", "title": "Woechentlicher Endgegner", "weakness": "Nahrung", "max_hp": 1050},
+    {"name": "Traegheits-Kolos", "title": "Woechentlicher Endgegner", "weakness": "Gemeinschaft", "max_hp": 1150},
+]
+
+RPG_TITLES = [
+    (1, "Novize"),
+    (3, "Adept"),
+    (5, "Held"),
+    (8, "Champion"),
+    (12, "Legende"),
+]
+
 DEFAULT_STATE = {
     "members": [
         {
@@ -268,6 +341,7 @@ DEFAULT_STATE = {
     "food_items": DEFAULT_FOOD_ITEMS,
     "meal_ideas": DEFAULT_MEAL_IDEAS,
     "youtube_links": [],
+    "rpg": {},
 }
 
 
@@ -564,6 +638,183 @@ def award_xp(state: dict, member_id: str, area: str, xp: int) -> None:
 
     member.setdefault("xp", {})
     member["xp"][area] = int(member["xp"].get(area, 0)) + max(0, int(xp))
+
+
+def rpg_title_for_level(level: int) -> str:
+    title = RPG_TITLES[0][1]
+    for minimum_level, candidate in RPG_TITLES:
+        if level >= minimum_level:
+            title = candidate
+    return title
+
+
+def rpg_character(member: dict) -> dict:
+    total = total_xp(member)
+    level = level_for_xp(total)
+    strongest_area = max(AREAS, key=lambda area: int(member.get("xp", {}).get(area, 0)))
+    return {
+        "member_id": member["id"],
+        "name": member["name"],
+        "class_name": AREA_LABELS[strongest_area],
+        "title": rpg_title_for_level(level["level"]),
+        "level": level["level"],
+        "progress": level["progress"],
+        "next_xp": level["next_xp"],
+        "total_xp": total,
+        "strongest_area": strongest_area,
+        "streak": int(member.get("streak", 0)),
+    }
+
+
+def week_key_for(date_key: str | None = None) -> str:
+    current = date.fromisoformat(date_key) if date_key else date.today()
+    iso = current.isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
+
+
+def rotated_pool(pool: list[dict], seed: int, count: int) -> list[dict]:
+    start = seed % len(pool)
+    return [copy.deepcopy(pool[(start + index) % len(pool)]) for index in range(count)]
+
+
+def daily_quests_for(date_key: str) -> list[dict]:
+    seed = date.fromisoformat(date_key).toordinal()
+    quests = rotated_pool(RPG_DAILY_QUEST_POOL, seed, 4)
+    for quest in quests:
+        quest["date"] = date_key
+    return quests
+
+
+def daily_boss_for(date_key: str) -> dict:
+    seed = date.fromisoformat(date_key).toordinal()
+    boss = copy.deepcopy(RPG_DAILY_BOSSES[seed % len(RPG_DAILY_BOSSES)])
+    boss.update(
+        {
+            "id": f"daily-{date_key}",
+            "date": date_key,
+            "hp": boss["max_hp"],
+            "status": "active",
+            "defeated_at": "",
+        }
+    )
+    return boss
+
+
+def weekly_boss_for(week_key: str) -> dict:
+    year_text, week_text = week_key.split("-W", 1)
+    monday = date.fromisocalendar(int(year_text), int(week_text), 1)
+    boss = copy.deepcopy(RPG_WEEKLY_BOSSES[monday.toordinal() % len(RPG_WEEKLY_BOSSES)])
+    boss.update(
+        {
+            "id": f"weekly-{week_key}",
+            "week": week_key,
+            "hp": boss["max_hp"],
+            "status": "active",
+            "defeated_at": "",
+        }
+    )
+    return boss
+
+
+def ensure_rpg_state(state: dict) -> dict:
+    rpg = state.setdefault("rpg", {})
+    date_key = today()
+    week_key = week_key_for(date_key)
+
+    if rpg.get("daily_date") != date_key or not rpg.get("daily_boss"):
+        rpg["daily_date"] = date_key
+        rpg["daily_quests"] = daily_quests_for(date_key)
+        rpg["daily_boss"] = daily_boss_for(date_key)
+
+    if rpg.get("weekly_key") != week_key or not rpg.get("weekly_boss"):
+        rpg["weekly_key"] = week_key
+        rpg["weekly_boss"] = weekly_boss_for(week_key)
+
+    rpg.setdefault("completed_quests", {})
+    rpg.setdefault("battle_log", [])
+    return rpg
+
+
+def rpg_completion_key(date_key: str, member_id: str, quest_id: str) -> str:
+    return f"{date_key}:{member_id}:{quest_id}"
+
+
+def apply_boss_damage(boss: dict, damage: int) -> dict:
+    before = max(0, int(boss.get("hp", boss.get("max_hp", 0))))
+    actual_damage = min(before, max(0, int(damage)))
+    boss["hp"] = before - actual_damage
+    defeated = before > 0 and boss["hp"] == 0
+    if defeated:
+        boss["status"] = "defeated"
+        boss["defeated_at"] = today()
+    return {"damage": actual_damage, "defeated": defeated}
+
+
+def complete_daily_quest(state: dict, payload: dict) -> dict:
+    rpg = ensure_rpg_state(state)
+    member_id = str(payload.get("member_id") or "")
+    quest_id = str(payload.get("quest_id") or "")
+    members = members_by_id(state)
+
+    if member_id not in members:
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    quest = next((item for item in rpg["daily_quests"] if item["id"] == quest_id), None)
+    if not quest:
+        raise ValueError("Quest wurde nicht gefunden.")
+
+    completion_key = rpg_completion_key(rpg["daily_date"], member_id, quest_id)
+    completions = rpg.setdefault("completed_quests", {})
+    if completion_key in completions:
+        raise ValueError("Diese Quest wurde fuer dieses Mitglied heute schon abgeschlossen.")
+
+    reward_xp = int(quest["reward_xp"])
+    award_xp(state, member_id, quest["area"], reward_xp)
+    award_xp(state, member_id, "team", 5)
+
+    character = rpg_character(members[member_id])
+    damage = int(quest["damage"]) + character["level"] * 3
+    daily_result = apply_boss_damage(rpg["daily_boss"], damage)
+    weekly_result = apply_boss_damage(rpg["weekly_boss"], max(10, damage // 2))
+
+    completions[completion_key] = {
+        "member_id": member_id,
+        "quest_id": quest_id,
+        "date": rpg["daily_date"],
+        "reward_xp": reward_xp,
+        "damage": daily_result["damage"],
+        "created_at": today(),
+    }
+
+    if daily_result["defeated"]:
+        award_xp(state, member_id, "team", 35)
+    if weekly_result["defeated"]:
+        award_xp(state, member_id, "team", 90)
+
+    rpg.setdefault("battle_log", []).insert(
+        0,
+        {
+            "id": new_id("battle"),
+            "member_id": member_id,
+            "quest_id": quest_id,
+            "quest_title": quest["title"],
+            "daily_damage": daily_result["damage"],
+            "weekly_damage": weekly_result["damage"],
+            "daily_defeated": daily_result["defeated"],
+            "weekly_defeated": weekly_result["defeated"],
+            "created_at": today(),
+        },
+    )
+    rpg["battle_log"] = rpg["battle_log"][:25]
+
+    return {
+        "quest": quest,
+        "character": character,
+        "daily_boss": rpg["daily_boss"],
+        "weekly_boss": rpg["weekly_boss"],
+        "daily_result": daily_result,
+        "weekly_result": weekly_result,
+    }
 
 
 def food_items(state: dict) -> list[dict]:
