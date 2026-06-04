@@ -261,15 +261,19 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           :root {{
             color-scheme: light;
             font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            --ink: #17212b;
-            --muted: #637083;
-            --line: #d9e0df;
+            --ink: #172033;
+            --muted: #667085;
+            --line: #d8e0ea;
             --surface: #ffffff;
-            --page: #f4f6f2;
-            --green: #1f5c4d;
-            --blue: #295d8f;
-            --red: #a33a3a;
-            --gold: #9a6b16;
+            --surface-soft: #fff8ec;
+            --page: #f7f4ed;
+            --green: #168a5f;
+            --blue: #2563eb;
+            --red: #df3f58;
+            --gold: #d98b13;
+            --violet: #7c3aed;
+            --cyan: #0891b2;
+            --shadow: 0 1rem 2.8rem rgb(23 32 51 / 10%);
           }}
 
           * {{
@@ -280,8 +284,10 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             margin: 0;
             min-height: 100vh;
             background:
-              linear-gradient(135deg, rgb(31 92 77 / 8%), transparent 28rem),
-              linear-gradient(315deg, rgb(41 93 143 / 8%), transparent 24rem),
+              linear-gradient(120deg, rgb(37 99 235 / 13%), transparent 26rem),
+              linear-gradient(245deg, rgb(22 138 95 / 14%), transparent 28rem),
+              linear-gradient(0deg, rgb(217 139 19 / 10%), transparent 18rem),
+              repeating-linear-gradient(90deg, rgb(255 255 255 / 38%) 0 1px, transparent 1px 5rem),
               var(--page);
             color: var(--ink);
           }}
@@ -306,10 +312,21 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             grid-template-columns: auto 1fr auto;
             gap: 1rem;
             align-items: center;
-            padding: 0.85rem clamp(1rem, 3vw, 2.5rem);
+            padding: 1rem clamp(1rem, 3vw, 2.5rem);
             border-bottom: 1px solid var(--line);
-            background: rgb(244 246 242 / 92%);
-            backdrop-filter: blur(14px);
+            background: rgb(255 255 255 / 88%);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 0.4rem 1.6rem rgb(23 32 51 / 8%);
+          }}
+
+          .topbar::before {{
+            position: absolute;
+            top: 0;
+            right: 0;
+            left: 0;
+            height: 0.28rem;
+            content: "";
+            background: linear-gradient(90deg, var(--blue), var(--green), var(--gold), var(--red), var(--violet));
           }}
 
           .brand {{
@@ -317,36 +334,49 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             align-items: center;
             gap: 0.65rem;
             font-weight: 850;
+            letter-spacing: 0;
           }}
 
           .brand-mark {{
             display: grid;
-            width: 2.25rem;
-            height: 2.25rem;
+            width: 2.55rem;
+            height: 2.55rem;
             place-items: center;
             border-radius: 0.45rem;
-            background: var(--ink);
+            background: linear-gradient(135deg, var(--blue), var(--green) 55%, var(--gold));
             color: #fff;
+            box-shadow: 0 0.7rem 1.4rem rgb(37 99 235 / 24%);
           }}
 
           .nav {{
             display: flex;
-            gap: 0.35rem;
+            gap: 0.45rem;
             justify-content: center;
             overflow-x: auto;
+            padding: 0.2rem;
           }}
 
           .nav a {{
             flex: 0 0 auto;
             border-radius: 0.45rem;
-            padding: 0.65rem 0.85rem;
+            padding: 0.7rem 0.9rem;
+            background: rgb(255 255 255 / 62%);
             color: var(--muted);
             font-weight: 700;
+            box-shadow: inset 0 0 0 1px rgb(216 224 234 / 75%);
+            transition: color 150ms ease, background 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+          }}
+
+          .nav a:hover {{
+            color: var(--ink);
+            transform: translateY(-1px);
+            box-shadow: inset 0 0 0 1px rgb(37 99 235 / 32%), 0 0.45rem 1rem rgb(23 32 51 / 8%);
           }}
 
           .nav a.is-active {{
-            background: var(--ink);
+            background: linear-gradient(135deg, var(--ink), #31436a);
             color: #fff;
+            box-shadow: 0 0.65rem 1.4rem rgb(23 32 51 / 18%);
           }}
 
           .update-form {{
@@ -364,31 +394,44 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             border: 0;
             border-radius: 0.5rem;
             padding: 0.72rem 0.95rem;
-            background: var(--green);
+            background: linear-gradient(135deg, var(--green), #11a87b);
             color: #ffffff;
             font-weight: 800;
             cursor: pointer;
+            box-shadow: 0 0.7rem 1.4rem rgb(22 138 95 / 22%);
+            transition: transform 150ms ease, filter 150ms ease, box-shadow 150ms ease;
+          }}
+
+          .button:hover,
+          .update-button:hover {{
+            filter: saturate(1.08) brightness(1.02);
+            transform: translateY(-1px);
           }}
 
           .button.secondary {{
-            background: #e7ecea;
+            background: #eef4f0;
             color: var(--ink);
+            box-shadow: inset 0 0 0 1px rgb(22 138 95 / 16%);
           }}
 
           .button.blue {{
-            background: var(--blue);
+            background: linear-gradient(135deg, var(--blue), var(--cyan));
+            box-shadow: 0 0.7rem 1.4rem rgb(37 99 235 / 22%);
           }}
 
           .button.red {{
-            background: var(--red);
+            background: linear-gradient(135deg, var(--red), #fb7185);
+            box-shadow: 0 0.7rem 1.4rem rgb(223 63 88 / 22%);
           }}
 
           .button.disco {{
-            background: #7a3fc8;
+            background: linear-gradient(135deg, var(--violet), #ec4899);
+            box-shadow: 0 0.7rem 1.4rem rgb(124 58 237 / 22%);
           }}
 
           .button.disco-stop {{
-            background: #31414f;
+            background: linear-gradient(135deg, #31414f, #64748b);
+            box-shadow: 0 0.7rem 1.4rem rgb(49 65 79 / 18%);
           }}
 
           .button:disabled,
@@ -398,17 +441,72 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           }}
 
           .page {{
-            width: min(1180px, calc(100vw - 2rem));
+            width: min(1220px, calc(100vw - 2rem));
             margin: 0 auto;
-            padding: 1.35rem 0 3rem;
+            padding: 1.5rem 0 3.25rem;
           }}
 
           .page-heading {{
+            position: relative;
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
             gap: 1rem;
             align-items: end;
-            margin: 0.4rem 0 1rem;
+            margin: 0.35rem 0 1.15rem;
+            padding: 1.1rem 0 0.2rem;
+          }}
+
+          .page-heading::after {{
+            position: absolute;
+            bottom: -0.35rem;
+            left: 0;
+            width: min(18rem, 48vw);
+            height: 0.32rem;
+            border-radius: 999px;
+            content: "";
+            background: linear-gradient(90deg, var(--blue), var(--green), var(--gold), var(--red));
+          }}
+
+          .quick-actions {{
+            display: flex;
+            max-width: 35rem;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            justify-content: flex-end;
+          }}
+
+          .quick-link {{
+            display: inline-flex;
+            min-height: 2.65rem;
+            align-items: center;
+            border-radius: 0.5rem;
+            padding: 0.65rem 0.8rem;
+            background: rgb(255 255 255 / 82%);
+            color: var(--ink);
+            font-weight: 850;
+            box-shadow: inset 0 0 0 1px rgb(216 224 234 / 82%), 0 0.55rem 1.25rem rgb(23 32 51 / 8%);
+            transition: transform 150ms ease, box-shadow 150ms ease;
+          }}
+
+          .quick-link:hover {{
+            transform: translateY(-1px);
+            box-shadow: inset 0 0 0 1px rgb(37 99 235 / 24%), 0 0.8rem 1.5rem rgb(23 32 51 / 12%);
+          }}
+
+          .quick-link.blue {{
+            color: var(--blue);
+          }}
+
+          .quick-link.green {{
+            color: var(--green);
+          }}
+
+          .quick-link.red {{
+            color: var(--red);
+          }}
+
+          .quick-link.gold {{
+            color: var(--gold);
           }}
 
           .eyebrow {{
@@ -429,14 +527,14 @@ def render_layout(active_path: str, title: str, body: str) -> str:
 
           h1 {{
             margin-bottom: 0;
-            font-size: clamp(2.4rem, 6vw, 5.25rem);
-            line-height: 0.95;
+            font-size: 4rem;
+            line-height: 1;
             letter-spacing: 0;
           }}
 
           h2 {{
             margin-bottom: 0.8rem;
-            font-size: 1.25rem;
+            font-size: 1.35rem;
             letter-spacing: 0;
           }}
 
@@ -472,22 +570,82 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           .card,
           .stat-card,
           .level-meter {{
-            border: 1px solid var(--line);
+            border: 1px solid rgb(216 224 234 / 88%);
             border-radius: 0.5rem;
-            background: rgb(255 255 255 / 88%);
-            box-shadow: 0 0.9rem 2.5rem rgb(23 33 43 / 8%);
+            background: rgb(255 255 255 / 90%);
+            box-shadow: var(--shadow);
           }}
 
           .panel {{
-            padding: 1rem;
+            position: relative;
+            overflow: hidden;
+            padding: 1.05rem;
+          }}
+
+          .panel::before {{
+            display: block;
+            height: 0.25rem;
+            margin: -1.05rem -1.05rem 1rem;
+            content: "";
+            background: linear-gradient(90deg, var(--blue), var(--green), var(--gold));
           }}
 
           .card {{
-            padding: 0.95rem;
+            position: relative;
+            padding: 0.98rem;
+            transition: transform 150ms ease, box-shadow 150ms ease;
+          }}
+
+          .card:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 1.1rem 2.4rem rgb(23 32 51 / 13%);
+          }}
+
+          .card.area-endurance,
+          .level-meter.area-endurance {{
+            background: linear-gradient(135deg, #ffffff, #eef6ff);
+            border-color: rgb(37 99 235 / 24%);
+          }}
+
+          .card.area-strength,
+          .level-meter.area-strength {{
+            background: linear-gradient(135deg, #ffffff, #fff1f3);
+            border-color: rgb(223 63 88 / 24%);
+          }}
+
+          .card.area-nutrition,
+          .level-meter.area-nutrition {{
+            background: linear-gradient(135deg, #ffffff, #eefcf5);
+            border-color: rgb(22 138 95 / 24%);
+          }}
+
+          .card.area-team,
+          .level-meter.area-team {{
+            background: linear-gradient(135deg, #ffffff, #fff8e8);
+            border-color: rgb(217 139 19 / 28%);
           }}
 
           .stat-card {{
+            position: relative;
+            overflow: hidden;
             padding: 1rem;
+            background: linear-gradient(135deg, #ffffff 0%, var(--surface-soft) 100%);
+          }}
+
+          .stat-card::before {{
+            display: block;
+            height: 0.28rem;
+            margin: -1rem -1rem 0.85rem;
+            content: "";
+            background: linear-gradient(90deg, var(--blue), var(--green));
+          }}
+
+          .stat-card:nth-child(2n)::before {{
+            background: linear-gradient(90deg, var(--green), var(--gold));
+          }}
+
+          .stat-card:nth-child(3n)::before {{
+            background: linear-gradient(90deg, var(--red), var(--violet));
           }}
 
           .stat-card strong {{
@@ -507,6 +665,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             display: grid;
             gap: 0.65rem;
             padding: 1rem;
+            background: linear-gradient(135deg, #ffffff, #f8fbff);
           }}
 
           .level-meter > div {{
@@ -522,17 +681,17 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           }}
 
           .progress {{
-            height: 0.65rem;
+            height: 0.72rem;
             overflow: hidden;
             border-radius: 999px;
-            background: #e3e8e5;
+            background: #e7edf3;
           }}
 
           .progress span {{
             display: block;
             height: 100%;
             border-radius: inherit;
-            background: var(--green);
+            background: linear-gradient(90deg, var(--green), var(--cyan));
           }}
 
           .area-endurance .progress span,
@@ -564,6 +723,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             color: #fff;
             font-size: 0.78rem;
             font-weight: 850;
+            box-shadow: 0 0.45rem 0.9rem rgb(23 32 51 / 12%);
           }}
 
           .recommendation {{
@@ -617,6 +777,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             gap: 0.75rem;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
           }}
 
           .member-rank {{
@@ -641,6 +802,21 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             background: #eef2f0;
             color: var(--muted);
             font-weight: 850;
+          }}
+
+          .member-rank:nth-child(1) .rank-number {{
+            background: var(--gold);
+            color: #fff;
+          }}
+
+          .member-rank:nth-child(2) .rank-number {{
+            background: var(--blue);
+            color: #fff;
+          }}
+
+          .member-rank:nth-child(3) .rank-number {{
+            background: var(--green);
+            color: #fff;
           }}
 
           .form-grid {{
@@ -668,8 +844,16 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             border: 1px solid var(--line);
             border-radius: 0.45rem;
             padding: 0.72rem 0.75rem;
-            background: #fff;
+            background: rgb(255 255 255 / 94%);
             color: var(--ink);
+            box-shadow: inset 0 1px 0 rgb(255 255 255 / 80%);
+          }}
+
+          input:focus,
+          select:focus,
+          textarea:focus {{
+            border-color: var(--blue);
+            outline: 3px solid rgb(37 99 235 / 16%);
           }}
 
           textarea {{
@@ -679,7 +863,9 @@ def render_layout(active_path: str, title: str, body: str) -> str:
 
           table {{
             width: 100%;
+            overflow: hidden;
             border-collapse: collapse;
+            border-radius: 0.5rem;
           }}
 
           th,
@@ -691,9 +877,14 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           }}
 
           th {{
+            background: #f2f6fb;
             color: var(--muted);
             font-size: 0.78rem;
             text-transform: uppercase;
+          }}
+
+          tbody tr:nth-child(even) {{
+            background: rgb(247 250 252 / 72%);
           }}
 
           .photo-grid {{
@@ -793,6 +984,14 @@ def render_layout(active_path: str, title: str, body: str) -> str:
 
             .nav {{
               justify-content: start;
+            }}
+
+            .quick-actions {{
+              justify-content: flex-start;
+            }}
+
+            h1 {{
+              font-size: 2.55rem;
             }}
 
             .grid.two,
@@ -1311,7 +1510,12 @@ def dashboard() -> str:
           <p class="eyebrow">Team Dashboard</p>
           <h1>Hallo Bea</h1>
         </div>
-        <p class="subtle">Gemeinsame Fortschritte, Level und Aufgaben auf einen Blick.</p>
+        <div class="quick-actions" aria-label="Schnellaktionen">
+          <a class="quick-link blue" href="/sport">Sport erfassen</a>
+          <a class="quick-link green" href="/nahrung">Mahlzeit tracken</a>
+          <a class="quick-link gold" href="/challenges">Challenge ansehen</a>
+          <a class="quick-link red" href="/fotos">Fotovergleich</a>
+        </div>
       </section>
 
       {plan_hint}
