@@ -291,14 +291,37 @@ RPG_TITLES = [
 
 AVATAR_DEFAULTS = {
     "height_cm": 170,
+    "weight_kg": 70,
+    "neck_cm": 36,
     "shoulder_width": 100,
+    "chest_cm": 96,
     "waist_width": 92,
     "hip_width": 98,
+    "thigh_left_cm": 56,
+    "thigh_right_cm": 56,
     "muscle": 45,
     "body_fat": 35,
+    "hair_style": "short",
+    "clothing_style": "training",
     "skin_color": "#d59f7a",
     "hair_color": "#2f241f",
     "outfit_color": "#2563eb",
+}
+
+AVATAR_HAIR_STYLES = {
+    "short": "Kurz",
+    "bob": "Bob",
+    "long": "Lang",
+    "curly": "Lockig",
+    "bun": "Dutt",
+}
+
+AVATAR_CLOTHING_STYLES = {
+    "training": "Trainingsshirt",
+    "hoodie": "Hoodie",
+    "tank": "Tanktop",
+    "jacket": "Sportjacke",
+    "dress": "Kleid",
 }
 
 DEFAULT_STATE = {
@@ -1485,21 +1508,37 @@ def clean_hex_color(value: object, default: str) -> str:
     return clean
 
 
+def calculate_avatar_bmi(profile: dict) -> float | None:
+    try:
+        height_m = float(profile.get("height_cm", 0)) / 100
+        weight = float(profile.get("weight_kg", 0))
+    except (TypeError, ValueError):
+        return None
+    if height_m <= 0 or weight <= 0:
+        return None
+    return round(weight / (height_m * height_m), 1)
+
+
 def avatar_body_label(profile: dict) -> str:
     muscle = int(profile.get("muscle", 45))
     body_fat = int(profile.get("body_fat", 35))
     waist = int(profile.get("waist_width", 92))
     hips = int(profile.get("hip_width", 98))
+    chest = int(profile.get("chest_cm", 96))
+    shoulders = int(profile.get("shoulder_width", 100))
+    bmi = calculate_avatar_bmi(profile)
 
     if muscle >= 70 and body_fat <= 45:
         return "athletisch"
     if muscle >= 70:
         return "kraftvoll"
+    if shoulders >= 112 and chest >= 104:
+        return "breit"
     if hips - waist >= 16:
         return "kurvig"
-    if body_fat <= 30 and waist <= 88:
+    if body_fat <= 30 and waist <= 88 and (bmi is None or bmi < 25):
         return "schlank"
-    if body_fat >= 60:
+    if body_fat >= 60 or (bmi is not None and bmi >= 30):
         return "weich"
     return "ausgeglichen"
 
@@ -1514,6 +1553,7 @@ def avatar_profile_for_member(state: dict, member_id: str) -> dict:
     profile.update(stored)
     profile["member_id"] = member_id
     profile["name"] = member["name"]
+    profile["bmi"] = calculate_avatar_bmi(profile)
     profile["body_label"] = avatar_body_label(profile)
     profile.setdefault("front_photo_id", "")
     profile.setdefault("side_photo_id", "")
@@ -1529,20 +1569,31 @@ def save_avatar_profile(state: dict, payload: dict, photo_ids: dict[str, str] | 
 
     existing = state.setdefault("avatars", {}).get(member_id, {})
     photo_ids = photo_ids or {}
-    has_new_photo = bool(photo_ids.get("front_photo_id") or photo_ids.get("side_photo_id"))
-    if not existing and not has_new_photo:
-        raise ValueError("Bitte mindestens ein Ganzkoerperbild fuer den Avatar hochladen.")
+
+    hair_style = str(payload.get("hair_style") or existing.get("hair_style") or AVATAR_DEFAULTS["hair_style"])
+    clothing_style = str(payload.get("clothing_style") or existing.get("clothing_style") or AVATAR_DEFAULTS["clothing_style"])
+    if hair_style not in AVATAR_HAIR_STYLES:
+        raise ValueError("Frisur wurde nicht gefunden.")
+    if clothing_style not in AVATAR_CLOTHING_STYLES:
+        raise ValueError("Kleidung wurde nicht gefunden.")
 
     profile = copy.deepcopy(existing) if existing else {}
     profile.update(
         {
             "member_id": member_id,
             "height_cm": clamp(as_int(payload, "height_cm", int(existing.get("height_cm", AVATAR_DEFAULTS["height_cm"]))), 120, 230),
+            "weight_kg": clamp(as_int(payload, "weight_kg", int(existing.get("weight_kg", AVATAR_DEFAULTS["weight_kg"]))), 35, 250),
+            "neck_cm": clamp(as_int(payload, "neck_cm", int(existing.get("neck_cm", AVATAR_DEFAULTS["neck_cm"]))), 25, 60),
             "shoulder_width": clamp(as_int(payload, "shoulder_width", int(existing.get("shoulder_width", AVATAR_DEFAULTS["shoulder_width"]))), 60, 140),
+            "chest_cm": clamp(as_int(payload, "chest_cm", int(existing.get("chest_cm", AVATAR_DEFAULTS["chest_cm"]))), 60, 180),
             "waist_width": clamp(as_int(payload, "waist_width", int(existing.get("waist_width", AVATAR_DEFAULTS["waist_width"]))), 55, 150),
             "hip_width": clamp(as_int(payload, "hip_width", int(existing.get("hip_width", AVATAR_DEFAULTS["hip_width"]))), 60, 150),
+            "thigh_left_cm": clamp(as_int(payload, "thigh_left_cm", int(existing.get("thigh_left_cm", AVATAR_DEFAULTS["thigh_left_cm"]))), 35, 100),
+            "thigh_right_cm": clamp(as_int(payload, "thigh_right_cm", int(existing.get("thigh_right_cm", AVATAR_DEFAULTS["thigh_right_cm"]))), 35, 100),
             "muscle": clamp(as_int(payload, "muscle", int(existing.get("muscle", AVATAR_DEFAULTS["muscle"]))), 0, 100),
             "body_fat": clamp(as_int(payload, "body_fat", int(existing.get("body_fat", AVATAR_DEFAULTS["body_fat"]))), 0, 100),
+            "hair_style": hair_style,
+            "clothing_style": clothing_style,
             "skin_color": clean_hex_color(payload.get("skin_color"), str(existing.get("skin_color", AVATAR_DEFAULTS["skin_color"]))),
             "hair_color": clean_hex_color(payload.get("hair_color"), str(existing.get("hair_color", AVATAR_DEFAULTS["hair_color"]))),
             "outfit_color": clean_hex_color(payload.get("outfit_color"), str(existing.get("outfit_color", AVATAR_DEFAULTS["outfit_color"]))),
@@ -1562,6 +1613,7 @@ def save_avatar_profile(state: dict, payload: dict, photo_ids: dict[str, str] | 
     if profile.get("side_photo_id"):
         references.append("Seite")
     profile["calibration"] = " + ".join(references) if references else "Manuell"
+    profile["bmi"] = calculate_avatar_bmi(profile)
     profile["body_label"] = avatar_body_label(profile)
 
     state.setdefault("avatars", {})[member_id] = profile

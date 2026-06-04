@@ -70,6 +70,8 @@ from app.state import create_group
 from app.state import create_personal_plan
 from app.state import ensure_rpg_state
 from app.state import avatar_profile_for_member
+from app.state import AVATAR_CLOTHING_STYLES
+from app.state import AVATAR_HAIR_STYLES
 from app.state import food_items
 from app.state import group_name
 from app.state import groups
@@ -1581,6 +1583,21 @@ def render_layout(active_path: str, title: str, body: str) -> str:
 
           const avatarForm = document.querySelector("#avatar-form");
           if (avatarForm) {{
+            const heightInput = avatarForm.querySelector("#avatar-height");
+            const weightInput = avatarForm.querySelector("#avatar-weight");
+            const bmiOutput = avatarForm.querySelector("#avatar-bmi");
+            const syncAvatarBmi = () => {{
+              const height = Number(heightInput?.value || 0) / 100;
+              const weight = Number(weightInput?.value || 0);
+              if (!bmiOutput || height <= 0 || weight <= 0) {{
+                return;
+              }}
+              bmiOutput.value = (weight / (height * height)).toFixed(1);
+            }};
+            heightInput?.addEventListener("input", syncAvatarBmi);
+            weightInput?.addEventListener("input", syncAvatarBmi);
+            syncAvatarBmi();
+
             avatarForm.addEventListener("submit", async (event) => {{
               event.preventDefault();
               const button = avatarForm.querySelector("button[type='submit']");
@@ -1926,58 +1943,150 @@ def render_character_cards(state: dict) -> str:
 
 def render_avatar_svg(profile: dict) -> str:
     height_cm = int(profile.get("height_cm", 170))
+    weight_kg = int(profile.get("weight_kg", 70))
+    neck_cm = int(profile.get("neck_cm", 36))
     shoulders = int(profile.get("shoulder_width", 100))
+    chest = int(profile.get("chest_cm", 96))
     waist = int(profile.get("waist_width", 92))
     hips = int(profile.get("hip_width", 98))
+    thigh_left = int(profile.get("thigh_left_cm", 56))
+    thigh_right = int(profile.get("thigh_right_cm", 56))
     muscle = int(profile.get("muscle", 45))
     body_fat = int(profile.get("body_fat", 35))
+    hair_style = str(profile.get("hair_style", "short"))
+    clothing_style = str(profile.get("clothing_style", "training"))
 
-    shoulder_width = 72 + (shoulders - 100) * 0.45 + muscle * 0.12
-    waist_width = 50 + (waist - 92) * 0.42 + body_fat * 0.18
-    hip_width = 64 + (hips - 98) * 0.42 + body_fat * 0.12
-    arm_width = 10 + muscle * 0.08 + body_fat * 0.03
-    leg_width = 15 + muscle * 0.05 + body_fat * 0.06
+    shoulder_width = max(58, min(96, 72 + (shoulders - 100) * 0.42 + muscle * 0.08))
+    chest_width = max(46, min(90, 58 + (chest - 96) * 0.34 + muscle * 0.08))
+    waist_width = max(38, min(82, 46 + (waist - 92) * 0.34 + body_fat * 0.10))
+    hip_width = max(48, min(92, 58 + (hips - 98) * 0.36 + body_fat * 0.08))
+    neck_width = max(12, min(24, 15 + (neck_cm - 36) * 0.25))
+    arm_width = max(7, min(15, 9 + muscle * 0.06 + body_fat * 0.02))
+    left_leg_width = max(12, min(24, 15 + (thigh_left - 56) * 0.20 + muscle * 0.03 + body_fat * 0.02))
+    right_leg_width = max(12, min(24, 15 + (thigh_right - 56) * 0.20 + muscle * 0.03 + body_fat * 0.02))
     height_shift = max(-14, min(22, (height_cm - 170) * 0.22))
+    shoe_color = "#263241"
 
     center = 100
-    torso_top = 78
-    waist_y = 136 + height_shift * 0.2
-    hip_y = 176 + height_shift * 0.35
-    knee_y = 236 + height_shift * 0.65
-    foot_y = 296 + height_shift
+    torso_top = 86
+    chest_y = 104
+    waist_y = 142 + height_shift * 0.18
+    hip_y = 181 + height_shift * 0.35
+    knee_y = 239 + height_shift * 0.62
+    foot_y = 298 + height_shift
 
     skin = h(profile.get("skin_color", "#d59f7a"))
     hair = h(profile.get("hair_color", "#2f241f"))
     outfit = h(profile.get("outfit_color", "#2563eb"))
+    shade = "rgb(23 32 51 / 14%)"
+
+    hair_map = {
+        "short": f"""
+          <path d="M78 56 C80 36 116 31 123 55 C112 45 91 45 78 56 Z" fill="{hair}"></path>
+          <path d="M80 50 C83 38 96 32 106 35 C97 37 90 43 86 54 Z" fill="rgb(255 255 255 / 16%)"></path>
+        """,
+        "bob": f"""
+          <path d="M75 55 C76 35 122 34 125 56 L121 84 C111 78 89 78 79 84 Z" fill="{hair}"></path>
+          <path d="M79 54 C86 43 112 42 121 55 C111 48 91 48 79 54 Z" fill="rgb(255 255 255 / 14%)"></path>
+        """,
+        "long": f"""
+          <path d="M74 55 C76 34 124 34 126 56 C130 86 122 112 111 126 C110 104 89 104 88 126 C78 112 70 86 74 55 Z" fill="{hair}"></path>
+          <path d="M80 53 C88 42 114 42 122 55 C112 48 91 48 80 53 Z" fill="rgb(255 255 255 / 14%)"></path>
+        """,
+        "curly": f"""
+          <circle cx="79" cy="55" r="9" fill="{hair}"></circle>
+          <circle cx="87" cy="43" r="10" fill="{hair}"></circle>
+          <circle cx="100" cy="38" r="11" fill="{hair}"></circle>
+          <circle cx="113" cy="43" r="10" fill="{hair}"></circle>
+          <circle cx="122" cy="56" r="9" fill="{hair}"></circle>
+          <path d="M78 59 C88 47 112 47 123 59 L121 78 C112 70 89 70 80 78 Z" fill="{hair}"></path>
+        """,
+        "bun": f"""
+          <circle cx="100" cy="31" r="12" fill="{hair}"></circle>
+          <path d="M77 56 C80 37 120 37 123 56 C111 46 90 46 77 56 Z" fill="{hair}"></path>
+        """,
+    }
+    hair_svg = hair_map.get(hair_style, hair_map["short"])
+
+    torso_path = f"""
+      M {center - shoulder_width / 2:.1f} {torso_top:.1f}
+      C {center - chest_width / 2:.1f} {chest_y - 8:.1f}, {center - chest_width / 2:.1f} {chest_y + 10:.1f}, {center - waist_width / 2:.1f} {waist_y:.1f}
+      L {center - hip_width / 2:.1f} {hip_y:.1f}
+      L {center + hip_width / 2:.1f} {hip_y:.1f}
+      L {center + waist_width / 2:.1f} {waist_y:.1f}
+      C {center + chest_width / 2:.1f} {chest_y + 10:.1f}, {center + chest_width / 2:.1f} {chest_y - 8:.1f}, {center + shoulder_width / 2:.1f} {torso_top:.1f}
+      Z
+    """
+    dress_path = f"""
+      M {center - shoulder_width / 2:.1f} {torso_top:.1f}
+      C {center - chest_width / 2:.1f} {chest_y:.1f}, {center - waist_width / 2:.1f} {waist_y:.1f}, {center - hip_width / 2 - 7:.1f} {knee_y - 10:.1f}
+      L {center + hip_width / 2 + 7:.1f} {knee_y - 10:.1f}
+      C {center + waist_width / 2:.1f} {waist_y:.1f}, {center + chest_width / 2:.1f} {chest_y:.1f}, {center + shoulder_width / 2:.1f} {torso_top:.1f}
+      Z
+    """
+
+    clothing_map = {
+        "training": f"""
+          <path d="{torso_path}" fill="{outfit}"></path>
+          <path d="M{center - 17} {torso_top + 6} L{center} {torso_top + 28} L{center + 17} {torso_top + 6}" fill="none" stroke="rgb(255 255 255 / 34%)" stroke-width="3" stroke-linecap="round"></path>
+          <rect x="{center - hip_width / 2:.1f}" y="{hip_y - 2:.1f}" width="{hip_width:.1f}" height="19" rx="7" fill="{outfit}" opacity="0.88"></rect>
+        """,
+        "hoodie": f"""
+          <path d="{torso_path}" fill="{outfit}"></path>
+          <path d="M{center - 25} 88 C{center - 15} 73 {center + 15} 73 {center + 25} 88" fill="none" stroke="rgb(255 255 255 / 46%)" stroke-width="5" stroke-linecap="round"></path>
+          <rect x="{center - 19}" y="{waist_y - 13:.1f}" width="38" height="18" rx="8" fill="rgb(255 255 255 / 18%)"></rect>
+        """,
+        "tank": f"""
+          <path d="{torso_path}" fill="{outfit}"></path>
+          <path d="M{center - 24} {torso_top:.1f} C{center - 12} {torso_top + 18:.1f} {center + 12} {torso_top + 18:.1f} {center + 24} {torso_top:.1f}" fill="{skin}"></path>
+          <path d="M{center - 19} {torso_top:.1f} L{center - 8} {chest_y + 7:.1f} M{center + 19} {torso_top:.1f} L{center + 8} {chest_y + 7:.1f}" stroke="rgb(255 255 255 / 42%)" stroke-width="4" stroke-linecap="round"></path>
+        """,
+        "jacket": f"""
+          <path d="{torso_path}" fill="{outfit}"></path>
+          <path d="M{center} {torso_top + 4:.1f} L{center} {hip_y - 2:.1f}" stroke="rgb(255 255 255 / 58%)" stroke-width="3"></path>
+          <path d="M{center - 28} {torso_top + 8:.1f} C{center - 12} {chest_y + 6:.1f} {center - 10} {waist_y:.1f} {center - 18} {hip_y - 4:.1f}" fill="none" stroke="rgb(255 255 255 / 28%)" stroke-width="4"></path>
+          <path d="M{center + 28} {torso_top + 8:.1f} C{center + 12} {chest_y + 6:.1f} {center + 10} {waist_y:.1f} {center + 18} {hip_y - 4:.1f}" fill="none" stroke="rgb(255 255 255 / 28%)" stroke-width="4"></path>
+        """,
+        "dress": f"""
+          <path d="{dress_path}" fill="{outfit}"></path>
+          <path d="M{center - 19} {torso_top + 2:.1f} C{center - 7} {chest_y + 6:.1f} {center + 7} {chest_y + 6:.1f} {center + 19} {torso_top + 2:.1f}" fill="none" stroke="rgb(255 255 255 / 36%)" stroke-width="4" stroke-linecap="round"></path>
+        """,
+    }
+    clothing_svg = clothing_map.get(clothing_style, clothing_map["training"])
 
     return f"""
       <svg class="avatar-svg" viewBox="0 0 200 320" role="img" aria-label="Avatar von {h(profile.get("name", "Mitglied"))}">
         <ellipse cx="100" cy="304" rx="52" ry="8" fill="rgb(23 32 51 / 16%)"></ellipse>
-        <path d="M78 73 C80 51 91 39 100 39 C116 39 124 52 122 73 C113 65 94 63 78 73 Z" fill="{hair}"></path>
+        <path d="M{center - shoulder_width / 2:.1f} 92 C53 119 50 156 58 191" fill="none" stroke="{shade}" stroke-width="{arm_width + 2:.1f}" stroke-linecap="round"></path>
+        <path d="M{center + shoulder_width / 2:.1f} 92 C147 119 150 156 142 191" fill="none" stroke="{shade}" stroke-width="{arm_width + 2:.1f}" stroke-linecap="round"></path>
+        <rect x="{center - hip_width / 2:.1f}" y="{hip_y - 3:.1f}" width="{hip_width:.1f}" height="20" rx="8" fill="{shade}"></rect>
+        {hair_svg}
         <circle cx="100" cy="58" r="22" fill="{skin}"></circle>
-        <path d="M78 55 C83 35 113 30 123 52 C112 45 94 44 78 55 Z" fill="{hair}"></path>
-        <rect x="91" y="76" width="18" height="18" rx="6" fill="{skin}"></rect>
-        <path d="
-          M {center - shoulder_width / 2:.1f} {torso_top:.1f}
-          C {center - shoulder_width / 2 - 4:.1f} {waist_y - 36:.1f}, {center - waist_width / 2:.1f} {waist_y - 14:.1f}, {center - waist_width / 2:.1f} {waist_y:.1f}
-          L {center - hip_width / 2:.1f} {hip_y:.1f}
-          L {center + hip_width / 2:.1f} {hip_y:.1f}
-          L {center + waist_width / 2:.1f} {waist_y:.1f}
-          C {center + waist_width / 2:.1f} {waist_y - 14:.1f}, {center + shoulder_width / 2 + 4:.1f} {waist_y - 36:.1f}, {center + shoulder_width / 2:.1f} {torso_top:.1f}
-          Z" fill="{outfit}"></path>
-        <path d="M{center - shoulder_width / 2:.1f} 86 C50 116 48 154 57 190" fill="none" stroke="{skin}" stroke-width="{arm_width:.1f}" stroke-linecap="round"></path>
-        <path d="M{center + shoulder_width / 2:.1f} 86 C150 116 152 154 143 190" fill="none" stroke="{skin}" stroke-width="{arm_width:.1f}" stroke-linecap="round"></path>
-        <rect x="{center - hip_width / 4 - leg_width:.1f}" y="{hip_y - 2:.1f}" width="{leg_width * 1.35:.1f}" height="{knee_y - hip_y + 8:.1f}" rx="9" fill="{outfit}"></rect>
-        <rect x="{center + hip_width / 4 - leg_width * 0.35:.1f}" y="{hip_y - 2:.1f}" width="{leg_width * 1.35:.1f}" height="{knee_y - hip_y + 8:.1f}" rx="9" fill="{outfit}"></rect>
-        <rect x="{center - hip_width / 4 - leg_width * 0.82:.1f}" y="{knee_y:.1f}" width="{leg_width:.1f}" height="{foot_y - knee_y:.1f}" rx="8" fill="{skin}"></rect>
-        <rect x="{center + hip_width / 4 - leg_width * 0.18:.1f}" y="{knee_y:.1f}" width="{leg_width:.1f}" height="{foot_y - knee_y:.1f}" rx="8" fill="{skin}"></rect>
-        <ellipse cx="{center - hip_width / 4 - leg_width * 0.28:.1f}" cy="{foot_y + 3:.1f}" rx="13" ry="5" fill="{hair}"></ellipse>
-        <ellipse cx="{center + hip_width / 4 + leg_width * 0.32:.1f}" cy="{foot_y + 3:.1f}" rx="13" ry="5" fill="{hair}"></ellipse>
+        <circle cx="91" cy="58" r="2" fill="#172033"></circle>
+        <circle cx="109" cy="58" r="2" fill="#172033"></circle>
+        <path d="M100 62 C98 66 98 68 102 68" fill="none" stroke="rgb(23 32 51 / 40%)" stroke-width="1.4" stroke-linecap="round"></path>
+        <path d="M91 72 C96 76 104 76 109 72" fill="none" stroke="rgb(23 32 51 / 46%)" stroke-width="1.6" stroke-linecap="round"></path>
+        <rect x="{center - neck_width / 2:.1f}" y="76" width="{neck_width:.1f}" height="18" rx="6" fill="{skin}"></rect>
+        <path d="M{center - shoulder_width / 2:.1f} 92 C50 120 49 155 57 190" fill="none" stroke="{skin}" stroke-width="{arm_width:.1f}" stroke-linecap="round"></path>
+        <path d="M{center + shoulder_width / 2:.1f} 92 C150 120 151 155 143 190" fill="none" stroke="{skin}" stroke-width="{arm_width:.1f}" stroke-linecap="round"></path>
+        <circle cx="57" cy="191" r="{arm_width / 1.5:.1f}" fill="{skin}"></circle>
+        <circle cx="143" cy="191" r="{arm_width / 1.5:.1f}" fill="{skin}"></circle>
+        {clothing_svg}
+        <rect x="{center - hip_width / 4 - left_leg_width:.1f}" y="{hip_y + 4:.1f}" width="{left_leg_width * 1.28:.1f}" height="{knee_y - hip_y + 8:.1f}" rx="10" fill="{outfit}" opacity="0.92"></rect>
+        <rect x="{center + hip_width / 4 - right_leg_width * 0.28:.1f}" y="{hip_y + 4:.1f}" width="{right_leg_width * 1.28:.1f}" height="{knee_y - hip_y + 8:.1f}" rx="10" fill="{outfit}" opacity="0.92"></rect>
+        <rect x="{center - hip_width / 4 - left_leg_width * 0.84:.1f}" y="{knee_y:.1f}" width="{left_leg_width:.1f}" height="{foot_y - knee_y:.1f}" rx="8" fill="{skin}"></rect>
+        <rect x="{center + hip_width / 4 - right_leg_width * 0.16:.1f}" y="{knee_y:.1f}" width="{right_leg_width:.1f}" height="{foot_y - knee_y:.1f}" rx="8" fill="{skin}"></rect>
+        <ellipse cx="{center - hip_width / 4 - left_leg_width * 0.30:.1f}" cy="{foot_y + 3:.1f}" rx="13" ry="5" fill="{shoe_color}"></ellipse>
+        <ellipse cx="{center + hip_width / 4 + right_leg_width * 0.34:.1f}" cy="{foot_y + 3:.1f}" rx="13" ry="5" fill="{shoe_color}"></ellipse>
+        <text x="100" y="315" text-anchor="middle" fill="rgb(23 32 51 / 58%)" font-size="8" font-weight="700">{h(weight_kg)} kg - BMI {h(profile.get("bmi") or "-")}</text>
       </svg>
     """
 
 
 def render_avatar_card(profile: dict) -> str:
+    hair_label = AVATAR_HAIR_STYLES.get(str(profile.get("hair_style", "short")), "Kurz")
+    clothing_label = AVATAR_CLOTHING_STYLES.get(str(profile.get("clothing_style", "training")), "Trainingsshirt")
+    bmi = profile.get("bmi")
     return f"""
       <article class="card avatar-card">
         <div class="avatar-stage">
@@ -1989,12 +2098,18 @@ def render_avatar_card(profile: dict) -> str:
               <h3>{h(profile["name"])}</h3>
               <p class="subtle">Koerperbau: {h(profile["body_label"])} - Kalibrierung: {h(profile["calibration"])}</p>
             </div>
-            <span class="tag area-team">{h(profile["height_cm"])} cm</span>
+            <span class="tag area-team">{h(profile["height_cm"])} cm / {h(profile.get("weight_kg", "-"))} kg</span>
           </div>
           <div class="avatar-meta" style="margin-top: 0.75rem;">
-            <span class="tag area-strength">Muskel {h(profile["muscle"])}</span>
-            <span class="tag area-nutrition">Form {h(profile["body_fat"])}</span>
-            <span class="tag area-endurance">Schulter {h(profile["shoulder_width"])}</span>
+            <span class="tag area-strength">BMI {h(bmi if bmi is not None else "-")}</span>
+            <span class="tag area-endurance">Hals {h(profile.get("neck_cm", "-"))}</span>
+            <span class="tag area-endurance">Schulter {h(profile.get("shoulder_width", "-"))}</span>
+            <span class="tag area-strength">Brust {h(profile.get("chest_cm", "-"))}</span>
+            <span class="tag area-nutrition">Taille {h(profile.get("waist_width", "-"))}</span>
+            <span class="tag area-nutrition">Huefte {h(profile.get("hip_width", "-"))}</span>
+            <span class="tag area-team">L/R OS {h(profile.get("thigh_left_cm", "-"))}/{h(profile.get("thigh_right_cm", "-"))}</span>
+            <span class="tag area-team">{h(hair_label)}</span>
+            <span class="tag area-team">{h(clothing_label)}</span>
           </div>
         </div>
       </article>
@@ -2743,6 +2858,7 @@ def avatar_page() -> str:
     profiles = [avatar_profile_for_member(state, member["id"]) for member in state["members"]]
     default_profile = avatar_profile_for_member(state, "bea")
     avatar_cards = "".join(render_avatar_card(profile) for profile in profiles)
+    default_bmi = default_profile.get("bmi")
 
     body = f"""
       <section class="page-heading">
@@ -2750,7 +2866,7 @@ def avatar_page() -> str:
           <p class="eyebrow">Avatar Studio</p>
           <h1>Dein Charakter</h1>
         </div>
-        <p class="subtle">Ganzkoerperbilder bleiben privat und kalibrieren den stilisierten Charakter.</p>
+        <p class="subtle">Masse, Frisur, Kleidung und private Ganzkoerperbilder formen deinen Charakter.</p>
       </section>
 
       <section class="grid two">
@@ -2769,9 +2885,62 @@ def avatar_page() -> str:
               Foto-PIN
               <input name="pin" type="password" autocomplete="current-password">
             </label>
+            <div class="form-section-title">
+              <h3>Wichtige Masse</h3>
+              <p class="subtle">Diese Werte bestimmen Koerperform, Proportionen und BMI des Avatars.</p>
+            </div>
             <label>
               Groesse in cm
-              <input name="height_cm" type="number" min="120" max="230" value="{h(default_profile["height_cm"])}">
+              <input name="height_cm" id="avatar-height" type="number" min="120" max="230" value="{h(default_profile["height_cm"])}">
+            </label>
+            <label>
+              Gewicht in kg
+              <input name="weight_kg" id="avatar-weight" type="number" min="35" max="250" value="{h(default_profile.get("weight_kg", 70))}">
+            </label>
+            <label>
+              BMI
+              <input id="avatar-bmi" type="text" value="{h(default_bmi if default_bmi is not None else "-")}" readonly>
+            </label>
+            <label>
+              Hals in cm
+              <input name="neck_cm" type="number" min="25" max="60" value="{h(default_profile.get("neck_cm", 36))}">
+            </label>
+            <label>
+              Schulter in cm
+              <input name="shoulder_width" type="number" min="60" max="140" value="{h(default_profile["shoulder_width"])}">
+            </label>
+            <label>
+              Brust in cm
+              <input name="chest_cm" type="number" min="60" max="180" value="{h(default_profile.get("chest_cm", 96))}">
+            </label>
+            <label>
+              Taille in cm
+              <input name="waist_width" type="number" min="55" max="150" value="{h(default_profile["waist_width"])}">
+            </label>
+            <label>
+              Huefte in cm
+              <input name="hip_width" type="number" min="60" max="150" value="{h(default_profile["hip_width"])}">
+            </label>
+            <label>
+              Oberschenkel links in cm
+              <input name="thigh_left_cm" type="number" min="35" max="100" value="{h(default_profile.get("thigh_left_cm", 56))}">
+            </label>
+            <label>
+              Oberschenkel rechts in cm
+              <input name="thigh_right_cm" type="number" min="35" max="100" value="{h(default_profile.get("thigh_right_cm", 56))}">
+            </label>
+
+            <div class="form-section-title">
+              <h3>Stil</h3>
+              <p class="subtle">Frisur, Kleidung und Farben machen den Avatar persoenlicher.</p>
+            </div>
+            <label>
+              Frisur
+              <select name="hair_style">{render_options(AVATAR_HAIR_STYLES, str(default_profile.get("hair_style", "short")))}</select>
+            </label>
+            <label>
+              Kleidung
+              <select name="clothing_style">{render_options(AVATAR_CLOTHING_STYLES, str(default_profile.get("clothing_style", "training")))}</select>
             </label>
             <label>
               Frontbild
@@ -2783,23 +2952,11 @@ def avatar_page() -> str:
             </label>
 
             <label>
-              Schultern <span id="avatar-shoulders-value"></span>
-              <input name="shoulder_width" type="range" min="60" max="140" value="{h(default_profile["shoulder_width"])}" data-output="#avatar-shoulders-value">
-            </label>
-            <label>
-              Taille <span id="avatar-waist-value"></span>
-              <input name="waist_width" type="range" min="55" max="150" value="{h(default_profile["waist_width"])}" data-output="#avatar-waist-value">
-            </label>
-            <label>
-              Huefte <span id="avatar-hips-value"></span>
-              <input name="hip_width" type="range" min="60" max="150" value="{h(default_profile["hip_width"])}" data-output="#avatar-hips-value">
-            </label>
-            <label>
-              Muskulatur <span id="avatar-muscle-value"></span>
+              Muskel-Feintuning <span id="avatar-muscle-value"></span>
               <input name="muscle" type="range" min="0" max="100" value="{h(default_profile["muscle"])}" data-output="#avatar-muscle-value">
             </label>
             <label>
-              Koerperform <span id="avatar-fat-value"></span>
+              Form-Feintuning <span id="avatar-fat-value"></span>
               <input name="body_fat" type="range" min="0" max="100" value="{h(default_profile["body_fat"])}" data-output="#avatar-fat-value">
             </label>
 
