@@ -55,7 +55,7 @@ TRAINING_LABELS = {
 }
 
 ENDURANCE_LABELS = {
-    "outdoor": "Draussen",
+    "outdoor": "Draußen",
     "indoor": "Studio",
     "mixed": "Wetterabhängig",
 }
@@ -517,8 +517,16 @@ def load_state() -> dict:
 
 def save_state(state: dict) -> None:
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with STATE_PATH.open("w", encoding="utf-8") as handle:
-        json.dump(state, handle, ensure_ascii=False, indent=2)
+    temp_path = STATE_PATH.with_name(f".{STATE_PATH.name}.{os.getpid()}.{uuid4().hex}.tmp")
+    try:
+        with temp_path.open("w", encoding="utf-8") as handle:
+            json.dump(state, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        temp_path.replace(STATE_PATH)
+    finally:
+        temp_path.unlink(missing_ok=True)
 
 
 def update_settings(state: dict, payload: dict) -> dict:
@@ -1926,6 +1934,8 @@ def add_assignment(state: dict, payload: dict) -> dict:
 def complete_assignment(state: dict, assignment_id: str) -> dict:
     for assignment in state["assignments"]:
         if assignment["id"] == assignment_id:
+            if assignment.get("status") == "done":
+                return assignment
             assignment["status"] = "done"
             assignment["done_at"] = today()
             award_xp(state, assignment["to_member"], assignment["category"], assignment["xp"])
@@ -2091,18 +2101,22 @@ def add_challenge_progress(state: dict, payload: dict) -> dict:
                 raise ValueError("Dieses Mitglied ist nicht in der Challenge-Gruppe.")
 
         participants = challenge.setdefault("participants", {})
-        old_progress = int(participants.get(member_id, 0))
-        new_progress = min(int(challenge["goal"]), old_progress + amount)
+        goal = int(challenge["goal"])
+        old_progress = min(goal, int(participants.get(member_id, 0)))
+        new_progress = min(goal, old_progress + amount)
+        actual_delta = max(0, new_progress - old_progress)
         participants[member_id] = new_progress
 
         category = challenge["category"]
-        award_xp(state, member_id, category, amount * 10)
+        if actual_delta:
+            award_xp(state, member_id, category, actual_delta * 10)
 
         completed = challenge.setdefault("completed", [])
         if new_progress >= int(challenge["goal"]) and member_id not in completed:
             completed.append(member_id)
-            award_xp(state, member_id, category, int(challenge["xp"]))
-            award_xp(state, member_id, "team", 20)
+            if old_progress < goal:
+                award_xp(state, member_id, category, int(challenge["xp"]))
+                award_xp(state, member_id, "team", 20)
 
         return challenge
 
