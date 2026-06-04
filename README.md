@@ -80,6 +80,18 @@ Danach im Browser öffnen:
 http://localhost:8010
 ```
 
+## Android App
+
+Im Ordner `android/` liegt eine native Android-App als WebView-Hülle für Bea. Sie verbindet sich mit der laufenden
+Bea-Instanz auf dem Raspberry Pi und nutzt dieselben Logins, Daten und Foto-Uploads.
+
+Build-Hinweise stehen in [`android/README.md`](android/README.md). Beim ersten Start der App als Server-Adresse nicht
+`localhost`, sondern den Raspberry-Pi-Host eintragen, zum Beispiel:
+
+```text
+http://raspidiss.local:8010
+```
+
 ## Raspberry Pi
 
 Auf dem Raspberry Pi:
