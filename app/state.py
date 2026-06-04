@@ -272,6 +272,199 @@ RPG_DAILY_QUEST_POOL = [
     },
 ]
 
+HEALTH_JOURNEY_LESSONS = [
+    {
+        "id": "energie-bilanz",
+        "title": "Energie verstehen",
+        "area": "nutrition",
+        "read_minutes": 4,
+        "xp": 28,
+        "summary": "Kalorien sind kein Urteil, sondern eine grobe Energiebilanz. Entscheidend ist der Trend über mehrere Wochen.",
+        "body": [
+            "Dein Körper verbraucht Energie für Grundfunktionen, Bewegung, Training, Verdauung und Regeneration. Ein einzelner Tag sagt wenig aus, mehrere Wochen zeigen den echten Trend.",
+            "Ein moderates Defizit unterstützt Fettverlust, ein kleiner Überschuss unterstützt Muskelaufbau. Beides funktioniert besser, wenn Protein, Schlaf und Training stimmen.",
+            "Gewicht schwankt durch Wasser, Salz, Zyklus, Verdauung und Stress. Deshalb sind Durchschnittswerte hilfreicher als einzelne Wiegetage.",
+        ],
+        "takeaways": [
+            "Miss Fortschritt als Trend, nicht als Tagesurteil.",
+            "Zu aggressive Defizite erschweren Training und Regeneration.",
+            "Protein und Krafttraining schützen Muskulatur beim Abnehmen.",
+        ],
+        "action": "Vergleiche heute dein geplantes Kalorienziel mit deinem Hunger, deiner Energie und deinem Training.",
+    },
+    {
+        "id": "protein-bausteine",
+        "title": "Protein als Baustoff",
+        "area": "nutrition",
+        "read_minutes": 3,
+        "xp": 26,
+        "summary": "Protein hilft beim Muskelerhalt, Muskelaufbau und bei Sättigung. Die Verteilung über den Tag macht es leichter.",
+        "body": [
+            "Protein liefert Aminosäuren, aus denen dein Körper Gewebe repariert und aufbaut. Nach Training sind diese Bausteine besonders wertvoll.",
+            "Eine gute Alltagsregel ist, zu jeder Hauptmahlzeit eine klare Proteinquelle einzuplanen. Das kann Quark, Eier, Fisch, Hülsenfrüchte, Tofu, Fleisch oder Proteinpulver sein.",
+            "Mehr ist nicht automatisch besser. Wichtig ist, dass die Menge zu Ziel, Körpergewicht, Verträglichkeit und Alltag passt.",
+        ],
+        "takeaways": [
+            "Plane Protein bewusst, statt es zufällig mitzunehmen.",
+            "Verteile Protein auf mehrere Mahlzeiten.",
+            "Pflanzliche Proteinquellen lassen sich gut kombinieren.",
+        ],
+        "action": "Markiere deine proteinreichste Mahlzeit des Tages und überlege, ob eine Mahlzeit noch Unterstützung braucht.",
+    },
+    {
+        "id": "progressive-belastung",
+        "title": "Warum Training schwerer werden darf",
+        "area": "strength",
+        "read_minutes": 4,
+        "xp": 30,
+        "summary": "Progression bedeutet nicht immer mehr Gewicht. Auch bessere Technik, mehr Wiederholungen oder ruhigere Kontrolle zählen.",
+        "body": [
+            "Der Körper passt sich an Belastung an. Wenn ein Reiz dauerhaft gleich bleibt, wird er irgendwann nur noch Erhaltung.",
+            "Progression kann über Gewicht, Wiederholungen, Sätze, Bewegungsqualität, Bewegungsumfang oder kürzere Pausen entstehen. Technik bleibt der Filter.",
+            "Eine gute Steigerung fühlt sich fordernd, aber kontrollierbar an. Schmerzen, Ausweichbewegungen oder Kontrollverlust sind Hinweise, zu reduzieren.",
+        ],
+        "takeaways": [
+            "Steigere nur, wenn die Ausführung sauber bleibt.",
+            "Kleine Schritte sind langfristig stärker als Sprünge.",
+            "Dokumentierte Sätze machen Progression sichtbar.",
+        ],
+        "action": "Wähle heute eine Übung und entscheide: Gewicht, Wiederholungen oder Technikfokus?",
+    },
+    {
+        "id": "zone-zwei",
+        "title": "Ausdauer ohne Drama",
+        "area": "endurance",
+        "read_minutes": 3,
+        "xp": 26,
+        "summary": "Lockere Ausdauer verbessert die Basis, ohne dich ständig zu erschöpfen.",
+        "body": [
+            "Nicht jede Ausdauereinheit muss hart sein. Lockere Einheiten trainieren Herz-Kreislauf-System und Stoffwechsel mit überschaubarer Ermüdung.",
+            "Ein einfacher Test: Du kannst noch in kurzen Sätzen sprechen. Wenn nur einzelne Wörter gehen, bist du wahrscheinlich zu intensiv.",
+            "Diese Basis hilft beim Laufen, Radfahren, Wandern und auch bei Erholung zwischen Kraftsätzen.",
+        ],
+        "takeaways": [
+            "Locker zählt, besonders wenn du regelmäßig dranbleibst.",
+            "Wetter und Alltag dürfen die Einheit anpassen.",
+            "Intensive Intervalle sind ein Werkzeug, nicht der Standard.",
+        ],
+        "action": "Plane eine lockere Bewegungseinheit und notiere, ob du dabei sprechen konntest.",
+    },
+    {
+        "id": "schlaf-regeneration",
+        "title": "Schlaf ist Training im Hintergrund",
+        "area": "team",
+        "read_minutes": 4,
+        "xp": 28,
+        "summary": "Regeneration ist kein Bonus. Sie entscheidet, wie gut dein Körper Trainingsreize verarbeitet.",
+        "body": [
+            "Training setzt Reize, Erholung macht daraus Anpassung. Schlaf beeinflusst Muskelreparatur, Hunger, Stimmung, Konzentration und Leistungsfähigkeit.",
+            "Du musst nicht perfekt schlafen, aber Regelmäßigkeit hilft. Eine ähnliche Schlafenszeit, weniger spätes Koffein und Lichtreduktion können viel verändern.",
+            "Wenn Schlaf schlecht war, ist ein leichteres Training oft klüger als komplett zu eskalieren.",
+        ],
+        "takeaways": [
+            "Schlafmangel kann Hunger und Stress verstärken.",
+            "Regeneration gehört in den Plan, nicht ans Ende der Liste.",
+            "An schlechten Tagen darf Intensität angepasst werden.",
+        ],
+        "action": "Gib deinem heutigen Training eine Regenerationsampel: grün, gelb oder rot.",
+    },
+    {
+        "id": "beweglichkeit-kontrolle",
+        "title": "Beweglichkeit braucht Kontrolle",
+        "area": "strength",
+        "read_minutes": 3,
+        "xp": 24,
+        "summary": "Mobilität ist Beweglichkeit plus Kraft in der Position. Das schützt besser als reines Dehnen.",
+        "body": [
+            "Beweglichkeit beschreibt, wie weit du kommst. Kontrolle beschreibt, wie stabil du dort arbeiten kannst.",
+            "Für Training ist oft die Kombination entscheidend: genug Bewegungsumfang, ruhige Atmung und aktive Spannung.",
+            "Kurze Mobilitätsblöcke vor oder nach dem Training können helfen, wenn sie regelmäßig und passend gewählt sind.",
+        ],
+        "takeaways": [
+            "Kontrolle ist wichtiger als maximale Tiefe.",
+            "Schmerz ist kein Mobilitätsziel.",
+            "Kurze Routinen schlagen seltene lange Einheiten.",
+        ],
+        "action": "Füge heute 5 Minuten kontrollierte Mobilität für deinen Fokusbereich ein.",
+    },
+    {
+        "id": "fluessigkeit-salz",
+        "title": "Trinken, Salz und Leistung",
+        "area": "nutrition",
+        "read_minutes": 3,
+        "xp": 24,
+        "summary": "Flüssigkeit beeinflusst Konzentration, Kreislauf und Training. Bei Hitze oder langem Ausdauersport zählt auch Salz.",
+        "body": [
+            "Schon leichte Dehydrierung kann Training anstrengender wirken lassen. Durst, dunkler Urin oder Kopfschmerz können Hinweise sein.",
+            "Bei normalen Alltagseinheiten reicht meist Wasser und eine ausgewogene Ernährung. Bei Hitze, starkem Schwitzen oder langen Einheiten werden Elektrolyte relevanter.",
+            "Zu viel Wasser ohne Salz kann bei sehr langen Belastungen ebenfalls problematisch werden. Extreme Bedingungen brauchen Planung.",
+        ],
+        "takeaways": [
+            "Trinkmenge hängt von Wetter, Schweiß und Aktivität ab.",
+            "Lange Outdoor-Einheiten brauchen mehr Planung.",
+            "Wasser ist simpel, aber wirksam.",
+        ],
+        "action": "Prüfe heute vor dem Training: Wasser bereit, Wetter gecheckt, Dauer realistisch?",
+    },
+    {
+        "id": "gewohnheiten-design",
+        "title": "Gewohnheiten klein bauen",
+        "area": "team",
+        "read_minutes": 4,
+        "xp": 26,
+        "summary": "Große Ziele werden leichter, wenn die Einstiegshürde winzig ist.",
+        "body": [
+            "Motivation schwankt. Systeme helfen, wenn Motivation gerade nicht da ist. Ein System ist zum Beispiel: Sportsachen sichtbar hinlegen, Mahlzeit vorplanen, Spaziergang nach dem Essen.",
+            "Eine kleine Handlung, die fast immer klappt, hält die Identität aktiv: Ich bin jemand, der heute etwas für Gesundheit tut.",
+            "So entstehen Serien ohne Perfektionsdruck. Ein kleiner Tag ist besser als ein abgebrochener Tag.",
+        ],
+        "takeaways": [
+            "Eine 5-Minuten-Version zählt.",
+            "Umgebung schlägt Willenskraft.",
+            "Serien entstehen durch Wiederanlauf, nicht Perfektion.",
+        ],
+        "action": "Lege eine Mini-Version deiner heutigen Aufgabe fest, die selbst an einem schweren Tag möglich ist.",
+    },
+    {
+        "id": "technik-vor-ego",
+        "title": "Technik vor Ego",
+        "area": "strength",
+        "read_minutes": 4,
+        "xp": 30,
+        "summary": "Sichere Ausführung ist kein Anfänger-Thema. Sie ist die Grundlage für langfristige Steigerung.",
+        "body": [
+            "Gute Technik verteilt Belastung dahin, wo sie hin soll. Schlechte Technik kann kurzfristig Gewicht bewegen, langfristig aber Fortschritt bremsen.",
+            "Bei Kraftübungen helfen feste Kontaktpunkte, kontrollierte Atmung, stabile Gelenke und ein Bewegungsweg, den du wiederholen kannst.",
+            "Wenn du unsicher bist, reduziere Last oder Tempo und filme dich seitlich. Bei Schmerzen gilt: abbrechen, anpassen und bei Bedarf fachlich abklären.",
+        ],
+        "takeaways": [
+            "Wiederholbarkeit ist ein Qualitätsmerkmal.",
+            "Tempo reduzieren macht Fehler sichtbar.",
+            "Schmerz ist Feedback, kein Tapferkeitsabzeichen.",
+        ],
+        "action": "Wähle eine Kraftübung und notiere einen Technik-Cue, auf den du heute besonders achtest.",
+    },
+    {
+        "id": "soziale-motivation",
+        "title": "Motivation im Team",
+        "area": "team",
+        "read_minutes": 3,
+        "xp": 25,
+        "summary": "Gute Community erhöht Verbindlichkeit, ohne Druck oder Vergleichsscham zu erzeugen.",
+        "body": [
+            "Vergleich kann antreiben, aber auch entmutigen. Hilfreich ist der Vergleich mit ähnlichen Zielen und fairen Regeln.",
+            "Motivation wirkt besser, wenn sie konkret ist: 'Ich gehe heute 20 Minuten mit' ist stärker als 'Du musst mehr machen'.",
+            "Teams bleiben gesund, wenn Erholung, Alltag und Rückschläge genauso normal sind wie Bestleistungen.",
+        ],
+        "takeaways": [
+            "Konkrete Unterstützung schlägt allgemeine Sprüche.",
+            "Vergleiche brauchen Kontext.",
+            "Erholung darf in der Gruppe sichtbar sein.",
+        ],
+        "action": "Schicke heute einer Person eine konkrete, freundliche Motivation oder eine machbare Aufgabe.",
+    },
+]
+
 RPG_DAILY_BOSSES = [
     {"name": "Schweinehund-Schatten", "title": "Tagesboss", "weakness": "Routine", "max_hp": 220},
     {"name": "Sofa-Magier", "title": "Tagesboss", "weakness": "Bewegung", "max_hp": 210},
@@ -503,6 +696,7 @@ DEFAULT_STATE = {
     "meal_ideas": DEFAULT_MEAL_IDEAS,
     "youtube_links": [],
     "rpg": {},
+    "health_journey": {},
     "avatars": {},
     "weight_entries": [],
     "auth": {
@@ -1513,6 +1707,95 @@ def award_xp(state: dict, member_id: str, area: str, xp: int) -> None:
 
     member.setdefault("xp", {})
     member["xp"][area] = int(member["xp"].get(area, 0)) + max(0, int(xp))
+
+
+def health_journey_progress(state: dict, member_id: str) -> dict:
+    progress = state.setdefault("health_journey", {}).setdefault(
+        member_id,
+        {
+            "started_at": today(),
+            "updated_at": today(),
+            "completed_lessons": {},
+        },
+    )
+    progress.setdefault("started_at", today())
+    progress.setdefault("updated_at", today())
+    progress.setdefault("completed_lessons", {})
+    return progress
+
+
+def completion_date_for(entry: object) -> str:
+    if isinstance(entry, dict):
+        return str(entry.get("completed_at") or "")
+    return str(entry or "")
+
+
+def next_day(date_key: str) -> str:
+    return (date.fromisoformat(date_key) + timedelta(days=1)).isoformat()
+
+
+def health_journey_status(state: dict, member_id: str) -> dict:
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    progress = health_journey_progress(state, member_id)
+    completed = progress.setdefault("completed_lessons", {})
+    completed_count = 0
+    history = []
+    for lesson in HEALTH_JOURNEY_LESSONS:
+        entry = completed.get(lesson["id"])
+        if not entry:
+            break
+        completed_count += 1
+        history.append(
+            {
+                "lesson": lesson,
+                "completed_at": completion_date_for(entry),
+                "xp": int(entry.get("xp", lesson["xp"])) if isinstance(entry, dict) else int(lesson["xp"]),
+            }
+        )
+
+    current_date = today()
+    last_completed_at = history[-1]["completed_at"] if history else ""
+    lesson = HEALTH_JOURNEY_LESSONS[completed_count] if completed_count < len(HEALTH_JOURNEY_LESSONS) else None
+    locked = bool(lesson and last_completed_at == current_date)
+    unlock_date = next_day(current_date) if locked else ""
+    total = len(HEALTH_JOURNEY_LESSONS)
+    return {
+        "member_id": member_id,
+        "lesson": lesson,
+        "history": history,
+        "completed_count": completed_count,
+        "total": total,
+        "progress_percent": int((completed_count / max(1, total)) * 100),
+        "locked": locked,
+        "can_complete": bool(lesson and not locked),
+        "next_unlock_at": unlock_date,
+        "is_complete": lesson is None,
+        "completed_today": last_completed_at == current_date,
+    }
+
+
+def complete_health_journey_lesson(state: dict, member_id: str, lesson_id: str) -> dict:
+    status = health_journey_status(state, member_id)
+    lesson = status["lesson"]
+    if not lesson:
+        raise ValueError("Diese Gesundheitsreise ist aktuell vollständig abgeschlossen.")
+    if status["locked"]:
+        raise ValueError(f"Die nächste Lektion wird am {status['next_unlock_at']} freigeschaltet.")
+    if lesson_id != lesson["id"]:
+        raise ValueError("Diese Lektion ist noch nicht freigeschaltet.")
+
+    progress = health_journey_progress(state, member_id)
+    progress["completed_lessons"][lesson_id] = {
+        "completed_at": today(),
+        "xp": int(lesson["xp"]),
+    }
+    progress["updated_at"] = today()
+    progress["last_completed_at"] = today()
+    award_xp(state, member_id, lesson.get("area", "team"), int(lesson["xp"]))
+    award_xp(state, member_id, "team", 5)
+    return {"lesson": lesson, "status": health_journey_status(state, member_id)}
 
 
 def rpg_title_for_level(level: int) -> str:

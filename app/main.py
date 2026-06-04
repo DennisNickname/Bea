@@ -47,6 +47,7 @@ from app.state import ENDURANCE_LABELS
 from app.state import FOOD_CATEGORIES
 from app.state import GOAL_METRIC_LABELS
 from app.state import GOAL_LABELS
+from app.state import HEALTH_JOURNEY_LESSONS
 from app.state import INJURY_AREA_LABELS
 from app.state import MEAL_LABELS
 from app.state import MOTIVATION_STYLE_LABELS
@@ -67,6 +68,7 @@ from app.state import add_sport_entry
 from app.state import add_youtube_link
 from app.state import complete_assignment
 from app.state import complete_daily_quest
+from app.state import complete_health_journey_lesson
 from app.state import create_challenge
 from app.state import create_group
 from app.state import create_personal_plan
@@ -78,6 +80,7 @@ from app.state import food_items
 from app.state import group_name
 from app.state import groups
 from app.state import groups_for_member
+from app.state import health_journey_status
 from app.state import join_group
 from app.state import latest_weight_for_member
 from app.state import leaderboard
@@ -118,6 +121,7 @@ SESSIONS: dict[str, dict] = {}
 NAV_ITEMS = (
     ("/", "Dashboard"),
     ("/abenteuer", "Abenteuer"),
+    ("/reise", "Reise"),
     ("/avatar", "Avatar"),
     ("/fortschritt", "Fortschritt"),
     ("/gruppen", "Gruppen"),
@@ -133,7 +137,7 @@ NAV_ITEMS = (
 
 NAV_GROUPS = (
     ("Planung", (("/", "Dashboard"), ("/fitnessplan", "Fitnessplan"), ("/fragebogen", "Check-in"))),
-    ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
+    ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/reise", "Reise"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
     ("Community", (("/freunde", "Freunde"), ("/gruppen", "Gruppen"), ("/challenges", "Challenges"))),
     ("Tracking", (("/sport", "Sport"), ("/nahrung", "Nahrung"), ("/fotos", "Fotos"), ("/integrationen", "Integrationen"))),
 )
@@ -2956,6 +2960,17 @@ def render_start_daily_plan(state: dict, rpg: dict, member_id: str) -> str:
     boss = rpg.get("daily_boss", {})
     max_hp = max(1, int(boss.get("max_hp", 1)))
     hp = max(0, int(boss.get("hp", max_hp)))
+    journey = health_journey_status(state, member_id)
+    journey_lesson = journey["lesson"]
+    if journey["is_complete"]:
+        journey_title = "Gesundheitsreise abgeschlossen"
+        journey_note = "Alle aktuellen Etappen sind erledigt."
+    elif journey["locked"]:
+        journey_title = journey_lesson["title"]
+        journey_note = f'Nächste Lektion ab {journey["next_unlock_at"]}.'
+    else:
+        journey_title = journey_lesson["title"]
+        journey_note = "Heute lesen und abschließen."
     return f"""
       <article class="panel">
         <div class="row">
@@ -2981,6 +2996,15 @@ def render_start_daily_plan(state: dict, rpg: dict, member_id: str) -> str:
         </div>
         <div class="grid two" style="margin-top: 1rem;">
           {assignment_cards or '<article class="card"><h3>Keine offenen Zuweisungen</h3><p class="subtle">Heute zählt dein eigener Plan.</p></article>'}
+          <article class="card area-team">
+            <div class="row">
+              <span class="tag area-team">Gesundheitsreise</span>
+              <span class="meta">{h(journey["completed_count"])} / {h(journey["total"])}</span>
+            </div>
+            <h3 style="margin-top: 0.55rem;">{h(journey_title)}</h3>
+            <p class="subtle">{h(journey_note)}</p>
+            <a class="button secondary" href="/reise" style="margin-top: 0.75rem;">Zur Reise</a>
+          </article>
         </div>
       </article>
     """
@@ -3078,6 +3102,116 @@ def render_start_training_summary(state: dict, member_id: str) -> str:
           <h3>{h(progression.get("title", "Progression"))}</h3>
           <p class="subtle">{h(progression.get("details", "Sauber bewegen, Belastung dokumentieren und langsam steigern."))}</p>
         </article>
+      </article>
+    """
+
+
+def render_journey_map(status: dict) -> str:
+    completed_count = int(status["completed_count"])
+    cards = []
+    for index, lesson in enumerate(HEALTH_JOURNEY_LESSONS):
+        if index < completed_count:
+            label = "Abgeschlossen"
+            tag_class = "area-team"
+        elif index == completed_count and status["locked"]:
+            label = f'ab {status["next_unlock_at"]}'
+            tag_class = "area-team"
+        elif index == completed_count:
+            label = "Heute offen"
+            tag_class = area_class(lesson["area"])
+        else:
+            label = "Gesperrt"
+            tag_class = "area-team"
+        cards.append(
+            f"""
+            <article class="card {area_class(lesson["area"])}">
+              <div class="row">
+                <span class="tag {area_class(lesson["area"])}">Tag {h(index + 1)}</span>
+                <span class="tag {tag_class}">{h(label)}</span>
+              </div>
+              <h3 style="margin-top: 0.55rem;">{h(lesson["title"])}</h3>
+              <p class="subtle">{h(lesson["summary"])}</p>
+            </article>
+            """
+        )
+    return "".join(cards)
+
+
+def render_journey_history(status: dict) -> str:
+    history = list(reversed(status.get("history", [])[-5:]))
+    if not history:
+        return '<article class="card"><p class="subtle">Noch keine Lektion abgeschlossen. Heute beginnt die Reise.</p></article>'
+    return "".join(
+        f"""
+        <article class="card area-team">
+          <div class="row">
+            <div>
+              <h3>{h(item["lesson"]["title"])}</h3>
+              <p class="subtle">abgeschlossen am {h(item["completed_at"])}</p>
+            </div>
+            <span class="tag area-team">+{h(item["xp"])} XP</span>
+          </div>
+        </article>
+        """
+        for item in history
+    )
+
+
+def render_journey_lesson(status: dict) -> str:
+    lesson = status["lesson"]
+    if status["is_complete"]:
+        return """
+          <article class="panel">
+            <p class="eyebrow">Reise abgeschlossen</p>
+            <h2>Alle aktuellen Gesundheitsthemen sind gelesen</h2>
+            <p class="subtle">Neue Etappen können später ergänzt werden. Bis dahin zählt Wiederholung im Alltag.</p>
+          </article>
+        """
+
+    if status["locked"]:
+        return f"""
+          <article class="panel">
+            <p class="eyebrow">Nächste Etappe</p>
+            <h2>{h(lesson["title"])}</h2>
+            <p class="subtle">Du hast heute bereits eine Lektion abgeschlossen. Diese Etappe wird am {h(status["next_unlock_at"])} freigeschaltet.</p>
+            <div style="margin-top: 1rem;">{progress_bar(status["progress_percent"], "Reisefortschritt")}</div>
+          </article>
+        """
+
+    body = "".join(f"<p>{h(paragraph)}</p>" for paragraph in lesson["body"])
+    takeaways = "".join(f"<li>{h(item)}</li>" for item in lesson["takeaways"])
+    return f"""
+      <article class="panel">
+        <div class="row">
+          <div>
+            <p class="eyebrow">Heutige Gesundheitsreise</p>
+            <h2>{h(lesson["title"])}</h2>
+            <p class="subtle">{h(lesson["read_minutes"])} Minuten Lesen · +{h(lesson["xp"])} XP · {h(AREA_LABELS[lesson["area"]])}</p>
+          </div>
+          <span class="tag {area_class(lesson["area"])}">Tag {h(status["completed_count"] + 1)} / {h(status["total"])}</span>
+        </div>
+        <div class="list" style="margin-top: 1rem;">
+          <article class="card {area_class(lesson["area"])}">
+            <h3>Worum es geht</h3>
+            <p class="subtle">{h(lesson["summary"])}</p>
+          </article>
+          <article class="card">
+            <h3>Lektion</h3>
+            <div class="subtle list">{body}</div>
+          </article>
+          <article class="card area-team">
+            <h3>Merken</h3>
+            <ul class="cue-list">{takeaways}</ul>
+          </article>
+          <article class="card area-nutrition">
+            <h3>Heute anwenden</h3>
+            <p class="subtle">{h(lesson["action"])}</p>
+          </article>
+        </div>
+        <form data-api-form data-endpoint="/api/journey/complete" style="margin-top: 1rem;">
+          <input type="hidden" name="lesson_id" value="{h(lesson["id"])}">
+          <button class="button blue" type="submit">Gelesen und abgeschlossen</button>
+        </form>
       </article>
     """
 
@@ -3266,6 +3400,7 @@ def dashboard(request: Request) -> str:
         </div>
         <div class="quick-actions" aria-label="Schnellaktionen">
           <a class="quick-link gold" href="/abenteuer">Abenteuer</a>
+          <a class="quick-link gold" href="/reise">Reise lernen</a>
           <a class="quick-link red" href="/avatar">Avatar bauen</a>
           <a class="quick-link blue" href="/fortschritt">Fortschritt</a>
           <a class="quick-link green" href="/gruppen">Gruppen</a>
@@ -3383,6 +3518,76 @@ def adventure_page() -> str:
       </section>
     """
     return render_layout("/abenteuer", "Abenteuer", body)
+
+
+@app.get("/reise", response_class=HTMLResponse)
+def journey_page(request: Request) -> str:
+    state = load_state()
+    member_id = dashboard_member_id(state, request)
+    member_label = member_name(state, member_id)
+    status = health_journey_status(state, member_id)
+    lesson = status["lesson"]
+    current_title = "Reise abgeschlossen" if status["is_complete"] else lesson["title"]
+    unlock_label = (
+        "Alle Etappen erledigt"
+        if status["is_complete"]
+        else f'ab {status["next_unlock_at"]}' if status["locked"] else "heute verfügbar"
+    )
+    xp_label = "-" if status["is_complete"] else f'+{lesson["xp"]} XP'
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Gesundheitsreise</p>
+          <h1>Täglich etwas Neues lernen</h1>
+        </div>
+        <p class="subtle">Eine kurze Etappe pro Tag. Nach dem Abschluss wird die nächste Lektion erst am Folgetag freigeschaltet.</p>
+      </section>
+
+      <section class="grid four">
+        <article class="stat-card">
+          <span>Teilnehmer</span>
+          <strong>{h(member_label)}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Fortschritt</span>
+          <strong>{h(status["completed_count"])} / {h(status["total"])}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Aktuelle Etappe</span>
+          <strong>{h(current_title)}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Freischaltung</span>
+          <strong>{h(unlock_label)}</strong>
+        </article>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <div class="row">
+          <div>
+            <h2>Reisefortschritt</h2>
+            <p class="subtle">Gesundheitswissen wird als tägliche Quest behandelt und stärkt deinen Charakter.</p>
+          </div>
+          <span class="tag area-team">{h(xp_label)}</span>
+        </div>
+        <div style="margin-top: 1rem;">{progress_bar(status["progress_percent"], "Gesundheitsreise")}</div>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        {render_journey_lesson(status)}
+        <article class="panel">
+          <h2>Letzte Etappen</h2>
+          <div class="list" style="margin-top: 1rem;">{render_journey_history(status)}</div>
+        </article>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Reisekarte</h2>
+        <div class="grid two" style="margin-top: 1rem;">{render_journey_map(status)}</div>
+      </section>
+    """
+    return render_layout("/reise", "Reise", body)
 
 
 @app.get("/avatar", response_class=HTMLResponse)
@@ -5167,6 +5372,22 @@ async def api_complete_rpg_quest(request: Request) -> dict[str, str]:
     if result["weekly_result"]["defeated"]:
         messages.append("Wochenboss besiegt.")
     return {"message": " ".join(messages)}
+
+
+@app.post("/api/journey/complete")
+async def api_complete_journey_lesson(request: Request) -> dict[str, str]:
+    payload = await read_json_payload(request)
+    state = load_state()
+    member_id = current_member_id(request)
+    if not member_id:
+        raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor eine Lektion abgeschlossen wird."})
+    try:
+        result = complete_health_journey_lesson(state, member_id, str(payload.get("lesson_id") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    lesson = result["lesson"]
+    return {"message": f"Lektion abgeschlossen: {lesson['title']}. Morgen wird die nächste Etappe freigeschaltet."}
 
 
 @app.post("/api/settings/location")
