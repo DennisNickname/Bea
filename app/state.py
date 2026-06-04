@@ -67,6 +67,62 @@ DIET_LABELS = {
     "high_protein": "Proteinbetont",
 }
 
+GOAL_METRIC_LABELS = {
+    "weight": "Gewicht",
+    "performance": "Leistung",
+    "habit": "Gewohnheiten",
+    "recomposition": "Koerperform",
+}
+
+TRACKING_FREQUENCY_LABELS = {
+    "daily": "taeglich",
+    "twice_weekly": "2x pro Woche",
+    "weekly": "woechentlich",
+}
+
+WORK_STYLE_LABELS = {
+    "desk": "viel Sitzen",
+    "standing": "viel Stehen",
+    "physical": "koerperlich aktiv",
+    "shift": "Schichtarbeit",
+    "mixed": "abwechslungsreich",
+}
+
+SLEEP_QUALITY_LABELS = {
+    "good": "erholsam",
+    "okay": "wechselhaft",
+    "poor": "zu wenig erholsam",
+    "irregular": "unregelmaessig",
+}
+
+STRESS_LABELS = {
+    "low": "niedrig",
+    "medium": "mittel",
+    "high": "hoch",
+    "very_high": "sehr hoch",
+}
+
+RECOVERY_LABELS = {
+    "calm": "ruhig aufbauen",
+    "balanced": "ausgewogen",
+    "push": "fordernd mit klaren Pausen",
+}
+
+ADVENTURE_ROLE_LABELS = {
+    "guardian": "Waechter",
+    "scout": "Pfadfinder",
+    "berserker": "Kraftheld",
+    "alchemist": "Kuechenalchemist",
+    "bard": "Motivator",
+}
+
+MOTIVATION_STYLE_LABELS = {
+    "numbers": "Zahlen und klare Fortschritte",
+    "story": "Story, Quests und Abenteuer",
+    "team": "Teamdruck und Ermutigung",
+    "calm": "ruhige Routinen",
+}
+
 MEAL_LABELS = {
     "breakfast": "Fruehstueck",
     "lunch": "Mittagessen",
@@ -442,6 +498,47 @@ def as_float(payload: dict, key: str, default: float = 0.0) -> float:
         raise ValueError(f"{key} muss eine Zahl sein.") from exc
 
 
+def optional_value(payload: dict, key: str) -> str | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    value = str(value).strip()
+    return value or None
+
+
+def as_optional_int(payload: dict, key: str) -> int | None:
+    value = optional_value(payload, key)
+    if value is None:
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{key} muss eine Zahl sein.") from exc
+
+
+def as_optional_float(payload: dict, key: str) -> float | None:
+    value = optional_value(payload, key)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{key} muss eine Zahl sein.") from exc
+
+
+def as_optional_date(payload: dict, key: str) -> str:
+    value = optional_value(payload, key)
+    if value is None:
+        return ""
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{key} muss ein gueltiges Datum sein.") from exc
+    if parsed < date.today():
+        raise ValueError("Bitte ein Zieldatum in der Zukunft eintragen.")
+    return parsed.isoformat()
+
+
 def clamp(value: int, minimum: int, maximum: int) -> int:
     return min(maximum, max(minimum, value))
 
@@ -476,10 +573,21 @@ def training_sessions(profile: dict) -> list[dict]:
     endurance = profile["endurance_preference"]
     goal = profile["goal"]
     experience = profile["experience"]
+    sleep_hours = float(profile.get("sleep_hours") or 7.0)
+    stress_level = profile.get("stress_level", "medium")
+    sleep_quality = profile.get("sleep_quality", "okay")
+    recovery_style = profile.get("recovery_style", "balanced")
 
     strength_count = 2 if workouts <= 3 else 3
     if goal == "gain":
         strength_count = min(workouts, strength_count + 1)
+    recovery_pressure = (
+        sleep_hours < 6.5
+        or sleep_quality in ("poor", "irregular")
+        or stress_level in ("high", "very_high")
+    )
+    if recovery_pressure and workouts > 2:
+        strength_count = max(1, strength_count - 1)
     endurance_count = max(1, workouts - strength_count)
 
     equipment = {
@@ -497,6 +605,10 @@ def training_sessions(profile: dict) -> list[dict]:
         "intermediate": "moderat fordernd",
         "advanced": "progressiv und anspruchsvoll",
     }[experience]
+    if recovery_pressure:
+        intensity = f"{intensity}, aber mit klarer Belastungsgrenze"
+    if recovery_style == "push" and not recovery_pressure:
+        intensity = f"{intensity}, mit messbarer Progression"
 
     sessions = []
     for index in range(strength_count):
@@ -526,6 +638,115 @@ def training_sessions(profile: dict) -> list[dict]:
         )
 
     return sessions[:workouts]
+
+
+def recovery_sessions(profile: dict) -> list[dict]:
+    recovery_days = clamp(int(profile.get("recovery_days_per_week") or 2), 1, 4)
+    mobility = clamp(int(profile.get("mobility_minutes") or 12), 0, 60)
+    sleep_hours = float(profile.get("sleep_hours") or 7.0)
+    sleep_quality = profile.get("sleep_quality", "okay")
+    stress_level = profile.get("stress_level", "medium")
+    work_style = WORK_STYLE_LABELS.get(profile.get("work_style", "mixed"), "abwechslungsreich")
+
+    mobility_text = f"{mobility} min Mobility" if mobility else "5-10 min lockere Gelenkpflege"
+    sleep_note = "Schlaf stabil halten" if sleep_hours >= 7 and sleep_quality == "good" else "Schlaf priorisieren und Spaetbelastung reduzieren"
+    stress_note = "Atmung, Spaziergang oder leichtes Dehnen" if stress_level in ("high", "very_high") else "lockere Bewegung ohne Leistungsdruck"
+    blocks = [
+        {
+            "type": "Regeneration",
+            "title": "Ruhetag mit Beweglichkeit",
+            "duration": f"{mobility_text}",
+            "details": f"Entlastet den Plan bei Alltag mit {work_style}. Fokus: Huefte, Brustwirbelsaeule, Waden und Nacken.",
+        },
+        {
+            "type": "Regeneration",
+            "title": "Schlaf- und Nervensystem-Reset",
+            "duration": "15-25 min",
+            "details": f"{sleep_note}: Abendroutine, ruhiger Puls und kurze Reflexion zu Energie, Hunger und Muskelkater.",
+        },
+        {
+            "type": "Regeneration",
+            "title": "Aktive Erholung",
+            "duration": "20-40 min",
+            "details": f"{stress_note}. Geeignet fuer lockeres Gehen, entspanntes Radfahren oder sehr leichtes Laufband.",
+        },
+        {
+            "type": "Regeneration",
+            "title": "Deload-Fenster",
+            "duration": "1 Einheit leichter",
+            "details": "Wenn zwei Tage in Folge Energie oder Schlaf schlecht sind: Volumen halbieren, Technik sauber halten, keine Maximalversuche.",
+        },
+    ]
+    return blocks[:recovery_days]
+
+
+def goal_tracking_plan(profile: dict, calories: dict, training: list[dict]) -> dict:
+    metric = profile.get("goal_metric", "habit")
+    tracking = profile.get("tracking_frequency", "weekly")
+    target_weight = profile.get("target_weight_kg")
+    current_weight = profile.get("weight_kg")
+    target_date = profile.get("target_date", "")
+    goal_text = profile.get("primary_goal_text") or GOAL_LABELS.get(profile["goal"], "Fitnessziel")
+
+    milestones = [
+        "Woche 1: Basiswerte eintragen und die ersten Quests abschliessen.",
+        "Woche 2-3: Training, Hunger, Schlaf und Stimmung gegen den Plan pruefen.",
+        "Woche 4: Kalorien und Trainingslast anhand der echten Bilanz anpassen.",
+    ]
+    if target_weight:
+        delta = round(float(target_weight) - float(current_weight), 1)
+        direction = "aufbauen" if delta > 0 else "reduzieren"
+        milestones.insert(1, f"Gewichtsziel: {abs(delta)} kg {direction}, in kleinen Wochenetappen statt Sprint.")
+    if target_date:
+        milestones.append(f"Zieldatum: {target_date}. Bis dahin werden Wochenboss, Gewichtstrend und Energie abgeglichen.")
+
+    checkpoints = [
+        {
+            "title": "Check-in Rhythmus",
+            "details": f"{TRACKING_FREQUENCY_LABELS.get(tracking, 'woechentlich')} Gewicht, Energie, Schlaf, Hunger und Questserie bewerten.",
+        },
+        {
+            "title": "Plan-Treue",
+            "details": f"{len(training)} geplante Einheiten inklusive Regeneration markieren und Ausfaelle als Alltagshinweis notieren.",
+        },
+        {
+            "title": "Boss-Fortschritt",
+            "details": "Taegliche Quests zeigen, ob der Charakter wirklich staerker wird: nicht perfekt sein, sondern wieder auftauchen.",
+        },
+    ]
+    return {
+        "goal_text": goal_text,
+        "metric": metric,
+        "metric_label": GOAL_METRIC_LABELS.get(metric, "Gewohnheiten"),
+        "tracking_frequency": tracking,
+        "tracking_label": TRACKING_FREQUENCY_LABELS.get(tracking, "woechentlich"),
+        "target_weight_kg": target_weight,
+        "target_date": target_date,
+        "calorie_delta": int(calories["target"]) - int(calories["maintenance"]),
+        "milestones": milestones,
+        "checkpoints": checkpoints,
+    }
+
+
+def adventure_profile(profile: dict) -> dict:
+    role = profile.get("adventure_role", "guardian")
+    work_style = profile.get("work_style", "mixed")
+    sleep_quality = profile.get("sleep_quality", "okay")
+    motivation = profile.get("motivation_style", "story")
+    hobbies = profile.get("hobbies") or "noch offen"
+    origin = profile.get("character_origin") or "Der Alltag ist das Startgebiet."
+    character_name = profile.get("character_name") or ""
+    return {
+        "character_name": character_name,
+        "role": role,
+        "role_label": ADVENTURE_ROLE_LABELS.get(role, "Waechter"),
+        "origin": origin,
+        "hobbies": hobbies,
+        "daily_life": f"{WORK_STYLE_LABELS.get(work_style, 'abwechslungsreich')}, {profile.get('daily_steps', 6000)} Schritte, {profile.get('work_schedule') or 'normaler Wochenrhythmus'}",
+        "sleep": f"{profile.get('sleep_hours', 7)} h, {SLEEP_QUALITY_LABELS.get(sleep_quality, 'wechselhaft')}",
+        "motivation_label": MOTIVATION_STYLE_LABELS.get(motivation, "Story, Quests und Abenteuer"),
+        "avatar_notes": "Avatar und Koerperform werden mit Ganzkoerperbildern, Groesse und manuellen Anpassungen fortgeschrieben.",
+    }
 
 
 def meal_templates(profile: dict, calories: int, macros: dict) -> list[dict]:
@@ -565,6 +786,12 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
     if member_id not in members_by_id(state):
         raise ValueError("Mitglied wurde nicht gefunden.")
 
+    target_weight_kg = as_optional_float(payload, "target_weight_kg")
+    daily_steps = as_optional_int(payload, "daily_steps")
+    sleep_hours = as_optional_float(payload, "sleep_hours")
+    recovery_days = as_optional_int(payload, "recovery_days_per_week")
+    mobility_minutes = as_optional_int(payload, "mobility_minutes")
+
     profile = {
         "member_id": member_id,
         "age": as_int(payload, "age"),
@@ -580,6 +807,25 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
         "meals_per_day": clamp(as_int(payload, "meals_per_day", 3), 2, 6),
         "experience": str(payload.get("experience") or "beginner"),
         "restrictions": str(payload.get("restrictions") or "").strip(),
+        "primary_goal_text": str(payload.get("primary_goal_text") or "").strip(),
+        "target_weight_kg": target_weight_kg,
+        "target_date": as_optional_date(payload, "target_date"),
+        "goal_metric": str(payload.get("goal_metric") or "habit"),
+        "tracking_frequency": str(payload.get("tracking_frequency") or "weekly"),
+        "hobbies": str(payload.get("hobbies") or "").strip(),
+        "work_style": str(payload.get("work_style") or "mixed"),
+        "work_schedule": str(payload.get("work_schedule") or "").strip(),
+        "daily_steps": clamp(daily_steps if daily_steps is not None else 6000, 0, 40000),
+        "sleep_hours": sleep_hours if sleep_hours is not None else 7.0,
+        "sleep_quality": str(payload.get("sleep_quality") or "okay"),
+        "stress_level": str(payload.get("stress_level") or "medium"),
+        "recovery_days_per_week": clamp(recovery_days if recovery_days is not None else 2, 1, 4),
+        "mobility_minutes": clamp(mobility_minutes if mobility_minutes is not None else 12, 0, 60),
+        "recovery_style": str(payload.get("recovery_style") or "balanced"),
+        "character_name": str(payload.get("character_name") or "").strip(),
+        "character_origin": str(payload.get("character_origin") or "").strip(),
+        "adventure_role": str(payload.get("adventure_role") or "guardian"),
+        "motivation_style": str(payload.get("motivation_style") or "story"),
         "created_at": today(),
     }
 
@@ -603,24 +849,57 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
         raise ValueError("Ernaehrungsform wurde nicht gefunden.")
     if profile["experience"] not in ("beginner", "intermediate", "advanced"):
         raise ValueError("Trainingserfahrung wurde nicht gefunden.")
+    if target_weight_kg is not None and not 35 <= target_weight_kg <= 250:
+        raise ValueError("Bitte ein plausibles Zielgewicht eintragen.")
+    if profile["goal_metric"] not in GOAL_METRIC_LABELS:
+        raise ValueError("Zielmessung wurde nicht gefunden.")
+    if profile["tracking_frequency"] not in TRACKING_FREQUENCY_LABELS:
+        raise ValueError("Trackingrhythmus wurde nicht gefunden.")
+    if profile["work_style"] not in WORK_STYLE_LABELS:
+        raise ValueError("Arbeitsalltag wurde nicht gefunden.")
+    if not 3 <= profile["sleep_hours"] <= 12:
+        raise ValueError("Bitte realistische Schlafstunden zwischen 3 und 12 eintragen.")
+    if profile["sleep_quality"] not in SLEEP_QUALITY_LABELS:
+        raise ValueError("Schlafqualitaet wurde nicht gefunden.")
+    if profile["stress_level"] not in STRESS_LABELS:
+        raise ValueError("Stresslevel wurde nicht gefunden.")
+    if profile["recovery_style"] not in RECOVERY_LABELS:
+        raise ValueError("Regenerationsstil wurde nicht gefunden.")
+    if profile["adventure_role"] not in ADVENTURE_ROLE_LABELS:
+        raise ValueError("Abenteuerrolle wurde nicht gefunden.")
+    if profile["motivation_style"] not in MOTIVATION_STYLE_LABELS:
+        raise ValueError("Motivationsart wurde nicht gefunden.")
 
     bmr = calculate_bmr(profile)
     maintenance = round(bmr * ACTIVITY_FACTORS[profile["activity"]])
     target_calories = max(1200, maintenance + GOAL_ADJUSTMENTS[profile["goal"]])
     macros = calculate_macros(profile, target_calories)
+    training = training_sessions(profile)
+    regeneration = recovery_sessions(profile)
+    calories = {
+        "bmr": bmr,
+        "maintenance": maintenance,
+        "target": target_calories,
+        "goal_label": GOAL_LABELS[profile["goal"]],
+        "activity_label": ACTIVITY_LABELS[profile["activity"]],
+    }
     plan = {
         "member_id": member_id,
         "created_at": today(),
-        "calories": {
-            "bmr": bmr,
-            "maintenance": maintenance,
-            "target": target_calories,
-            "goal_label": GOAL_LABELS[profile["goal"]],
-            "activity_label": ACTIVITY_LABELS[profile["activity"]],
-        },
+        "calories": calories,
         "macros": macros,
-        "training": training_sessions(profile),
+        "training": training,
+        "regeneration": regeneration,
         "nutrition": meal_templates(profile, target_calories, macros),
+        "goal_tracking": goal_tracking_plan(profile, calories, training + regeneration),
+        "adventure": adventure_profile(profile),
+        "lifestyle": {
+            "work_style_label": WORK_STYLE_LABELS[profile["work_style"]],
+            "daily_steps": profile["daily_steps"],
+            "sleep_label": SLEEP_QUALITY_LABELS[profile["sleep_quality"]],
+            "stress_label": STRESS_LABELS[profile["stress_level"]],
+            "recovery_label": RECOVERY_LABELS[profile["recovery_style"]],
+        },
         "notes": [
             "Kalorienbedarf ist eine Schaetzung und sollte nach 2-3 Wochen anhand von Gewicht, Energie und Leistung angepasst werden.",
             "Bei Erkrankungen, Schwangerschaft oder Essstoerungen bitte medizinisch abklaeren.",

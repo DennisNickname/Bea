@@ -35,15 +35,23 @@ from app.photos import publish_photo
 from app.photos import require_photo_pin
 from app.photos import set_photo_pin
 from app.state import ACTIVITY_LABELS
+from app.state import ADVENTURE_ROLE_LABELS
 from app.state import add_weight_entry
 from app.state import AREA_LABELS
 from app.state import AREAS
 from app.state import DIET_LABELS
 from app.state import ENDURANCE_LABELS
 from app.state import FOOD_CATEGORIES
+from app.state import GOAL_METRIC_LABELS
 from app.state import GOAL_LABELS
 from app.state import MEAL_LABELS
+from app.state import MOTIVATION_STYLE_LABELS
+from app.state import RECOVERY_LABELS
+from app.state import SLEEP_QUALITY_LABELS
+from app.state import STRESS_LABELS
+from app.state import TRACKING_FREQUENCY_LABELS
 from app.state import TRAINING_LABELS
+from app.state import WORK_STYLE_LABELS
 from app.state import add_external_sport_entry
 from app.state import add_food_item
 from app.state import add_assignment
@@ -155,6 +163,14 @@ def area_class(area: str) -> str:
         "nutrition": "area-nutrition",
         "team": "area-team",
     }.get(area, "area-team")
+
+
+def training_type_area(training_type: str) -> str:
+    return {
+        "Kraft": "strength",
+        "Ausdauer": "endurance",
+        "Regeneration": "team",
+    }.get(training_type, "team")
 
 
 def render_member_options(state: dict, selected: str = "") -> str:
@@ -976,6 +992,17 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             grid-column: 1 / -1;
           }}
 
+          .form-section-title {{
+            grid-column: 1 / -1;
+            margin-top: 0.35rem;
+            padding-top: 0.65rem;
+            border-top: 1px solid var(--line);
+          }}
+
+          .form-section-title h3 {{
+            margin-bottom: 0.25rem;
+          }}
+
           label {{
             display: grid;
             gap: 0.35rem;
@@ -1666,7 +1693,17 @@ def render_character_cards(state: dict) -> str:
     cards = []
     for member in leaderboard(state):
         character = rpg_character(member)
-        initial = str(character["name"] or "?")[0].upper()
+        profile = state.get("profiles", {}).get(member["id"], {})
+        plan = state.get("generated_plans", {}).get(member["id"], {})
+        adventure = plan.get("adventure", {})
+        display_name = adventure.get("character_name") or character["name"]
+        role_label = adventure.get("role_label") or ADVENTURE_ROLE_LABELS.get(profile.get("adventure_role", "guardian"), "Waechter")
+        origin = adventure.get("origin") or profile.get("character_origin") or "Noch keine Herkunft notiert."
+        hobbies = adventure.get("hobbies") or profile.get("hobbies") or "Hobbies noch offen"
+        daily_life = adventure.get("daily_life") or WORK_STYLE_LABELS.get(profile.get("work_style", "mixed"), "abwechslungsreich")
+        sleep = adventure.get("sleep") or f'{profile.get("sleep_hours", 7)} h, {SLEEP_QUALITY_LABELS.get(profile.get("sleep_quality", "okay"), "wechselhaft")}'
+        motivation = adventure.get("motivation_label") or MOTIVATION_STYLE_LABELS.get(profile.get("motivation_style", "story"), "Story, Quests und Abenteuer")
+        initial = str(display_name or "?")[0].upper()
         cards.append(
             f"""
             <article class="card character-card {area_class(character["strongest_area"])}">
@@ -1674,13 +1711,16 @@ def render_character_cards(state: dict) -> str:
               <div>
                 <div class="row">
                   <div>
-                    <h3>{h(character["name"])}</h3>
-                    <p class="subtle">{h(character["title"])} der Klasse {h(character["class_name"])}</p>
+                    <h3>{h(display_name)}</h3>
+                    <p class="subtle">{h(character["title"])} - {h(role_label)} der Klasse {h(character["class_name"])}</p>
                   </div>
                   <span class="tag {area_class(character["strongest_area"])}">Level {h(character["level"])}</span>
                 </div>
                 <div style="margin-top: 0.65rem;">{progress_bar(character["progress"], f'{character["name"]} Charakterfortschritt')}</div>
                 <p class="subtle" style="margin-top: 0.45rem;">{h(character["total_xp"])} XP - Serie {h(character["streak"])} Tage</p>
+                <p class="subtle" style="margin-top: 0.45rem;">Herkunft: {h(origin)}</p>
+                <p class="subtle" style="margin-top: 0.45rem;">Hobbies: {h(hobbies)} - Alltag: {h(daily_life)} - Schlaf: {h(sleep)}</p>
+                <p class="subtle" style="margin-top: 0.45rem;">Motivation: {h(motivation)}. {h(adventure.get("avatar_notes", "Avatar wird ueber Fotos und Koerperwerte weiter verfeinert."))}</p>
               </div>
             </article>
             """
@@ -1927,6 +1967,57 @@ def render_weight_history(state: dict, member_id: str) -> str:
     """
 
 
+def render_goal_tracking_summary(state: dict, member_id: str) -> str:
+    plan = state.get("generated_plans", {}).get(member_id)
+    if not plan:
+        return """
+          <article class="card">
+            <h3>Noch kein Zielpfad</h3>
+            <p class="subtle">Der erweiterte Fragebogen erstellt Ziel, Etappen, Check-ins und Abenteuerkontext.</p>
+            <a class="button blue" href="/fragebogen" style="margin-top: 0.85rem;">Fragebogen starten</a>
+          </article>
+        """
+
+    goal = plan.get("goal_tracking", {})
+    checkpoints = goal.get("checkpoints", [])
+    first_checkpoint = checkpoints[0]["details"] if checkpoints else "Check-ins entstehen mit dem naechsten Plan."
+    target_parts = []
+    if goal.get("target_weight_kg"):
+        target_parts.append(f'{goal["target_weight_kg"]} kg')
+    if goal.get("target_date"):
+        target_parts.append(str(goal["target_date"]))
+    target_label = " - ".join(target_parts) if target_parts else "offene Etappe"
+    milestones = "".join(f"<li>{h(item)}</li>" for item in goal.get("milestones", [])[:3])
+    calorie_delta_label = f'{int(goal.get("calorie_delta", 0)):+}'
+    return f"""
+      <article class="card area-team">
+        <div class="row">
+          <div>
+            <span class="tag area-team">Zieltracking</span>
+            <h3 style="margin-top: 0.65rem;">{h(goal.get("goal_text", "Fitnessziel"))}</h3>
+          </div>
+          <span class="tag area-nutrition">{h(goal.get("tracking_label", "woechentlich"))}</span>
+        </div>
+        <div class="grid three" style="margin-top: 0.9rem;">
+          <div class="mini-metric">
+            <span>Messwert</span>
+            <strong>{h(goal.get("metric_label", "Gewohnheiten"))}</strong>
+          </div>
+          <div class="mini-metric">
+            <span>Zielmarke</span>
+            <strong>{h(target_label)}</strong>
+          </div>
+          <div class="mini-metric">
+            <span>Kalorienbilanz</span>
+            <strong>{h(calorie_delta_label)}</strong>
+          </div>
+        </div>
+        <p class="subtle" style="margin-top: 0.75rem;">{h(first_checkpoint)}</p>
+        <ul class="subtle" style="margin-top: 0.75rem;">{milestones}</ul>
+      </article>
+    """
+
+
 def render_plan_outlook(state: dict, member_id: str) -> str:
     plan = state.get("generated_plans", {}).get(member_id)
     if not plan:
@@ -2046,14 +2137,14 @@ def render_generated_plan(state: dict, plan: dict) -> str:
         f"""
         <article class="card">
           <div class="row">
-            <span class="tag {area_class("strength" if item["type"] == "Kraft" else "endurance")}">{h(item["type"])}</span>
+            <span class="tag {area_class(training_type_area(item["type"]))}">{h(item["type"])}</span>
             <span class="meta">{h(item["duration"])}</span>
           </div>
           <h3>{h(item["title"])}</h3>
           <p class="subtle">{h(item["details"])}</p>
         </article>
         """
-        for item in plan["training"]
+        for item in plan.get("training", [])
     )
     nutrition = "".join(
         f"""
@@ -2064,6 +2155,40 @@ def render_generated_plan(state: dict, plan: dict) -> str:
         </article>
         """
         for item in plan["nutrition"]
+    )
+    goal_tracking = plan.get("goal_tracking", {})
+    milestones = "".join(f"<li>{h(item)}</li>" for item in goal_tracking.get("milestones", []))
+    checkpoints = "".join(
+        f"""
+        <article class="card">
+          <h3>{h(item["title"])}</h3>
+          <p class="subtle">{h(item["details"])}</p>
+        </article>
+        """
+        for item in goal_tracking.get("checkpoints", [])
+    )
+    target_parts = []
+    if goal_tracking.get("target_weight_kg"):
+        target_parts.append(f'{goal_tracking["target_weight_kg"]} kg')
+    if goal_tracking.get("target_date"):
+        target_parts.append(str(goal_tracking["target_date"]))
+    target_label = " - ".join(target_parts) if target_parts else "offenes Etappenziel"
+    calorie_delta = int(goal_tracking.get("calorie_delta", int(calories["target"]) - int(calories["maintenance"])))
+    calorie_delta_label = f"{calorie_delta:+}"
+    adventure = plan.get("adventure", {})
+    lifestyle = plan.get("lifestyle", {})
+    regeneration = "".join(
+        f"""
+        <article class="card area-team">
+          <div class="row">
+            <span class="tag area-team">{h(item["type"])}</span>
+            <span class="meta">{h(item["duration"])}</span>
+          </div>
+          <h3>{h(item["title"])}</h3>
+          <p class="subtle">{h(item["details"])}</p>
+        </article>
+        """
+        for item in plan.get("regeneration", [])
     )
     notes = "".join(f"<li>{h(note)}</li>" for note in plan.get("notes", []))
     return f"""
@@ -2094,6 +2219,58 @@ def render_generated_plan(state: dict, plan: dict) -> str:
             <strong>{h(macros["carbs_g"])} g / {h(macros["fat_g"])} g</strong>
           </article>
         </div>
+
+        <section class="grid two" style="margin-top: 1rem;">
+          <article class="card area-team">
+            <div class="row">
+              <div>
+                <span class="tag area-team">Zielverfolgung</span>
+                <h3 style="margin-top: 0.65rem;">{h(goal_tracking.get("goal_text", calories["goal_label"]))}</h3>
+              </div>
+              <span class="tag area-nutrition">{h(goal_tracking.get("metric_label", "Gewohnheiten"))}</span>
+            </div>
+            <div class="grid three" style="margin-top: 0.9rem;">
+              <div class="mini-metric">
+                <span>Rhythmus</span>
+                <strong>{h(goal_tracking.get("tracking_label", "woechentlich"))}</strong>
+              </div>
+              <div class="mini-metric">
+                <span>Zielmarke</span>
+                <strong>{h(target_label)}</strong>
+              </div>
+              <div class="mini-metric">
+                <span>Kalorienbilanz</span>
+                <strong>{h(calorie_delta_label)}</strong>
+              </div>
+            </div>
+            <ul class="subtle" style="margin-top: 0.8rem;">{milestones}</ul>
+          </article>
+
+          <article class="card area-strength">
+            <div class="row">
+              <div>
+                <span class="tag area-strength">Abenteuerfigur</span>
+                <h3 style="margin-top: 0.65rem;">{h(adventure.get("character_name") or member_name(state, plan["member_id"]))}</h3>
+              </div>
+              <span class="tag area-team">{h(adventure.get("role_label", "Waechter"))}</span>
+            </div>
+            <p class="subtle" style="margin-top: 0.75rem;">{h(adventure.get("origin", "Der Alltag ist das Startgebiet."))}</p>
+            <p class="subtle" style="margin-top: 0.45rem;">Hobbies: {h(adventure.get("hobbies", "noch offen"))}</p>
+            <p class="subtle" style="margin-top: 0.45rem;">Alltag: {h(adventure.get("daily_life", lifestyle.get("work_style_label", "abwechslungsreich")))}</p>
+            <p class="subtle" style="margin-top: 0.45rem;">Motivation: {h(adventure.get("motivation_label", "Story, Quests und Abenteuer"))}</p>
+          </article>
+        </section>
+
+        <section class="grid two" style="margin-top: 1rem;">
+          <div>
+            <h2>Check-ins</h2>
+            <div class="list">{checkpoints or '<article class="card"><p class="subtle">Nach dem naechsten Fragebogen entstehen Check-ins.</p></article>'}</div>
+          </div>
+          <div>
+            <h2>Regeneration</h2>
+            <div class="list">{regeneration or '<article class="card"><p class="subtle">Regeneration wird beim naechsten Plan automatisch eingeplant.</p></article>'}</div>
+          </div>
+        </section>
 
         <section class="grid two" style="margin-top: 1rem;">
           <div>
@@ -2478,9 +2655,16 @@ def progress_page(member_id: str = "bea") -> str:
 
       <section class="grid two" style="margin-top: 1rem;">
         <div class="panel">
+          <h2>Zielverfolgung</h2>
+          {render_goal_tracking_summary(state, member_id)}
+        </div>
+        <div class="panel">
           <h2>Plan-Ausblick</h2>
           {render_plan_outlook(state, member_id)}
         </div>
+      </section>
+
+      <section class="grid" style="margin-top: 1rem;">
         <div class="panel">
           <h2>Gewichtsverlauf</h2>
           {render_weight_history(state, member_id)}
@@ -2505,19 +2689,24 @@ def questionnaire_page() -> str:
         "intermediate": "Fortgeschritten",
         "advanced": "Sehr erfahren",
     }
+    target_date_default = (date.today() + timedelta(days=90)).isoformat()
     body = f"""
       <section class="page-heading">
         <div>
           <p class="eyebrow">Onboarding</p>
           <h1>Fragebogen</h1>
         </div>
-        <p class="subtle">Aus deinen Antworten entstehen Kalorienziel, Makros, Trainingsplan und Ernaehrungsplan.</p>
+        <p class="subtle">Aus deinen Antworten entstehen Zielpfad, Charakterprofil, Kalorienziel, Training, Regeneration und Ernaehrungsplan.</p>
       </section>
 
       <section class="grid two">
         <div class="panel">
-          <h2>Basisdaten</h2>
+          <h2>Startprofil</h2>
           <form class="form-grid" data-api-form data-endpoint="/api/questionnaire">
+            <div class="form-section-title">
+              <h3>Person & Ziel</h3>
+              <p class="subtle">Hier entsteht der Hauptauftrag fuer dein Abenteuer.</p>
+            </div>
             <label>
               Mitglied
               <select name="member_id">{render_member_options(state, "bea")}</select>
@@ -2542,10 +2731,56 @@ def questionnaire_page() -> str:
               Gewicht in kg
               <input name="weight_kg" type="number" min="35" max="250" step="0.1" value="70">
             </label>
+            <label class="full">
+              Hauptziel als Satz
+              <textarea name="primary_goal_text" placeholder="z.B. Ich will in 12 Wochen fitter, leichter und konsequenter trainieren."></textarea>
+            </label>
             <label>
-              Alltag
+              Zielmessung
+              <select name="goal_metric">{render_options(GOAL_METRIC_LABELS, "habit")}</select>
+            </label>
+            <label>
+              Trackingrhythmus
+              <select name="tracking_frequency">{render_options(TRACKING_FREQUENCY_LABELS, "weekly")}</select>
+            </label>
+            <label>
+              Zielgewicht in kg
+              <input name="target_weight_kg" type="number" min="35" max="250" step="0.1" placeholder="optional">
+            </label>
+            <label>
+              Zieldatum
+              <input name="target_date" type="date" value="{h(target_date_default)}">
+            </label>
+
+            <div class="form-section-title">
+              <h3>Alltag, Arbeit & Hobbies</h3>
+              <p class="subtle">Der Plan soll zu deinem echten Tagesablauf passen.</p>
+            </div>
+            <label>
+              Aktivitaetslevel
               <select name="activity">{render_options(ACTIVITY_LABELS, "moderate")}</select>
             </label>
+            <label>
+              Arbeitsalltag
+              <select name="work_style">{render_options(WORK_STYLE_LABELS, "mixed")}</select>
+            </label>
+            <label>
+              Arbeitsrhythmus
+              <input name="work_schedule" placeholder="z.B. 9-17 Uhr, Schicht, viele Termine">
+            </label>
+            <label>
+              Schritte pro Tag
+              <input name="daily_steps" type="number" min="0" max="40000" value="6000">
+            </label>
+            <label class="full">
+              Hobbies & Interessen
+              <textarea name="hobbies" placeholder="z.B. Wandern, Tanzen, Gaming, Kochen, Garten, Teamsport"></textarea>
+            </label>
+
+            <div class="form-section-title">
+              <h3>Training & Regeneration</h3>
+              <p class="subtle">Belastung und Erholung werden gemeinsam geplant.</p>
+            </div>
             <label>
               Trainingstage pro Woche
               <input name="workouts_per_week" type="number" min="2" max="6" value="4">
@@ -2563,6 +2798,35 @@ def questionnaire_page() -> str:
               <select name="experience">{render_options(experience_options, "beginner")}</select>
             </label>
             <label>
+              Regenerationsstil
+              <select name="recovery_style">{render_options(RECOVERY_LABELS, "balanced")}</select>
+            </label>
+            <label>
+              Schlafstunden
+              <input name="sleep_hours" type="number" min="3" max="12" step="0.5" value="7">
+            </label>
+            <label>
+              Schlafqualitaet
+              <select name="sleep_quality">{render_options(SLEEP_QUALITY_LABELS, "okay")}</select>
+            </label>
+            <label>
+              Stresslevel
+              <select name="stress_level">{render_options(STRESS_LABELS, "medium")}</select>
+            </label>
+            <label>
+              Regenerationstage pro Woche
+              <input name="recovery_days_per_week" type="number" min="1" max="4" value="2">
+            </label>
+            <label>
+              Mobility-Minuten
+              <input name="mobility_minutes" type="number" min="0" max="60" value="12">
+            </label>
+
+            <div class="form-section-title">
+              <h3>Ernaehrung</h3>
+              <p class="subtle">Die Mahlzeiten sollen zu Ziel, Alltag und Vorlieben passen.</p>
+            </div>
+            <label>
               Mahlzeiten pro Tag
               <input name="meals_per_day" type="number" min="2" max="6" value="3">
             </label>
@@ -2574,6 +2838,27 @@ def questionnaire_page() -> str:
               Unvertraeglichkeiten, Ausschluesse oder Notizen
               <textarea name="restrictions" placeholder="z.B. laktosefrei, kein Fisch, wenig Zeit morgens"></textarea>
             </label>
+
+            <div class="form-section-title">
+              <h3>Abenteuer-Charakter</h3>
+              <p class="subtle">Du spielst dich selbst, aber mit Klasse, Herkunft und Motivation.</p>
+            </div>
+            <label>
+              Charaktername
+              <input name="character_name" placeholder="optional, sonst Mitgliedsname">
+            </label>
+            <label>
+              Rolle
+              <select name="adventure_role">{render_options(ADVENTURE_ROLE_LABELS, "guardian")}</select>
+            </label>
+            <label>
+              Motivation
+              <select name="motivation_style">{render_options(MOTIVATION_STYLE_LABELS, "story")}</select>
+            </label>
+            <label class="full">
+              Herkunft & Erklaerung
+              <textarea name="character_origin" placeholder="z.B. Buero-Heldin mit Wanderlust, die ihren Schlafrhythmus zur Superkraft macht."></textarea>
+            </label>
             <button class="button blue full" type="submit">Plan erstellen</button>
           </form>
         </div>
@@ -2582,16 +2867,24 @@ def questionnaire_page() -> str:
           <h2>Was daraus entsteht</h2>
           <div class="list">
             <article class="card">
-              <span class="tag area-nutrition">Kalorien</span>
-              <p class="subtle" style="margin-top: 0.65rem;">Grundumsatz, Erhaltungskalorien und Zielkalorien pro Tag.</p>
+              <span class="tag area-team">Zielpfad</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Etappen, Check-ins, Zielmarken und Plan-Ausblick fuer die Fortschrittsseite.</p>
             </article>
             <article class="card">
               <span class="tag area-strength">Training</span>
-              <p class="subtle" style="margin-top: 0.65rem;">Kraft- und Ausdauereinheiten passend zu Ziel, Erfahrung und verfuegbaren Tagen.</p>
+              <p class="subtle" style="margin-top: 0.65rem;">Kraft, Ausdauer und Regeneration passend zu Ziel, Schlaf, Stress und Alltag.</p>
             </article>
             <article class="card">
               <span class="tag area-nutrition">Ernaehrung</span>
               <p class="subtle" style="margin-top: 0.65rem;">Protein, Fett, Kohlenhydrate und Mahlzeitenstruktur fuer den Alltag.</p>
+            </article>
+            <article class="card">
+              <span class="tag area-team">Abenteuer</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Charakterrolle, Herkunft, Motivation und Avatar-Hinweise fuer das Rollenspiel-System.</p>
+            </article>
+            <article class="card">
+              <span class="tag area-endurance">Alltag</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Hobbies, Arbeit, Schritte und Schlaf erklaeren, warum dein Plan genau so aufgebaut ist.</p>
             </article>
           </div>
         </div>
