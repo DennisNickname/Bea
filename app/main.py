@@ -30,8 +30,13 @@ from app.photos import private_photos_for_member
 from app.photos import public_photos
 from app.photos import publish_photo
 from app.photos import set_photo_pin
+from app.state import ACTIVITY_LABELS
 from app.state import AREA_LABELS
 from app.state import AREAS
+from app.state import DIET_LABELS
+from app.state import ENDURANCE_LABELS
+from app.state import GOAL_LABELS
+from app.state import TRAINING_LABELS
 from app.state import add_external_sport_entry
 from app.state import add_assignment
 from app.state import add_challenge_progress
@@ -39,6 +44,7 @@ from app.state import add_motivation
 from app.state import add_nutrition_entry
 from app.state import add_sport_entry
 from app.state import complete_assignment
+from app.state import create_personal_plan
 from app.state import leaderboard
 from app.state import level_for_xp
 from app.state import load_state
@@ -62,6 +68,7 @@ SERVICE_NAME = os.getenv("BEA_SERVICE_NAME", "bea.service")
 
 NAV_ITEMS = (
     ("/", "Dashboard"),
+    ("/fragebogen", "Fragebogen"),
     ("/freunde", "Freunde"),
     ("/challenges", "Challenges"),
     ("/fitnessplan", "Fitnessplan"),
@@ -131,6 +138,13 @@ def render_category_options(selected: str = "strength") -> str:
     return "\n".join(
         f'<option value="{h(area)}" {"selected" if area == selected else ""}>{h(AREA_LABELS[area])}</option>'
         for area in ("strength", "endurance", "nutrition")
+    )
+
+
+def render_options(options: dict[str, str], selected: str = "") -> str:
+    return "\n".join(
+        f'<option value="{h(value)}" {"selected" if value == selected else ""}>{h(label)}</option>'
+        for value, label in options.items()
     )
 
 
@@ -1082,12 +1096,118 @@ def render_assignment_card(state: dict, assignment: dict) -> str:
     """
 
 
+def render_generated_plan(state: dict, plan: dict) -> str:
+    calories = plan["calories"]
+    macros = plan["macros"]
+    training = "".join(
+        f"""
+        <article class="card">
+          <div class="row">
+            <span class="tag {area_class("strength" if item["type"] == "Kraft" else "endurance")}">{h(item["type"])}</span>
+            <span class="meta">{h(item["duration"])}</span>
+          </div>
+          <h3>{h(item["title"])}</h3>
+          <p class="subtle">{h(item["details"])}</p>
+        </article>
+        """
+        for item in plan["training"]
+    )
+    nutrition = "".join(
+        f"""
+        <article class="card">
+          <h3>{h(item["title"])}</h3>
+          <p><strong>{h(item["target"])}</strong></p>
+          <p class="subtle">{h(item["details"])}</p>
+        </article>
+        """
+        for item in plan["nutrition"]
+    )
+    notes = "".join(f"<li>{h(note)}</li>" for note in plan.get("notes", []))
+    return f"""
+      <article class="panel">
+        <div class="row">
+          <div>
+            <h2>{h(member_name(state, plan["member_id"]))}: Trainings- und Ernaehrungsplan</h2>
+            <p class="subtle">Erstellt am {h(plan["created_at"])} - Ziel: {h(calories["goal_label"])} - Aktivitaet: {h(calories["activity_label"])}</p>
+          </div>
+          <span class="tag area-nutrition">{h(calories["target"])} kcal/Tag</span>
+        </div>
+
+        <div class="grid four" style="margin-top: 1rem;">
+          <article class="stat-card">
+            <span>Grundumsatz</span>
+            <strong>{h(calories["bmr"])}</strong>
+          </article>
+          <article class="stat-card">
+            <span>Erhaltung</span>
+            <strong>{h(calories["maintenance"])}</strong>
+          </article>
+          <article class="stat-card">
+            <span>Protein</span>
+            <strong>{h(macros["protein_g"])} g</strong>
+          </article>
+          <article class="stat-card">
+            <span>Kohlenhydrate / Fett</span>
+            <strong>{h(macros["carbs_g"])} g / {h(macros["fat_g"])} g</strong>
+          </article>
+        </div>
+
+        <section class="grid two" style="margin-top: 1rem;">
+          <div>
+            <h2>Trainingsplan</h2>
+            <div class="list">{training}</div>
+          </div>
+          <div>
+            <h2>Ernaehrungsplan</h2>
+            <div class="list">{nutrition}</div>
+          </div>
+        </section>
+
+        <div class="card" style="margin-top: 1rem;">
+          <h3>Hinweise</h3>
+          <ul class="subtle">{notes}</ul>
+        </div>
+      </article>
+    """
+
+
+def render_plan_collection(state: dict) -> str:
+    plans = state.get("generated_plans", {})
+    if not plans:
+        return """
+          <article class="card">
+            <h3>Noch kein Plan vorhanden</h3>
+            <p class="subtle">Fuellt zuerst den Fragebogen aus. Danach erscheinen Kalorienbedarf, Trainingsplan und Ernaehrungsplan hier.</p>
+          </article>
+        """
+
+    ordered = []
+    member_ids = {member["id"] for member in state["members"]}
+    for member_id, plan in plans.items():
+        if member_id in member_ids:
+            ordered.append(render_generated_plan(state, plan))
+    return "".join(ordered)
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard() -> str:
     state = load_state()
     totals = team_totals(state)
     level_cards = "".join(level_meter(AREA_LABELS[area], totals[area], area) for area in AREAS)
     challenges = "".join(render_challenge_card(state, challenge) for challenge in state["challenges"][:3])
+    plan_hint = ""
+    if not state.get("generated_plans"):
+        plan_hint = """
+          <section class="panel" style="margin-bottom: 1rem;">
+            <div class="row">
+              <div>
+                <h2>Starte mit dem Fragebogen</h2>
+                <p class="subtle">Danach erstellt Bea automatisch deinen Kalorienbedarf, Trainingsplan und Ernaehrungsplan.</p>
+              </div>
+              <a class="button blue" href="/fragebogen">Fragebogen starten</a>
+            </div>
+          </section>
+        """
     motivations = "".join(
         f"""
         <article class="card">
@@ -1106,6 +1226,8 @@ def dashboard() -> str:
         </div>
         <p class="subtle">Gemeinsame Fortschritte, Level und Aufgaben auf einen Blick.</p>
       </section>
+
+      {plan_hint}
 
       <section class="grid four">
         {stat_cards(state)}
@@ -1136,6 +1258,114 @@ def dashboard() -> str:
       </section>
     """
     return render_layout("/", "Dashboard", body)
+
+
+@app.get("/fragebogen", response_class=HTMLResponse)
+def questionnaire_page() -> str:
+    state = load_state()
+    sex_options = {"female": "weiblich", "male": "maennlich", "neutral": "neutral / Durchschnitt"}
+    experience_options = {
+        "beginner": "Einsteiger",
+        "intermediate": "Fortgeschritten",
+        "advanced": "Sehr erfahren",
+    }
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Onboarding</p>
+          <h1>Fragebogen</h1>
+        </div>
+        <p class="subtle">Aus deinen Antworten entstehen Kalorienziel, Makros, Trainingsplan und Ernaehrungsplan.</p>
+      </section>
+
+      <section class="grid two">
+        <div class="panel">
+          <h2>Basisdaten</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/questionnaire">
+            <label>
+              Mitglied
+              <select name="member_id">{render_member_options(state, "bea")}</select>
+            </label>
+            <label>
+              Ziel
+              <select name="goal">{render_options(GOAL_LABELS, "maintain")}</select>
+            </label>
+            <label>
+              Alter
+              <input name="age" type="number" min="13" max="90" value="30">
+            </label>
+            <label>
+              Formel
+              <select name="sex">{render_options(sex_options, "neutral")}</select>
+            </label>
+            <label>
+              Koerpergroesse in cm
+              <input name="height_cm" type="number" min="120" max="230" value="170">
+            </label>
+            <label>
+              Gewicht in kg
+              <input name="weight_kg" type="number" min="35" max="250" step="0.1" value="70">
+            </label>
+            <label>
+              Alltag
+              <select name="activity">{render_options(ACTIVITY_LABELS, "moderate")}</select>
+            </label>
+            <label>
+              Trainingstage pro Woche
+              <input name="workouts_per_week" type="number" min="2" max="6" value="4">
+            </label>
+            <label>
+              Trainingsort
+              <select name="training_location">{render_options(TRAINING_LABELS, "mixed")}</select>
+            </label>
+            <label>
+              Ausdauer
+              <select name="endurance_preference">{render_options(ENDURANCE_LABELS, "mixed")}</select>
+            </label>
+            <label>
+              Trainingserfahrung
+              <select name="experience">{render_options(experience_options, "beginner")}</select>
+            </label>
+            <label>
+              Mahlzeiten pro Tag
+              <input name="meals_per_day" type="number" min="2" max="6" value="3">
+            </label>
+            <label class="full">
+              Ernaehrungsform
+              <select name="diet_style">{render_options(DIET_LABELS, "mixed")}</select>
+            </label>
+            <label class="full">
+              Unvertraeglichkeiten, Ausschluesse oder Notizen
+              <textarea name="restrictions" placeholder="z.B. laktosefrei, kein Fisch, wenig Zeit morgens"></textarea>
+            </label>
+            <button class="button blue full" type="submit">Plan erstellen</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Was daraus entsteht</h2>
+          <div class="list">
+            <article class="card">
+              <span class="tag area-nutrition">Kalorien</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Grundumsatz, Erhaltungskalorien und Zielkalorien pro Tag.</p>
+            </article>
+            <article class="card">
+              <span class="tag area-strength">Training</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Kraft- und Ausdauereinheiten passend zu Ziel, Erfahrung und verfuegbaren Tagen.</p>
+            </article>
+            <article class="card">
+              <span class="tag area-nutrition">Ernaehrung</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Protein, Fett, Kohlenhydrate und Mahlzeitenstruktur fuer den Alltag.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid" style="margin-top: 1rem;">
+        {render_plan_collection(state)}
+      </section>
+    """
+    return render_layout("/fragebogen", "Fragebogen", body)
 
 
 @app.get("/freunde", response_class=HTMLResponse)
@@ -1724,6 +1954,10 @@ def fitness_plan_page() -> str:
         </div>
         <div class="list" style="margin-top: 1rem;">{weather_cards}</div>
       </section>
+
+      <section class="grid" style="margin-top: 1rem;">
+        {render_plan_collection(state)}
+      </section>
     """
     return render_layout("/fitnessplan", "Fitnessplan", body)
 
@@ -1855,6 +2089,17 @@ def save_action(action, payload: dict, message: str) -> dict[str, str]:
         raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
     save_state(state)
     return {"message": message}
+
+
+@app.post("/api/questionnaire")
+async def api_questionnaire(request: Request) -> dict[str, str]:
+    state = load_state()
+    try:
+        create_personal_plan(state, await read_json_payload(request))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    return {"message": "Plan erstellt."}
 
 
 @app.post("/api/sport")

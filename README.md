@@ -5,6 +5,7 @@ FastAPI-App fuer gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, 
 ## Bereiche
 
 - `Dashboard`: Rangliste, Team-XP, aktive Challenges und Motivation
+- `Fragebogen`: Kalorienbedarf, Trainingsplan und Ernaehrungsplan erstellen
 - `Freunde`: Mitgliedervergleich, Motivation senden und Uebungen zuweisen
 - `Challenges`: Gemeinsame Fortschritte eintragen und XP-Boni sammeln
 - `Fitnessplan`: Wettervorhersage fuer Outdoor- oder Studio-Entscheidungen
@@ -15,6 +16,9 @@ FastAPI-App fuer gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, 
 
 Die App speichert Live-Daten lokal in `data/bea_state.json`. Diese Datei wird nicht in Git committed.
 Private Fotos werden lokal unter `data/photos/` gespeichert und ebenfalls nicht committed.
+
+Der Fragebogen berechnet den Kalorienbedarf mit einer Mifflin-St-Jeor-Schaetzung, Aktivitaetsfaktor und Zielanpassung.
+Die Werte sind Startpunkte und sollten nach einigen Wochen anhand von Gewicht, Energie und Trainingsleistung angepasst werden.
 
 ## Lokal starten
 

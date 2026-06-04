@@ -19,6 +19,53 @@ AREA_LABELS = {
     "team": "Teamgeist",
 }
 
+ACTIVITY_FACTORS = {
+    "low": 1.25,
+    "light": 1.4,
+    "moderate": 1.6,
+    "high": 1.8,
+}
+
+ACTIVITY_LABELS = {
+    "low": "sitzend",
+    "light": "leicht aktiv",
+    "moderate": "moderat aktiv",
+    "high": "sehr aktiv",
+}
+
+GOAL_ADJUSTMENTS = {
+    "lose": -400,
+    "maintain": 0,
+    "gain": 300,
+    "performance": 150,
+}
+
+GOAL_LABELS = {
+    "lose": "Fett reduzieren",
+    "maintain": "Gewicht halten",
+    "gain": "Muskeln aufbauen",
+    "performance": "Leistung steigern",
+}
+
+TRAINING_LABELS = {
+    "gym": "Fitnessstudio",
+    "home": "Zuhause",
+    "mixed": "Gemischt",
+}
+
+ENDURANCE_LABELS = {
+    "outdoor": "Draussen",
+    "indoor": "Studio",
+    "mixed": "Wetterabhaengig",
+}
+
+DIET_LABELS = {
+    "mixed": "Mischkost",
+    "vegetarian": "Vegetarisch",
+    "vegan": "Vegan",
+    "high_protein": "Proteinbetont",
+}
+
 DEFAULT_STATE = {
     "members": [
         {
@@ -155,6 +202,8 @@ DEFAULT_STATE = {
     },
     "photo_access": {},
     "photos": [],
+    "profiles": {},
+    "generated_plans": {},
 }
 
 
@@ -192,6 +241,214 @@ def update_settings(state: dict, payload: dict) -> dict:
     settings["latitude"] = round(latitude, 6)
     settings["longitude"] = round(longitude, 6)
     return settings
+
+
+def as_int(payload: dict, key: str, default: int = 0) -> int:
+    try:
+        return int(float(payload.get(key, default)))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{key} muss eine Zahl sein.") from exc
+
+
+def as_float(payload: dict, key: str, default: float = 0.0) -> float:
+    try:
+        return float(payload.get(key, default))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{key} muss eine Zahl sein.") from exc
+
+
+def clamp(value: int, minimum: int, maximum: int) -> int:
+    return min(maximum, max(minimum, value))
+
+
+def calculate_bmr(profile: dict) -> int:
+    base = 10 * profile["weight_kg"] + 6.25 * profile["height_cm"] - 5 * profile["age"]
+    sex_constant = {"male": 5, "female": -161, "neutral": -78}[profile["sex"]]
+    return round(base + sex_constant)
+
+
+def calculate_macros(profile: dict, calories: int) -> dict[str, int]:
+    goal = profile["goal"]
+    weight = profile["weight_kg"]
+    protein_factor = {
+        "lose": 1.9,
+        "maintain": 1.6,
+        "gain": 1.8,
+        "performance": 1.7,
+    }[goal]
+    if profile["diet_style"] == "vegan":
+        protein_factor += 0.1
+
+    protein = round(weight * protein_factor)
+    fat = max(45, round(weight * 0.8))
+    carbs = max(80, round((calories - protein * 4 - fat * 9) / 4))
+    return {"protein_g": protein, "fat_g": fat, "carbs_g": carbs}
+
+
+def training_sessions(profile: dict) -> list[dict]:
+    workouts = profile["workouts_per_week"]
+    location = profile["training_location"]
+    endurance = profile["endurance_preference"]
+    goal = profile["goal"]
+    experience = profile["experience"]
+
+    strength_count = 2 if workouts <= 3 else 3
+    if goal == "gain":
+        strength_count = min(workouts, strength_count + 1)
+    endurance_count = max(1, workouts - strength_count)
+
+    equipment = {
+        "gym": "Langhantel, Maschinen und freie Gewichte",
+        "home": "Koerpergewicht, Band oder Kurzhanteln",
+        "mixed": "Studio oder Zuhause, je nach Woche",
+    }[location]
+    endurance_place = {
+        "outdoor": "draussen",
+        "indoor": "im Studio",
+        "mixed": "je nach Wetter aus dem Fitnessplan",
+    }[endurance]
+    intensity = {
+        "beginner": "sauber, locker steigernd",
+        "intermediate": "moderat fordernd",
+        "advanced": "progressiv und anspruchsvoll",
+    }[experience]
+
+    sessions = []
+    for index in range(strength_count):
+        sessions.append(
+            {
+                "type": "Kraft",
+                "title": f"Kraft Einheit {index + 1}",
+                "duration": "45-60 min",
+                "details": f"Ganzkoerper mit {equipment}: Kniebeuge/Beinpresse, Zug, Druck, Rumpf. Intensitaet: {intensity}.",
+            }
+        )
+
+    for index in range(endurance_count):
+        if goal == "performance":
+            detail = "1 lockere Zone-2 Einheit und 1 Intervallblock, wenn die Woche es erlaubt."
+        elif goal == "lose":
+            detail = "Ruhige Zone-2 Einheit fuer zusaetzlichen Verbrauch und Regeneration."
+        else:
+            detail = "Grundlagenausdauer ohne die Krafttage zu stoeren."
+        sessions.append(
+            {
+                "type": "Ausdauer",
+                "title": f"Ausdauer Einheit {index + 1}",
+                "duration": "30-50 min",
+                "details": f"{detail} Ort: {endurance_place}.",
+            }
+        )
+
+    return sessions[:workouts]
+
+
+def meal_templates(profile: dict, calories: int, macros: dict) -> list[dict]:
+    meals = profile["meals_per_day"]
+    diet = profile["diet_style"]
+    protein_source = {
+        "mixed": "Eier, Fisch, Fleisch, Quark oder Huelsenfruechte",
+        "vegetarian": "Quark, Skyr, Eier, Tofu oder Huelsenfruechte",
+        "vegan": "Tofu, Tempeh, Seitan, Bohnen oder veganes Protein",
+        "high_protein": "mageres Protein, Skyr, Eier oder Proteinshake",
+    }[diet]
+    calories_per_meal = round(calories / meals)
+    protein_per_meal = round(macros["protein_g"] / meals)
+    templates = []
+    for index in range(meals):
+        if index == 0:
+            title = "Fruehstueck"
+            focus = "Protein plus langsam verdauliche Kohlenhydrate"
+        elif index == meals - 1:
+            title = "Abendessen"
+            focus = "Protein, Gemuese und je nach Training Kohlenhydrate"
+        else:
+            title = f"Mahlzeit {index + 1}"
+            focus = "Planbare Energie fuer Training und Alltag"
+        templates.append(
+            {
+                "title": title,
+                "target": f"ca. {calories_per_meal} kcal, {protein_per_meal} g Protein",
+                "details": f"{focus}. Gute Quellen: {protein_source}.",
+            }
+        )
+    return templates
+
+
+def create_personal_plan(state: dict, payload: dict) -> dict:
+    member_id = str(payload.get("member_id") or "")
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    profile = {
+        "member_id": member_id,
+        "age": as_int(payload, "age"),
+        "sex": str(payload.get("sex") or "neutral"),
+        "height_cm": as_float(payload, "height_cm"),
+        "weight_kg": as_float(payload, "weight_kg"),
+        "activity": str(payload.get("activity") or "moderate"),
+        "goal": str(payload.get("goal") or "maintain"),
+        "workouts_per_week": clamp(as_int(payload, "workouts_per_week", 4), 2, 6),
+        "training_location": str(payload.get("training_location") or "mixed"),
+        "endurance_preference": str(payload.get("endurance_preference") or "mixed"),
+        "diet_style": str(payload.get("diet_style") or "mixed"),
+        "meals_per_day": clamp(as_int(payload, "meals_per_day", 3), 2, 6),
+        "experience": str(payload.get("experience") or "beginner"),
+        "restrictions": str(payload.get("restrictions") or "").strip(),
+        "created_at": today(),
+    }
+
+    if not 13 <= profile["age"] <= 90:
+        raise ValueError("Bitte ein Alter zwischen 13 und 90 eintragen.")
+    if profile["sex"] not in ("female", "male", "neutral"):
+        raise ValueError("Bitte ein Geschlecht fuer die Formel auswaehlen.")
+    if not 120 <= profile["height_cm"] <= 230:
+        raise ValueError("Bitte eine plausible Koerpergroesse eintragen.")
+    if not 35 <= profile["weight_kg"] <= 250:
+        raise ValueError("Bitte ein plausibles Gewicht eintragen.")
+    if profile["activity"] not in ACTIVITY_FACTORS:
+        raise ValueError("Aktivitaetslevel wurde nicht gefunden.")
+    if profile["goal"] not in GOAL_ADJUSTMENTS:
+        raise ValueError("Ziel wurde nicht gefunden.")
+    if profile["training_location"] not in TRAINING_LABELS:
+        raise ValueError("Trainingsort wurde nicht gefunden.")
+    if profile["endurance_preference"] not in ENDURANCE_LABELS:
+        raise ValueError("Ausdauerpraeferenz wurde nicht gefunden.")
+    if profile["diet_style"] not in DIET_LABELS:
+        raise ValueError("Ernaehrungsform wurde nicht gefunden.")
+    if profile["experience"] not in ("beginner", "intermediate", "advanced"):
+        raise ValueError("Trainingserfahrung wurde nicht gefunden.")
+
+    bmr = calculate_bmr(profile)
+    maintenance = round(bmr * ACTIVITY_FACTORS[profile["activity"]])
+    target_calories = max(1200, maintenance + GOAL_ADJUSTMENTS[profile["goal"]])
+    macros = calculate_macros(profile, target_calories)
+    plan = {
+        "member_id": member_id,
+        "created_at": today(),
+        "calories": {
+            "bmr": bmr,
+            "maintenance": maintenance,
+            "target": target_calories,
+            "goal_label": GOAL_LABELS[profile["goal"]],
+            "activity_label": ACTIVITY_LABELS[profile["activity"]],
+        },
+        "macros": macros,
+        "training": training_sessions(profile),
+        "nutrition": meal_templates(profile, target_calories, macros),
+        "notes": [
+            "Kalorienbedarf ist eine Schaetzung und sollte nach 2-3 Wochen anhand von Gewicht, Energie und Leistung angepasst werden.",
+            "Bei Erkrankungen, Schwangerschaft oder Essstoerungen bitte medizinisch abklaeren.",
+        ],
+    }
+    if profile["restrictions"]:
+        plan["notes"].append(f"Ruecksicht auf: {profile['restrictions']}.")
+
+    state.setdefault("profiles", {})[member_id] = profile
+    state.setdefault("generated_plans", {})[member_id] = plan
+    award_xp(state, member_id, "nutrition", 35)
+    award_xp(state, member_id, "team", 15)
+    return plan
 
 
 def today() -> str:
