@@ -570,13 +570,30 @@ RPG_WEEKLY_BOSSES = [
     {"name": "Trägheits-Kolos", "title": "Wöchentlicher Endgegner", "weakness": "Gemeinschaft", "max_hp": 1150},
 ]
 
-RPG_TITLES = [
-    (1, "Novize"),
-    (3, "Adept"),
-    (5, "Held"),
-    (8, "Champion"),
-    (12, "Legende"),
+RPG_LEVELS = [
+    {"level": 1, "name": "Novize", "description": "Die ersten Routinen werden aufgebaut."},
+    {"level": 2, "name": "Lehrling", "description": "Training, Nahrung und Schlaf werden bewusster."},
+    {"level": 3, "name": "Adept", "description": "Die Grundlagen sitzen und erste Serien entstehen."},
+    {"level": 4, "name": "Pfadfinder", "description": "Du findest deinen Rhythmus im Alltag."},
+    {"level": 5, "name": "Held", "description": "Du hast genug Basis gesammelt, um sichtbar stärker zu handeln."},
+    {"level": 6, "name": "Routinenwächter", "description": "Konstanz wird zur Hauptfähigkeit."},
+    {"level": 7, "name": "Kraftsucher", "description": "Progression und Technik werden wichtiger."},
+    {"level": 8, "name": "Champion", "description": "Du kannst Rückschläge besser einordnen und weitermachen."},
+    {"level": 9, "name": "Meisterschüler", "description": "Die Pläne werden präziser und persönlicher."},
+    {"level": 10, "name": "Gildenstütze", "description": "Du hilfst anderen und sammelst Teamwirkung."},
+    {"level": 11, "name": "Fokusmeister", "description": "Du trainierst zielgerichteter und erholst dich bewusster."},
+    {"level": 12, "name": "Legende", "description": "Deine Gewohnheiten sind ein stabiler Teil deines Charakters."},
+    {"level": 13, "name": "Grenzgänger", "description": "Du bewegst dich kontrolliert aus der Komfortzone."},
+    {"level": 14, "name": "Planbezwinger", "description": "Auch volle Wochen verlieren ihren Schrecken."},
+    {"level": 15, "name": "Ausdauerfürst", "description": "Lange Ziele werden in kleine tägliche Siege zerlegt."},
+    {"level": 16, "name": "Kraftfürst", "description": "Du hebst, ziehst und drückst mit Geduld und System."},
+    {"level": 17, "name": "Balancehüter", "description": "Belastung, Nahrung und Regeneration greifen ineinander."},
+    {"level": 18, "name": "Questmeister", "description": "Du erkennst Fortschritt nicht nur an Zahlen, sondern an Verhalten."},
+    {"level": 19, "name": "Mythos", "description": "Deine Reise inspiriert die Gruppe."},
+    {"level": 20, "name": "Aufgestiegene Legende", "description": "Der höchste Rang; danach zählt jedes weitere Level als fortlaufende Meisterschaft."},
 ]
+
+RPG_TITLES = [(entry["level"], entry["name"]) for entry in RPG_LEVELS]
 
 AVATAR_DEFAULTS = {
     "height_cm": 170,
@@ -2288,6 +2305,25 @@ def rpg_title_for_level(level: int) -> str:
         if level >= minimum_level:
             title = candidate
     return title
+
+
+def rpg_level_glossary() -> list[dict]:
+    rows = []
+    descriptions = {int(entry["level"]): str(entry["description"]) for entry in RPG_LEVELS}
+    for entry in RPG_LEVELS:
+        level = int(entry["level"])
+        xp_min = (level - 1) * 250
+        xp_max = level * 250 - 1
+        rows.append(
+            {
+                "level": level,
+                "name": rpg_title_for_level(level),
+                "xp_min": xp_min,
+                "xp_max": xp_max,
+                "description": descriptions.get(level, ""),
+            }
+        )
+    return rows
 
 
 def rpg_character(member: dict) -> dict:

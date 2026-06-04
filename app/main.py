@@ -58,6 +58,8 @@ from app.state import MINDSET_EXERCISES
 from app.state import MOTIVATION_STYLE_LABELS
 from app.state import RECOVERY_LABELS
 from app.state import REWARD_CATALOG
+from app.state import RPG_DAILY_BOSSES
+from app.state import RPG_WEEKLY_BOSSES
 from app.state import SLEEP_QUALITY_LABELS
 from app.state import STRESS_LABELS
 from app.state import TRACKING_FREQUENCY_LABELS
@@ -118,6 +120,7 @@ from app.state import register_member_account
 from app.state import rewards_for_member
 from app.state import rpg_character
 from app.state import rpg_completion_key
+from app.state import rpg_level_glossary
 from app.state import save_state
 from app.state import save_avatar_profile
 from app.state import like_group_comment
@@ -146,6 +149,7 @@ SESSIONS: dict[str, dict] = {}
 NAV_ITEMS = (
     ("/", "Dashboard"),
     ("/abenteuer", "Abenteuer"),
+    ("/glossar", "Glossar"),
     ("/reise", "Reise"),
     ("/belohnungen", "Belohnungen"),
     ("/avatar", "Avatar"),
@@ -165,7 +169,7 @@ NAV_ITEMS = (
 
 NAV_GROUPS = (
     ("Planung", (("/", "Dashboard"), ("/fitnessplan", "Fitnessplan"), ("/fragebogen", "Check-in"))),
-    ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/reise", "Reise"), ("/belohnungen", "Belohnungen"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
+    ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/glossar", "Glossar"), ("/reise", "Reise"), ("/belohnungen", "Belohnungen"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
     ("Community", (("/freunde", "Freunde"), ("/gruppen", "Gruppen"), ("/challenges", "Challenges"))),
     ("Tracking", (("/sport", "Sport"), ("/mindset", "Mindset"), ("/nahrung", "Nahrung"), ("/fluessigkeit", "Flüssigkeit"), ("/fotos", "Fotos"), ("/integrationen", "Integrationen"))),
 )
@@ -2230,6 +2234,51 @@ def render_rpg_boss_card(boss: dict) -> str:
     """
 
 
+def render_glossary_level_rows() -> str:
+    rows = []
+    for entry in rpg_level_glossary():
+        xp_range = f'{entry["xp_min"]} - {entry["xp_max"]} XP'
+        rows.append(
+            f"""
+            <tr>
+              <td>Level {h(entry["level"])}</td>
+              <td><strong>{h(entry["name"])}</strong></td>
+              <td>{h(xp_range)}</td>
+              <td>{h(entry["description"])}</td>
+            </tr>
+            """
+        )
+    rows.append(
+        """
+        <tr>
+          <td>Level 21+</td>
+          <td><strong>Aufgestiegene Legende</strong></td>
+          <td>ab 5.000 XP, danach alle 250 XP</td>
+          <td>Der Rang bleibt, aber das Level steigt weiter und zeigt fortlaufende Meisterschaft.</td>
+        </tr>
+        """
+    )
+    return "".join(rows)
+
+
+def render_glossary_boss_cards(bosses: list[dict], area: str) -> str:
+    return "".join(
+        f"""
+        <article class="card {area_class(area)}">
+          <div class="row">
+            <div>
+              <span class="tag {area_class(area)}">{h(boss.get("title", "Boss"))}</span>
+              <h3 style="margin-top: 0.65rem;">{h(boss["name"])}</h3>
+            </div>
+            <span class="tag area-team">{h(boss["max_hp"])} LP</span>
+          </div>
+          <p class="subtle" style="margin-top: 0.75rem;">Schwäche: {h(boss["weakness"])}</p>
+        </article>
+        """
+        for boss in bosses
+    )
+
+
 def render_character_cards(state: dict) -> str:
     cards = []
     for member in leaderboard(state):
@@ -4009,6 +4058,68 @@ def adventure_page() -> str:
       </section>
     """
     return render_layout("/abenteuer", "Abenteuer", body)
+
+
+@app.get("/glossar", response_class=HTMLResponse)
+def glossary_page() -> str:
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Glossar</p>
+          <h1>Level, Bosse & Endgegner</h1>
+        </div>
+        <p class="subtle">Alle Titel, die im Abenteuer-System erreichbar sind, plus die aktuellen Boss-Pools.</p>
+      </section>
+
+      <section class="grid four">
+        <article class="stat-card">
+          <span>XP pro Level</span>
+          <strong>250</strong>
+        </article>
+        <article class="stat-card">
+          <span>Benannte Level</span>
+          <strong>{h(len(rpg_level_glossary()))}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Tagesbosse</span>
+          <strong>{h(len(RPG_DAILY_BOSSES))}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Endgegner</span>
+          <strong>{h(len(RPG_WEEKLY_BOSSES))}</strong>
+        </article>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Level & Titel</h2>
+        <p class="subtle">Dein Charakterlevel entsteht aus allen XP-Bereichen zusammen. Nach Level 20 steigt die Zahl weiter alle 250 XP, der höchste Rang bleibt erhalten.</p>
+        <table style="margin-top: 1rem;">
+          <thead>
+            <tr>
+              <th>Level</th>
+              <th>Name</th>
+              <th>XP-Bereich</th>
+              <th>Bedeutung</th>
+            </tr>
+          </thead>
+          <tbody>{render_glossary_level_rows()}</tbody>
+        </table>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Tagesbosse</h2>
+          <p class="subtle">Tagesbosse rotieren täglich. Tägliche Aufgaben verursachen Schaden und können den Boss besiegen.</p>
+          <div class="grid two" style="margin-top: 1rem;">{render_glossary_boss_cards(RPG_DAILY_BOSSES, "strength")}</div>
+        </div>
+        <div class="panel">
+          <h2>Wöchentliche Endgegner</h2>
+          <p class="subtle">Endgegner rotieren wöchentlich. Jeder Tagesquest-Abschluss fügt ihnen zusätzlich Schaden zu.</p>
+          <div class="grid two" style="margin-top: 1rem;">{render_glossary_boss_cards(RPG_WEEKLY_BOSSES, "team")}</div>
+        </div>
+      </section>
+    """
+    return render_layout("/glossar", "Glossar", body)
 
 
 @app.get("/reise", response_class=HTMLResponse)
