@@ -48,13 +48,33 @@ bash scripts/install_pi.sh
 
 Das Skript installiert die Abhängigkeiten, richtet `bea.service` ein und startet den Dienst auf Port `8010`.
 
+Wenn danach Änderungen per Git geladen wurden, den laufenden Dienst neu starten:
+
+```bash
+sudo systemctl restart bea.service
+```
+
+Status und Logs prüfen:
+
+```bash
+systemctl status bea.service
+journalctl -u bea.service -f
+```
+
 Manuell starten, falls kein Systemd verfügbar ist:
 
 ```bash
 ./scripts/run.sh
 ```
 
-Der Server läuft auf Port `8010`.
+Der Server läuft auf Port `8010`. Wenn `bea.service` bereits läuft, ist dieser Port schon belegt. Dann nicht zusätzlich
+`./scripts/run.sh` starten, sondern den Dienst mit `sudo systemctl restart bea.service` neu starten. Für einen manuellen
+Test zuerst den Dienst stoppen:
+
+```bash
+sudo systemctl stop bea.service
+./scripts/run.sh
+```
 
 Optional kann ein anderer Speicherort gesetzt werden:
 
