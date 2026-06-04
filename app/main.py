@@ -8,12 +8,14 @@ import secrets
 import shlex
 import shutil
 import signal
+import smtplib
 import subprocess
 import threading
 import time
 import urllib.parse
 from datetime import date
 from datetime import timedelta
+from email.message import EmailMessage
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -72,12 +74,15 @@ from app.state import add_motivation
 from app.state import add_nutrition_entry
 from app.state import add_sport_entry
 from app.state import add_youtube_link
+from app.state import append_auth_mail_outbox
 from app.state import complete_assignment
 from app.state import complete_daily_quest
 from app.state import complete_health_journey_lesson
+from app.state import consume_password_reset_code
 from app.state import create_challenge
 from app.state import create_group
 from app.state import create_personal_plan
+from app.state import create_password_reset_code
 from app.state import ensure_rpg_state
 from app.state import avatar_profile_for_member
 from app.state import AVATAR_CLOTHING_STYLES
@@ -100,17 +105,18 @@ from app.state import leaderboard
 from app.state import level_for_xp
 from app.state import load_state
 from app.state import meal_ideas
+from app.state import member_by_login
 from app.state import member_name
 from app.state import members_by_id
 from app.state import password_is_configured
 from app.state import questionnaire_status
 from app.state import redeem_reward
+from app.state import register_member_account
 from app.state import rewards_for_member
 from app.state import rpg_character
 from app.state import rpg_completion_key
 from app.state import save_state
 from app.state import save_avatar_profile
-from app.state import set_member_password
 from app.state import like_group_comment
 from app.state import strava_consume_pending
 from app.state import strava_get_connection
@@ -173,7 +179,8 @@ def parse_form_body(body: bytes) -> dict[str, str]:
 
 def safe_next_url(value: str) -> str:
     target = value if value.startswith("/") and not value.startswith("//") else "/"
-    return target if not target.startswith(("/login", "/api/login")) else "/"
+    auth_paths = ("/login", "/api/login", "/register", "/api/register", "/password-reset", "/api/password-reset")
+    return target if not target.startswith(auth_paths) else "/"
 
 
 def create_session(member_id: str) -> str:
@@ -220,6 +227,69 @@ def set_session_cookie(response: RedirectResponse, request: Request, token: str)
 
 def clear_session_cookie(response: RedirectResponse, request: Request) -> None:
     response.delete_cookie(SESSION_COOKIE, secure=cookie_secure(request), samesite="strict")
+
+
+def _env_value(*names: str, default: str = "") -> str:
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return default
+
+
+def _env_bool(*names: str, default: bool = False) -> bool:
+    value = _env_value(*names)
+    if not value:
+        return default
+    return value.lower() in ("1", "true", "yes", "ja")
+
+
+def send_password_reset_email(email: str, code: str) -> bool:
+    host = _env_value("BEA_MAIL_HOST", "MAIL_HOST")
+    if not host:
+        return False
+
+    try:
+        port = int(_env_value("BEA_MAIL_PORT", "MAIL_PORT", default="587"))
+    except ValueError:
+        port = 587
+
+    username = _env_value("BEA_MAIL_USER", "MAIL_USER")
+    password = _env_value("BEA_MAIL_PASS", "MAIL_PASS")
+    mail_from = _env_value("BEA_MAIL_FROM", "MAIL_FROM", default="noreply@bea.local")
+    use_ssl = _env_bool("BEA_MAIL_USE_SSL", "MAIL_USE_SSL", default=port == 465)
+    use_tls = _env_bool("BEA_MAIL_USE_TLS", "MAIL_USE_TLS", default=port == 587)
+
+    msg = EmailMessage()
+    msg["From"] = mail_from
+    msg["To"] = email
+    msg["Subject"] = "Bea Passwort zurücksetzen"
+    msg.set_content(
+        "\n".join(
+            (
+                "Hallo,",
+                "",
+                f"dein Bea-Code zum Zurücksetzen des Passworts lautet: {code}",
+                "Der Code ist 15 Minuten gültig.",
+                "",
+                "Wenn du das nicht angefordert hast, kannst du diese Nachricht ignorieren.",
+            )
+        )
+    )
+
+    if use_ssl:
+        with smtplib.SMTP_SSL(host, port) as smtp:
+            if username:
+                smtp.login(username, password)
+            smtp.send_message(msg)
+    else:
+        with smtplib.SMTP(host, port) as smtp:
+            if use_tls:
+                smtp.starttls()
+            if username:
+                smtp.login(username, password)
+            smtp.send_message(msg)
+    return True
 
 
 def login_redirect_for(request: Request) -> RedirectResponse:
@@ -330,7 +400,18 @@ async def require_authenticated_member(request: Request, call_next):
             content={"detail": {"message": "Bea ist nur im privaten Netzwerk oder per VPN erreichbar."}},
         )
 
-    public_paths = {"/login", "/api/login", "/logout", "/favicon.ico"}
+    public_paths = {
+        "/login",
+        "/api/login",
+        "/register",
+        "/api/register",
+        "/password-reset",
+        "/password-reset/confirm",
+        "/api/password-reset/request",
+        "/api/password-reset/confirm",
+        "/logout",
+        "/favicon.ico",
+    }
     if path in public_paths:
         return await call_next(request)
 
@@ -3411,20 +3492,16 @@ def render_start_rewards_summary(state: dict, member_id: str) -> str:
     """
 
 
-def render_login_page(error: str = "", next_url: str = "/") -> str:
-    state = load_state()
-    member_options = "\n".join(
-        f'<option value="{h(member["id"])}">{h(member["name"])}{" - Passwort erstellen" if not password_is_configured(state, member["id"]) else ""}</option>'
-        for member in state["members"]
-    )
+def render_auth_page(title: str, intro: str, content: str, error: str = "", message: str = "") -> str:
     error_html = f'<p class="login-error" role="alert">{h(error)}</p>' if error else ""
+    message_html = f'<p class="login-success" role="status">{h(message)}</p>' if message else ""
     return f"""
       <!doctype html>
       <html lang="de">
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>Bea Anmeldung</title>
+          <title>{h(title)} · Bea</title>
           <style>
             :root {{
               color-scheme: light;
@@ -3451,7 +3528,7 @@ def render_login_page(error: str = "", next_url: str = "/") -> str:
               padding: 1rem;
             }}
             main {{
-              width: min(100%, 440px);
+              width: min(100%, 460px);
               background: white;
               border: 1px solid var(--line);
               border-radius: 8px;
@@ -3496,65 +3573,262 @@ def render_login_page(error: str = "", next_url: str = "/") -> str:
               padding: 0.75rem;
               border-radius: 8px;
             }}
+            .login-success {{
+              border-left: 4px solid var(--green);
+              background: #f0fdf4;
+              color: #166534;
+              padding: 0.75rem;
+              border-radius: 8px;
+            }}
+            .auth-links {{
+              display: flex;
+              flex-wrap: wrap;
+              gap: 0.7rem;
+              justify-content: space-between;
+              margin-top: 1rem;
+              font-weight: 800;
+            }}
+            .auth-links a {{ color: var(--blue); }}
           </style>
         </head>
         <body>
           <main>
             <div class="brand"><span class="brand-mark">B</span><span>ea</span></div>
-            <h1>Anmelden</h1>
-            <p>Wähle dein Mitglied aus. Beim ersten Anmelden erstellst du ein persönliches Passwort; danach bleiben Daten und Fotos hinter deiner Anmeldung geschützt.</p>
+            <h1>{h(title)}</h1>
+            <p>{h(intro)}</p>
             {error_html}
-            <form method="post" action="/api/login">
-              <input type="hidden" name="next" value="{h(safe_next_url(next_url))}">
-              <label>
-                Mitglied
-                <select name="member_id">{member_options}</select>
-              </label>
-              <label>
-                Passwort
-                <input name="password" type="password" autocomplete="current-password" required minlength="12">
-              </label>
-              <label>
-                Passwort bestätigen, nur beim ersten Anmelden
-                <input name="password_confirm" type="password" autocomplete="new-password" minlength="12">
-              </label>
-              <button type="submit">Sicher anmelden</button>
-            </form>
-            <p class="hint">Sicheres Passwort: mindestens 12 Zeichen und mehrere Arten von Zeichen. Passwörter werden nur als Salt + Hash gespeichert.</p>
+            {message_html}
+            {content}
           </main>
         </body>
       </html>
     """
 
 
+def render_login_page_v2(error: str = "", next_url: str = "/", message: str = "") -> str:
+    content = f"""
+      <form method="post" action="/api/login">
+        <input type="hidden" name="next" value="{h(safe_next_url(next_url))}">
+        <label>
+          Benutzername oder E-Mail
+          <input name="identifier" autocomplete="username" required>
+        </label>
+        <label>
+          Passwort
+          <input name="password" type="password" autocomplete="current-password" required minlength="12">
+        </label>
+        <button type="submit">Sicher anmelden</button>
+      </form>
+      <div class="auth-links">
+        <a href="/register?next={h(urllib.parse.quote(safe_next_url(next_url)))}">Erstanmeldung</a>
+        <a href="/password-reset">Passwort vergessen?</a>
+      </div>
+      <p class="hint">Die Anmeldung zeigt keine Mitgliederliste mehr. Du meldest dich privat mit Benutzername oder E-Mail an.</p>
+    """
+    return render_auth_page(
+        "Anmelden",
+        "Willkommen zurück. Deine Fitnessdaten, Fotos und Gruppen bleiben hinter deiner persönlichen Anmeldung geschützt.",
+        content,
+        error,
+        message,
+    )
+
+
+def render_register_page(error: str = "", next_url: str = "/", values: dict | None = None) -> str:
+    values = values or {}
+    content = f"""
+      <form method="post" action="/api/register">
+        <input type="hidden" name="next" value="{h(safe_next_url(next_url))}">
+        <label>
+          Name
+          <input name="full_name" autocomplete="name" required value="{h(values.get("full_name", ""))}">
+        </label>
+        <label>
+          Angezeigter Spitzname / Benutzername
+          <input name="username" autocomplete="username" required minlength="3" maxlength="24" value="{h(values.get("username", ""))}">
+        </label>
+        <label>
+          Geburtstag
+          <input name="birthday" type="date" autocomplete="bday" required value="{h(values.get("birthday", ""))}">
+        </label>
+        <label>
+          E-Mail-Adresse
+          <input name="email" type="email" autocomplete="email" required value="{h(values.get("email", ""))}">
+        </label>
+        <label>
+          Passwort
+          <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128">
+        </label>
+        <label>
+          Passwort bestätigen
+          <input name="password_confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="128">
+        </label>
+        <button type="submit">Konto erstellen</button>
+      </form>
+      <div class="auth-links">
+        <a href="/login?next={h(urllib.parse.quote(safe_next_url(next_url)))}">Ich habe schon ein Konto</a>
+      </div>
+      <p class="hint">Sicheres Passwort: mindestens 12 Zeichen und mindestens drei Arten aus Kleinbuchstaben, Großbuchstaben, Zahlen und Sonderzeichen.</p>
+    """
+    return render_auth_page(
+        "Erstanmeldung",
+        "Lege dein persönliches Bea-Konto an. Öffentlich sichtbar ist dein Spitzname, nicht dein voller Name.",
+        content,
+        error,
+    )
+
+
+def render_password_reset_request_page(error: str = "", message: str = "", identifier: str = "") -> str:
+    content = f"""
+      <form method="post" action="/api/password-reset/request">
+        <label>
+          Benutzername oder E-Mail
+          <input name="identifier" autocomplete="username" required value="{h(identifier)}">
+        </label>
+        <button type="submit">Code senden</button>
+      </form>
+      <div class="auth-links">
+        <a href="/login">Zur Anmeldung</a>
+        <a href="/password-reset/confirm">Code eingeben</a>
+      </div>
+      <p class="hint">Wenn ein Konto mit E-Mail-Adresse gefunden wird, wird ein zeitlich begrenzter Code versendet.</p>
+    """
+    return render_auth_page("Passwort vergessen", "Fordere einen Code an, um dein Passwort neu zu erstellen.", content, error, message)
+
+
+def render_password_reset_confirm_page(error: str = "", message: str = "", email: str = "") -> str:
+    content = f"""
+      <form method="post" action="/api/password-reset/confirm">
+        <label>
+          E-Mail-Adresse
+          <input name="email" type="email" autocomplete="email" required value="{h(email)}">
+        </label>
+        <label>
+          Code
+          <input name="code" inputmode="numeric" autocomplete="one-time-code" required minlength="6" maxlength="6">
+        </label>
+        <label>
+          Neues Passwort
+          <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128">
+        </label>
+        <label>
+          Neues Passwort bestätigen
+          <input name="password_confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="128">
+        </label>
+        <button type="submit">Passwort neu setzen</button>
+      </form>
+      <div class="auth-links">
+        <a href="/password-reset">Neuen Code anfordern</a>
+        <a href="/login">Zur Anmeldung</a>
+      </div>
+    """
+    return render_auth_page("Neues Passwort", "Gib den Code aus deiner E-Mail ein und wähle ein neues sicheres Passwort.", content, error, message)
+
+
+def render_login_page(error: str = "", next_url: str = "/", message: str = "") -> str:
+    return render_login_page_v2(error, next_url, message)
+
+
 @app.get("/login", response_class=HTMLResponse)
-def login_page(next: str = "/") -> str:
-    return render_login_page(next_url=next)
+def login_page(next: str = "/", notice: str = "") -> str:
+    return render_login_page(next_url=next, message=notice)
+
+
+@app.get("/register", response_class=HTMLResponse)
+def register_page(next: str = "/") -> str:
+    return render_register_page(next_url=next)
+
+
+@app.get("/password-reset", response_class=HTMLResponse)
+def password_reset_page(notice: str = "") -> str:
+    return render_password_reset_request_page(message=notice)
+
+
+@app.get("/password-reset/confirm", response_class=HTMLResponse)
+def password_reset_confirm_page(email: str = "", notice: str = "") -> str:
+    return render_password_reset_confirm_page(email=email, message=notice)
 
 
 @app.post("/api/login")
 async def api_login(request: Request):
     payload = parse_form_body(await request.body())
     state = load_state()
-    member_id = str(payload.get("member_id") or "")
+    identifier = str(payload.get("identifier") or payload.get("member_id") or "")
     password = str(payload.get("password") or "")
-    password_confirm = str(payload.get("password_confirm") or "")
     next_url = safe_next_url(str(payload.get("next") or "/"))
-
-    try:
-        if not password_is_configured(state, member_id):
-            if password != password_confirm:
-                raise ValueError("Bitte Passwort beim ersten Anmelden identisch bestätigen.")
-            set_member_password(state, member_id, password)
-            save_state(state)
-        elif not verify_member_password(state, member_id, password):
-            raise ValueError("Mitglied oder Passwort stimmt nicht.")
-    except ValueError as exc:
-        return HTMLResponse(render_login_page(str(exc), next_url), status_code=400)
+    member = member_by_login(state, identifier)
+    if not member or not password_is_configured(state, member["id"]) or not verify_member_password(state, member["id"], password):
+        return HTMLResponse(render_login_page("Benutzername, E-Mail oder Passwort stimmt nicht.", next_url), status_code=400)
 
     response = RedirectResponse(next_url, status_code=303)
-    set_session_cookie(response, request, create_session(member_id))
+    set_session_cookie(response, request, create_session(member["id"]))
     return response
+
+
+@app.post("/api/register")
+async def api_register(request: Request):
+    payload = parse_form_body(await request.body())
+    next_url = safe_next_url(str(payload.get("next") or "/"))
+    try:
+        state = load_state()
+        member = register_member_account(state, payload)
+        save_state(state)
+    except ValueError as exc:
+        safe_values = {key: payload.get(key, "") for key in ("full_name", "username", "birthday", "email")}
+        return HTMLResponse(render_register_page(str(exc), next_url, safe_values), status_code=400)
+
+    response = RedirectResponse(next_url, status_code=303)
+    set_session_cookie(response, request, create_session(member["id"]))
+    return response
+
+
+@app.post("/api/password-reset/request")
+async def api_password_reset_request(request: Request):
+    payload = parse_form_body(await request.body())
+    identifier = str(payload.get("identifier") or "")
+    state = load_state()
+    reset = create_password_reset_code(state, identifier)
+    notice = "Wenn ein Konto gefunden wurde, wurde ein Code an die hinterlegte E-Mail-Adresse gesendet."
+
+    if not reset:
+        save_state(state)
+        return RedirectResponse(f"/password-reset?notice={urllib.parse.quote(notice)}", status_code=303)
+
+    subject = "Bea Passwort zurücksetzen"
+    body = f"Dein Bea-Code lautet {reset['code']}. Er ist 15 Minuten gültig."
+    sent = False
+    try:
+        sent = send_password_reset_email(reset["email"], reset["code"])
+    except (OSError, smtplib.SMTPException, RuntimeError):
+        sent = False
+
+    if not sent:
+        append_auth_mail_outbox(state, reset["email"], subject, body, reset["code"])
+
+    save_state(state)
+    target_email = urllib.parse.quote(reset["email"])
+    return RedirectResponse(f"/password-reset/confirm?email={target_email}&notice={urllib.parse.quote(notice)}", status_code=303)
+
+
+@app.post("/api/password-reset/confirm")
+async def api_password_reset_confirm(request: Request):
+    payload = parse_form_body(await request.body())
+    email = str(payload.get("email") or "")
+    code = str(payload.get("code") or "")
+    password = str(payload.get("password") or "")
+    password_confirm = str(payload.get("password_confirm") or "")
+    if password != password_confirm:
+        return HTMLResponse(render_password_reset_confirm_page("Bitte neues Passwort identisch bestätigen.", email=email), status_code=400)
+
+    try:
+        state = load_state()
+        consume_password_reset_code(state, email, code, password)
+        save_state(state)
+    except ValueError as exc:
+        return HTMLResponse(render_password_reset_confirm_page(str(exc), email=email), status_code=400)
+
+    notice = urllib.parse.quote("Passwort wurde geändert. Du kannst dich jetzt anmelden.")
+    return RedirectResponse(f"/login?notice={notice}", status_code=303)
 
 
 @app.post("/logout")

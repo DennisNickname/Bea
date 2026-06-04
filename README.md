@@ -23,9 +23,26 @@ Ernährungsplan, Regeneration und progressive Steigerungen neu berechnet.
 
 ## Datensicherheit
 
-Bea ist passwortgeschützt. Jedes Mitglied erstellt beim ersten Anmelden ein eigenes Passwort. Passwörter werden nicht
-im Klartext gespeichert, sondern als Salt + PBKDF2-Hash in der lokalen State-Datei abgelegt. Ohne gültige Anmeldung
-werden Seiten, APIs, Fotos und der GitHub-Update-Endpunkt blockiert.
+Bea ist passwortgeschützt. Bei der Erstanmeldung werden Name, angezeigter Spitzname/Benutzername, Geburtstag,
+E-Mail-Adresse und ein sicheres Passwort abgefragt. Auf der Login-Seite werden keine Mitglieder mehr aufgelistet;
+die Anmeldung läuft über Benutzername oder E-Mail-Adresse. Passwörter werden nicht im Klartext gespeichert, sondern
+als Salt + PBKDF2-Hash in der lokalen State-Datei abgelegt. Ohne gültige Anmeldung werden Seiten, APIs, Fotos und
+der GitHub-Update-Endpunkt blockiert.
+
+Wenn ein Passwort vergessen wurde, kann ein zeitlich begrenzter Code an die hinterlegte E-Mail-Adresse geschickt
+werden. Dafür können auf dem Raspberry Pi SMTP-Daten in `/etc/default/bea` gesetzt werden:
+
+```bash
+BEA_MAIL_HOST=smtp.example.com
+BEA_MAIL_PORT=587
+BEA_MAIL_USER=...
+BEA_MAIL_PASS=...
+BEA_MAIL_FROM=noreply@example.com
+BEA_MAIL_USE_TLS=1
+```
+
+Ohne SMTP-Konfiguration wird kein externer Mailversand erzwungen. Der Code wird dann für den lokalen Testbetrieb in
+der internen Auth-Outbox der State-Datei abgelegt.
 
 Für echte Nutzung sollte der Raspberry Pi nicht offen aus dem Internet erreichbar sein. Nutzt ein privates WLAN, VPN
 oder einen Reverse Proxy mit HTTPS. Wenn HTTPS davor geschaltet ist, in `/etc/default/bea` zusätzlich setzen:

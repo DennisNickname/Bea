@@ -6,6 +6,8 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
+import time
 from datetime import date
 from datetime import timedelta
 from pathlib import Path
@@ -15,6 +17,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATE_PATH = Path(os.getenv("BEA_STATE_PATH", PROJECT_ROOT / "data" / "bea_state.json"))
 CHECKIN_INTERVAL_DAYS = 90
 PASSWORD_ITERATIONS = 240_000
+PASSWORD_RESET_TTL_SECONDS = 15 * 60
+USERNAME_ALLOWED_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789._-")
 
 AREAS = ("endurance", "strength", "nutrition", "mindset", "team")
 
@@ -612,6 +616,10 @@ DEFAULT_STATE = {
         {
             "id": "bea",
             "name": "Bea",
+            "full_name": "Bea Beispiel",
+            "username": "bea",
+            "email": "",
+            "birthday": "",
             "focus": "Kraft & Routine",
             "xp": {"endurance": 360, "strength": 520, "nutrition": 310, "mindset": 180, "team": 260},
             "streak": 6,
@@ -619,6 +627,10 @@ DEFAULT_STATE = {
         {
             "id": "mara",
             "name": "Mara",
+            "full_name": "Mara Beispiel",
+            "username": "mara",
+            "email": "",
+            "birthday": "",
             "focus": "Laufen",
             "xp": {"endurance": 610, "strength": 240, "nutrition": 220, "mindset": 120, "team": 330},
             "streak": 4,
@@ -626,6 +638,10 @@ DEFAULT_STATE = {
         {
             "id": "jonas",
             "name": "Jonas",
+            "full_name": "Jonas Beispiel",
+            "username": "jonas",
+            "email": "",
+            "birthday": "",
             "focus": "Ganzkörper",
             "xp": {"endurance": 280, "strength": 470, "nutrition": 180, "mindset": 260, "team": 210},
             "streak": 3,
@@ -633,6 +649,10 @@ DEFAULT_STATE = {
         {
             "id": "nina",
             "name": "Nina",
+            "full_name": "Nina Beispiel",
+            "username": "nina",
+            "email": "",
+            "birthday": "",
             "focus": "Ernährung",
             "xp": {"endurance": 190, "strength": 210, "nutrition": 540, "mindset": 310, "team": 390},
             "streak": 8,
@@ -822,6 +842,9 @@ DEFAULT_STATE = {
     "earned_rewards": [],
     "auth": {
         "passwords": {},
+        "users": {},
+        "password_reset_codes": {},
+        "mail_outbox": [],
     },
 }
 
@@ -872,6 +895,70 @@ def update_settings(state: dict, payload: dict) -> dict:
 
 def auth_passwords(state: dict) -> dict:
     return state.setdefault("auth", {}).setdefault("passwords", {})
+
+
+def auth_users(state: dict) -> dict:
+    return state.setdefault("auth", {}).setdefault("users", {})
+
+
+def auth_password_reset_codes(state: dict) -> dict:
+    return state.setdefault("auth", {}).setdefault("password_reset_codes", {})
+
+
+def auth_mail_outbox(state: dict) -> list[dict]:
+    return state.setdefault("auth", {}).setdefault("mail_outbox", [])
+
+
+def normalize_username(value: str) -> str:
+    username = str(value or "").strip().lower()
+    if not 3 <= len(username) <= 24:
+        raise ValueError("Benutzername muss 3 bis 24 Zeichen lang sein.")
+    if any(char not in USERNAME_ALLOWED_CHARS for char in username):
+        raise ValueError("Benutzername darf nur Buchstaben, Zahlen, Punkt, Unterstrich und Minus enthalten.")
+    if username[0] in ".-_" or username[-1] in ".-_":
+        raise ValueError("Benutzername darf nicht mit Sonderzeichen beginnen oder enden.")
+    return username
+
+
+def normalize_email(value: str) -> str:
+    email = str(value or "").strip().lower()
+    if not 6 <= len(email) <= 254 or "@" not in email:
+        raise ValueError("Bitte eine gültige E-Mail-Adresse eintragen.")
+    local, _, domain = email.partition("@")
+    if not local or "." not in domain or domain.startswith(".") or domain.endswith("."):
+        raise ValueError("Bitte eine gültige E-Mail-Adresse eintragen.")
+    return email
+
+
+def _username_key(value: object) -> str:
+    try:
+        return normalize_username(str(value or ""))
+    except ValueError:
+        return ""
+
+
+def _email_key(value: object) -> str:
+    try:
+        return normalize_email(str(value or ""))
+    except ValueError:
+        return ""
+
+
+def validate_account_birthday(value: str) -> str:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        raise ValueError("Bitte Geburtstag eintragen.")
+    try:
+        parsed = date.fromisoformat(raw_value)
+    except ValueError as exc:
+        raise ValueError("Geburtstag muss ein gültiges Datum sein.") from exc
+    today_value = date.today()
+    age = today_value.year - parsed.year - ((today_value.month, today_value.day) < (parsed.month, parsed.day))
+    if age < 13:
+        raise ValueError("Für Bea ist ein Mindestalter von 13 Jahren vorgesehen.")
+    if age > 100:
+        raise ValueError("Bitte Geburtstag prüfen.")
+    return parsed.isoformat()
 
 
 def password_is_configured(state: dict, member_id: str) -> bool:
@@ -927,6 +1014,203 @@ def verify_member_password(state: dict, member_id: str, password: str) -> bool:
         return False
     actual = password_hash(password, salt, iterations)
     return hmac.compare_digest(actual, expected)
+
+
+def account_for_member(state: dict, member_id: str) -> dict:
+    account = dict(auth_users(state).get(member_id) or {})
+    member = members_by_id(state).get(member_id) or {}
+    return {
+        "member_id": member_id,
+        "username": account.get("username") or member.get("username") or member.get("id", ""),
+        "email": account.get("email") or member.get("email", ""),
+        "full_name": account.get("full_name") or member.get("full_name", ""),
+        "display_name": account.get("display_name") or member.get("name", ""),
+        "birthday": account.get("birthday") or member.get("birthday", ""),
+        "created_at": account.get("created_at", ""),
+    }
+
+
+def member_by_login(state: dict, identifier: str) -> dict | None:
+    raw_identifier = str(identifier or "").strip()
+    username = _username_key(raw_identifier)
+    email = _email_key(raw_identifier)
+    member_lookup = members_by_id(state)
+
+    for member_id, account in auth_users(state).items():
+        if username and _username_key(account.get("username")) == username:
+            return member_lookup.get(member_id)
+        if email and _email_key(account.get("email")) == email:
+            return member_lookup.get(member_id)
+
+    for member in state.get("members", []):
+        if username and username in {
+            _username_key(member.get("id")),
+            _username_key(member.get("username")),
+        }:
+            return member
+        if email and _email_key(member.get("email")) == email:
+            return member
+
+    return None
+
+
+def _member_with_username(state: dict, username: str) -> dict | None:
+    for member in state.get("members", []):
+        if username in {
+            _username_key(member.get("id")),
+            _username_key(member.get("username")),
+        }:
+            return member
+    return None
+
+
+def _email_used_by_other_member(state: dict, email: str, own_member_id: str = "") -> bool:
+    for member_id, account in auth_users(state).items():
+        if member_id != own_member_id and _email_key(account.get("email")) == email:
+            return True
+    for member in state.get("members", []):
+        if member.get("id") != own_member_id and _email_key(member.get("email")) == email:
+            return True
+    return False
+
+
+def register_member_account(state: dict, payload: dict) -> dict:
+    full_name = str(payload.get("full_name") or "").strip()
+    display_name = str(payload.get("username") or "").strip()
+    if len(full_name) < 2:
+        raise ValueError("Bitte deinen Namen eintragen.")
+    if len(display_name) < 2:
+        raise ValueError("Bitte angezeigten Spitznamen eintragen.")
+
+    username = normalize_username(display_name)
+    email = normalize_email(str(payload.get("email") or ""))
+    birthday = validate_account_birthday(str(payload.get("birthday") or ""))
+    password = str(payload.get("password") or "")
+    password_confirm = str(payload.get("password_confirm") or "")
+    if password != password_confirm:
+        raise ValueError("Bitte Passwort identisch bestätigen.")
+
+    users = auth_users(state)
+    member_lookup = members_by_id(state)
+    member = None
+
+    for member_id, account in users.items():
+        if _username_key(account.get("username")) == username:
+            if password_is_configured(state, member_id):
+                raise ValueError("Benutzername ist bereits vergeben.")
+            member = member_lookup.get(member_id)
+            break
+
+    if member is None:
+        existing_member = _member_with_username(state, username)
+        if existing_member:
+            if password_is_configured(state, existing_member["id"]):
+                raise ValueError("Benutzername ist bereits vergeben.")
+            member = existing_member
+
+    member_id = member["id"] if member else username
+    if _email_used_by_other_member(state, email, member_id):
+        raise ValueError("E-Mail-Adresse ist bereits vergeben.")
+
+    if member is None:
+        if member_id in member_lookup:
+            member_id = new_id("member")
+        member = {
+            "id": member_id,
+            "xp": {area: 0 for area in AREAS},
+            "streak": 0,
+            "focus": "Startabenteuer",
+        }
+        state.setdefault("members", []).append(member)
+
+    member.update(
+        {
+            "name": display_name[:40],
+            "full_name": full_name[:120],
+            "username": username,
+            "email": email,
+            "birthday": birthday,
+        }
+    )
+    users[member["id"]] = {
+        "username": username,
+        "email": email,
+        "full_name": full_name[:120],
+        "display_name": display_name[:40],
+        "birthday": birthday,
+        "created_at": users.get(member["id"], {}).get("created_at") or today(),
+    }
+    set_member_password(state, member["id"], password)
+    return member
+
+
+def create_password_reset_code(state: dict, identifier: str) -> dict | None:
+    member = member_by_login(state, identifier)
+    if not member or not password_is_configured(state, member["id"]):
+        return None
+
+    account = account_for_member(state, member["id"])
+    email = _email_key(account.get("email"))
+    if not email:
+        return None
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    salt = os.urandom(16)
+    now = int(time.time())
+    auth_password_reset_codes(state)[email] = {
+        "member_id": member["id"],
+        "email": email,
+        "code_hash": password_hash(code, salt, PASSWORD_ITERATIONS),
+        "salt": base64.b64encode(salt).decode("ascii"),
+        "iterations": PASSWORD_ITERATIONS,
+        "created_at": today(),
+        "expires_at": now + PASSWORD_RESET_TTL_SECONDS,
+    }
+    return {"member_id": member["id"], "email": email, "code": code}
+
+
+def append_auth_mail_outbox(state: dict, email: str, subject: str, body: str, code: str = "") -> None:
+    outbox = auth_mail_outbox(state)
+    outbox.append(
+        {
+            "id": new_id("mail"),
+            "email": email,
+            "subject": subject,
+            "body": body,
+            "code": code,
+            "created_at": today(),
+        }
+    )
+    del outbox[:-50]
+
+
+def consume_password_reset_code(state: dict, email: str, code: str, new_password: str) -> dict:
+    normalized_email = normalize_email(email)
+    record = auth_password_reset_codes(state).get(normalized_email)
+    if not record:
+        raise ValueError("Reset-Code ist ungültig oder abgelaufen.")
+    if int(record.get("expires_at") or 0) < int(time.time()):
+        auth_password_reset_codes(state).pop(normalized_email, None)
+        raise ValueError("Reset-Code ist abgelaufen. Bitte neuen Code anfordern.")
+
+    try:
+        salt = base64.b64decode(str(record["salt"]))
+        iterations = int(record.get("iterations") or PASSWORD_ITERATIONS)
+        expected = str(record["code_hash"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Reset-Code ist ungültig oder abgelaufen.") from exc
+
+    actual = password_hash(str(code or "").strip(), salt, iterations)
+    if not hmac.compare_digest(actual, expected):
+        raise ValueError("Reset-Code ist ungültig oder abgelaufen.")
+
+    member_id = str(record.get("member_id") or "")
+    member = members_by_id(state).get(member_id)
+    if not member:
+        raise ValueError("Konto wurde nicht gefunden.")
+    set_member_password(state, member_id, new_password)
+    auth_password_reset_codes(state).pop(normalized_email, None)
+    return member
 
 
 def as_int(payload: dict, key: str, default: int = 0) -> int:
