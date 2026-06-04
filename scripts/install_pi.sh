@@ -16,6 +16,19 @@ systemctl_path="$(command -v systemctl || true)"
 sudo_path="$(command -v sudo || true)"
 
 if [ -n "$systemctl_path" ] && [ -n "$sudo_path" ]; then
+  env_file="/etc/default/bea"
+  if [ ! -f "$env_file" ]; then
+    sudo tee "$env_file" >/dev/null <<ENV
+# Optionaler Speicherort fuer Live-Daten
+# BEA_STATE_PATH=$project_dir/data/bea_state.json
+
+# Strava OAuth App Credentials
+# STRAVA_CLIENT_ID=
+# STRAVA_CLIENT_SECRET=
+# STRAVA_REDIRECT_URI=http://raspberrypi.local:8010/integrationen/strava/callback
+ENV
+  fi
+
   sudo tee "/etc/systemd/system/$service_name" >/dev/null <<SERVICE
 [Unit]
 Description=Bea FastAPI
@@ -27,6 +40,7 @@ Type=simple
 WorkingDirectory=$project_dir
 ExecStart=$project_dir/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8010
 Environment=BEA_SERVICE_NAME=$service_name
+EnvironmentFile=-$env_file
 Restart=always
 RestartSec=3
 User=$service_user

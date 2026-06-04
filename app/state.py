@@ -141,6 +141,18 @@ DEFAULT_STATE = {
             "completed": [],
         },
     ],
+    "settings": {
+        "location_label": "Berlin",
+        "latitude": 52.52,
+        "longitude": 13.405,
+    },
+    "integrations": {
+        "strava": {
+            "connections": {},
+            "pending": {},
+            "last_sync": {},
+        }
+    },
 }
 
 
@@ -160,6 +172,24 @@ def save_state(state: dict) -> None:
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     with STATE_PATH.open("w", encoding="utf-8") as handle:
         json.dump(state, handle, ensure_ascii=False, indent=2)
+
+
+def update_settings(state: dict, payload: dict) -> dict:
+    label = str(payload.get("location_label") or "Berlin").strip()
+    try:
+        latitude = float(payload.get("latitude"))
+        longitude = float(payload.get("longitude"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Bitte gueltige Koordinaten eintragen.") from exc
+
+    if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+        raise ValueError("Koordinaten liegen ausserhalb des gueltigen Bereichs.")
+
+    settings = state.setdefault("settings", {})
+    settings["location_label"] = label
+    settings["latitude"] = round(latitude, 6)
+    settings["longitude"] = round(longitude, 6)
+    return settings
 
 
 def today() -> str:
@@ -242,6 +272,23 @@ def add_sport_entry(state: dict, payload: dict) -> dict:
     }
     state["sport_entries"].insert(0, entry)
     award_xp(state, member_id, sport_type, xp)
+    return entry
+
+
+def add_external_sport_entry(state: dict, payload: dict) -> dict | None:
+    source = str(payload.get("external_source") or "").strip()
+    external_id = str(payload.get("external_id") or "").strip()
+    if not source or not external_id:
+        raise ValueError("Externe Aktivitaet ist unvollstaendig.")
+
+    for entry in state["sport_entries"]:
+        if entry.get("external_source") == source and entry.get("external_id") == external_id:
+            return None
+
+    entry = add_sport_entry(state, payload)
+    entry["external_source"] = source
+    entry["external_id"] = external_id
+    entry["external_url"] = str(payload.get("external_url") or "").strip()
     return entry
 
 
@@ -369,3 +416,66 @@ def add_challenge_progress(state: dict, payload: dict) -> dict:
         return challenge
 
     raise ValueError("Challenge wurde nicht gefunden.")
+
+
+def strava_store_pending(state: dict, oauth_state: str, member_id: str) -> None:
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    strava = state.setdefault("integrations", {}).setdefault("strava", {})
+    pending = strava.setdefault("pending", {})
+    pending[oauth_state] = {"member_id": member_id, "created_at": today()}
+
+
+def strava_consume_pending(state: dict, oauth_state: str) -> str:
+    strava = state.setdefault("integrations", {}).setdefault("strava", {})
+    pending = strava.setdefault("pending", {})
+    payload = pending.pop(oauth_state, None)
+    if not payload:
+        raise ValueError("Strava-Verbindung konnte nicht bestaetigt werden.")
+    return str(payload["member_id"])
+
+
+def strava_set_connection(state: dict, member_id: str, token_payload: dict) -> None:
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    athlete = token_payload.get("athlete") or {}
+    strava = state.setdefault("integrations", {}).setdefault("strava", {})
+    connections = strava.setdefault("connections", {})
+    connections[member_id] = {
+        "access_token": token_payload.get("access_token"),
+        "refresh_token": token_payload.get("refresh_token"),
+        "expires_at": token_payload.get("expires_at"),
+        "athlete_id": athlete.get("id"),
+        "athlete_name": " ".join(
+            part for part in (athlete.get("firstname"), athlete.get("lastname")) if part
+        ).strip()
+        or athlete.get("username")
+        or "Strava Athlete",
+        "connected_at": today(),
+    }
+
+
+def strava_get_connection(state: dict, member_id: str) -> dict | None:
+    return (
+        state.get("integrations", {})
+        .get("strava", {})
+        .get("connections", {})
+        .get(member_id)
+    )
+
+
+def strava_update_connection(state: dict, member_id: str, token_payload: dict) -> None:
+    connection = strava_get_connection(state, member_id)
+    if not connection:
+        raise ValueError("Strava ist fuer dieses Mitglied nicht verbunden.")
+
+    for key in ("access_token", "refresh_token", "expires_at"):
+        if token_payload.get(key) is not None:
+            connection[key] = token_payload[key]
+
+
+def strava_set_last_sync(state: dict, member_id: str) -> None:
+    strava = state.setdefault("integrations", {}).setdefault("strava", {})
+    strava.setdefault("last_sync", {})[member_id] = today()

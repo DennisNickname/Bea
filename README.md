@@ -7,8 +7,10 @@ FastAPI-App fuer gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, 
 - `Dashboard`: Rangliste, Team-XP, aktive Challenges und Motivation
 - `Freunde`: Mitgliedervergleich, Motivation senden und Uebungen zuweisen
 - `Challenges`: Gemeinsame Fortschritte eintragen und XP-Boni sammeln
+- `Fitnessplan`: Wettervorhersage fuer Outdoor- oder Studio-Entscheidungen
 - `Sport`: Ausdauer- und Krafttraining getrennt erfassen
 - `Nahrung`: Mahlzeiten, Protein, Kalorien und Wasser tracken
+- `Integrationen`: Strava verbinden und externe Ausdauereinheiten importieren
 
 Die App speichert Live-Daten lokal in `data/bea_state.json`. Diese Datei wird nicht in Git committed.
 
@@ -52,6 +54,30 @@ Optional kann ein anderer Speicherort gesetzt werden:
 ```bash
 BEA_STATE_PATH=/home/pi/bea-data/state.json ./scripts/run.sh
 ```
+
+## Strava verbinden
+
+Lege in Strava eine API-Anwendung an und trage als Redirect URI ein:
+
+```text
+http://<raspberry-pi-host>:8010/integrationen/strava/callback
+```
+
+Auf dem Raspberry Pi koennen die Werte in `/etc/default/bea` gesetzt werden:
+
+```bash
+STRAVA_CLIENT_ID=...
+STRAVA_CLIENT_SECRET=...
+STRAVA_REDIRECT_URI=http://<raspberry-pi-host>:8010/integrationen/strava/callback
+```
+
+Danach den Dienst neu starten:
+
+```bash
+sudo systemctl restart bea.service
+```
+
+Die Wettervorhersage im Fitnessplan nutzt Open-Meteo und benoetigt keinen API-Key.
 
 ## GitHub Update
 

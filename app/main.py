@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import os
+import secrets
 import shlex
 import shutil
 import signal
@@ -15,9 +16,17 @@ from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi import Request
 from fastapi.responses import HTMLResponse
+from fastapi.responses import RedirectResponse
 
+from app.integrations import exchange_strava_code
+from app.integrations import fetch_strava_activities
+from app.integrations import strava_access_token
+from app.integrations import strava_activity_payload
+from app.integrations import strava_authorization_url
+from app.integrations import strava_is_configured
 from app.state import AREA_LABELS
 from app.state import AREAS
+from app.state import add_external_sport_entry
 from app.state import add_assignment
 from app.state import add_challenge_progress
 from app.state import add_motivation
@@ -29,8 +38,16 @@ from app.state import level_for_xp
 from app.state import load_state
 from app.state import member_name
 from app.state import save_state
+from app.state import strava_consume_pending
+from app.state import strava_get_connection
+from app.state import strava_set_connection
+from app.state import strava_set_last_sync
+from app.state import strava_store_pending
+from app.state import strava_update_connection
 from app.state import team_totals
 from app.state import total_xp
+from app.state import update_settings
+from app.weather import fetch_forecast
 
 app = FastAPI(title="Bea")
 
@@ -41,8 +58,10 @@ NAV_ITEMS = (
     ("/", "Dashboard"),
     ("/freunde", "Freunde"),
     ("/challenges", "Challenges"),
+    ("/fitnessplan", "Fitnessplan"),
     ("/sport", "Sport"),
     ("/nahrung", "Nahrung"),
+    ("/integrationen", "Integrationen"),
 )
 
 
@@ -436,6 +455,47 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             color: #fff;
             font-size: 0.78rem;
             font-weight: 850;
+          }}
+
+          .recommendation {{
+            display: inline-flex;
+            align-items: center;
+            min-height: 2rem;
+            border-radius: 0.45rem;
+            padding: 0.35rem 0.6rem;
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 850;
+          }}
+
+          .recommendation.outdoor {{
+            background: var(--green);
+          }}
+
+          .recommendation.studio {{
+            background: var(--red);
+          }}
+
+          .integration-status {{
+            display: inline-flex;
+            align-items: center;
+            min-height: 2rem;
+            border-radius: 0.45rem;
+            padding: 0.35rem 0.6rem;
+            background: #e7ecea;
+            color: var(--ink);
+            font-size: 0.85rem;
+            font-weight: 850;
+          }}
+
+          .integration-status.connected {{
+            background: rgb(31 92 77 / 12%);
+            color: var(--green);
+          }}
+
+          .integration-status.missing {{
+            background: rgb(163 58 58 / 12%);
+            color: var(--red);
           }}
 
           .list {{
@@ -1168,6 +1228,219 @@ def nutrition_page() -> str:
     return render_layout("/nahrung", "Nahrung", body)
 
 
+def render_weather_day(day: dict) -> str:
+    plan = day["plan"]
+    return f"""
+      <article class="card">
+        <div class="row">
+          <div>
+            <h3>{h(day["date"])}</h3>
+            <p class="subtle">{h(day["label"])}</p>
+          </div>
+          <span class="recommendation {h(plan["level"])}">{h(plan["activity"])}</span>
+        </div>
+        <div class="grid four" style="margin-top: 0.8rem;">
+          <div>
+            <p class="eyebrow">Temperatur</p>
+            <strong>{h(day["temp_min"])} - {h(day["temp_max"])} °C</strong>
+          </div>
+          <div>
+            <p class="eyebrow">Regen</p>
+            <strong>{h(day["rain"])} %</strong>
+          </div>
+          <div>
+            <p class="eyebrow">Wind</p>
+            <strong>{h(day["wind"])} km/h</strong>
+          </div>
+          <div>
+            <p class="eyebrow">Plan</p>
+            <strong>{h("Outdoor" if plan["level"] == "outdoor" else "Studio")}</strong>
+          </div>
+        </div>
+        <p class="subtle" style="margin-top: 0.8rem;">{h(plan["reason"])}</p>
+      </article>
+    """
+
+
+@app.get("/fitnessplan", response_class=HTMLResponse)
+def fitness_plan_page() -> str:
+    state = load_state()
+    settings = state.get("settings", {})
+    forecast = fetch_forecast(settings)
+    weather_cards = "".join(render_weather_day(day) for day in forecast["days"])
+    if not weather_cards:
+        weather_cards = f"""
+          <article class="card">
+            <h3>Wetter gerade nicht erreichbar</h3>
+            <p class="subtle">{h(forecast["error"] or "Bitte spaeter erneut pruefen.")}</p>
+          </article>
+        """
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Fitnessplan</p>
+          <h1>Wetter entscheidet mit</h1>
+        </div>
+        <p class="subtle">Die Vorhersage hilft bei der Wahl zwischen Fahrrad, Laufen, Wandern und Laufband.</p>
+      </section>
+
+      <section class="grid two">
+        <div class="panel">
+          <h2>Standort</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/settings/location">
+            <label class="full">
+              Name
+              <input name="location_label" value="{h(settings.get("location_label", "Berlin"))}">
+            </label>
+            <label>
+              Breitengrad
+              <input name="latitude" type="number" step="0.000001" value="{h(settings.get("latitude", 52.52))}">
+            </label>
+            <label>
+              Laengengrad
+              <input name="longitude" type="number" step="0.000001" value="{h(settings.get("longitude", 13.405))}">
+            </label>
+            <button class="button full" type="submit">Standort speichern</button>
+          </form>
+        </div>
+        <div class="panel">
+          <h2>Planungslogik</h2>
+          <div class="list">
+            <article class="card">
+              <span class="recommendation outdoor">Outdoor</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Wenig Regen, moderater Wind und angenehme Temperaturen bevorzugen Fahrrad, Laufen oder Wandern.</p>
+            </article>
+            <article class="card">
+              <span class="recommendation studio">Studio</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Starker Regen, Wind, Gewitter oder extreme Temperaturen schieben die Einheit aufs Laufband.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <div class="row">
+          <div>
+            <h2>Vorhersage fuer {h(settings.get("location_label", "Berlin"))}</h2>
+            <p class="subtle">Quelle: Open-Meteo, 5-Tage-Prognose</p>
+          </div>
+        </div>
+        <div class="list" style="margin-top: 1rem;">{weather_cards}</div>
+      </section>
+    """
+    return render_layout("/fitnessplan", "Fitnessplan", body)
+
+
+def strava_redirect_uri(request: Request) -> str:
+    override = os.getenv("STRAVA_REDIRECT_URI", "").strip()
+    if override:
+        return override
+    return str(request.url_for("strava_callback"))
+
+
+@app.get("/integrationen", response_class=HTMLResponse)
+def integrations_page(request: Request) -> str:
+    state = load_state()
+    strava_configured = strava_is_configured()
+    strava = state.get("integrations", {}).get("strava", {})
+    connections = strava.get("connections", {})
+    last_sync = strava.get("last_sync", {})
+
+    status_cards = []
+    for member in state["members"]:
+        connection = connections.get(member["id"])
+        if connection:
+            status = f"""
+              <span class="integration-status connected">Verbunden</span>
+              <p class="subtle">Strava: {h(connection.get("athlete_name", "Athlete"))} · letzter Sync {h(last_sync.get(member["id"], "noch nie"))}</p>
+            """
+        else:
+            status = """
+              <span class="integration-status missing">Nicht verbunden</span>
+              <p class="subtle">Dieses Mitglied kann Strava noch verbinden.</p>
+            """
+        status_cards.append(
+            f"""
+            <article class="card">
+              <div class="row">
+                <div>
+                  <h3>{h(member["name"])}</h3>
+                  {status}
+                </div>
+              </div>
+            </article>
+            """
+        )
+
+    if strava_configured:
+        strava_action = f"""
+          <form class="form-grid" action="/integrationen/strava/start" method="get">
+            <label class="full">
+              Mitglied
+              <select name="member_id">{render_member_options(state, "bea")}</select>
+            </label>
+            <button class="button blue full" type="submit">Mit Strava verbinden</button>
+          </form>
+          <form class="form-grid" data-api-form data-endpoint="/api/integrations/strava/sync" style="margin-top: 0.8rem;">
+            <label class="full">
+              Aktivitaeten importieren fuer
+              <select name="member_id">{render_member_options(state, "bea")}</select>
+            </label>
+            <button class="button full" type="submit">Strava synchronisieren</button>
+          </form>
+        """
+    else:
+        strava_action = f"""
+          <article class="card">
+            <span class="integration-status missing">Konfiguration fehlt</span>
+            <p class="subtle" style="margin-top: 0.65rem;">Setze auf dem Raspberry Pi `STRAVA_CLIENT_ID` und `STRAVA_CLIENT_SECRET`. Redirect URI: {h(strava_redirect_uri(request))}</p>
+          </article>
+        """
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Integrationen</p>
+          <h1>Apps verbinden</h1>
+        </div>
+        <p class="subtle">Ausdauereinheiten koennen aus verbundenen Apps in den Sportbereich importiert werden.</p>
+      </section>
+
+      <section class="grid two">
+        <div class="panel">
+          <div class="row">
+            <div>
+              <h2>Strava</h2>
+              <p class="subtle">Importiert Laeufe, Fahrten, Wanderungen und weitere Aktivitaeten.</p>
+            </div>
+            <span class="integration-status {"connected" if strava_configured else "missing"}">{h("Bereit" if strava_configured else "Setup")}</span>
+          </div>
+          {strava_action}
+        </div>
+        <div class="panel">
+          <h2>Weitere Apps</h2>
+          <div class="list">
+            <article class="card">
+              <h3>Garmin Connect</h3>
+              <p class="subtle">Als naechste Integrationskarte vorbereitet.</p>
+            </article>
+            <article class="card">
+              <h3>Apple Health / Google Fit</h3>
+              <p class="subtle">Kann spaeter ueber Export oder API-Sync angebunden werden.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Verbindungsstatus</h2>
+        <div class="grid two">{"".join(status_cards)}</div>
+      </section>
+    """
+    return render_layout("/integrationen", "Integrationen", body)
+
+
 async def read_json_payload(request: Request) -> dict:
     try:
         payload = await request.json()
@@ -1223,6 +1496,104 @@ async def api_add_motivation(request: Request) -> dict[str, str]:
 @app.post("/api/challenges/progress")
 async def api_add_challenge_progress(request: Request) -> dict[str, str]:
     return save_action(add_challenge_progress, await read_json_payload(request), "Challenge aktualisiert.")
+
+
+@app.post("/api/settings/location")
+async def api_update_location(request: Request) -> dict[str, str]:
+    return save_action(update_settings, await read_json_payload(request), "Standort gespeichert.")
+
+
+@app.get("/integrationen/strava/start")
+def strava_start(request: Request, member_id: str = "bea") -> RedirectResponse:
+    if not strava_is_configured():
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Strava ist noch nicht konfiguriert."},
+        )
+
+    state = load_state()
+    oauth_state = secrets.token_urlsafe(24)
+    try:
+        strava_store_pending(state, oauth_state, member_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+
+    return RedirectResponse(
+        strava_authorization_url(strava_redirect_uri(request), oauth_state),
+        status_code=303,
+    )
+
+
+@app.get("/integrationen/strava/callback", name="strava_callback")
+def strava_callback(request: Request) -> RedirectResponse:
+    error = request.query_params.get("error")
+    if error:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": f"Strava-Verbindung abgebrochen: {error}"},
+        )
+
+    code = request.query_params.get("code", "")
+    oauth_state = request.query_params.get("state", "")
+    if not code or not oauth_state:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Strava Callback ist unvollstaendig."},
+        )
+
+    state = load_state()
+    try:
+        member_id = strava_consume_pending(state, oauth_state)
+        token_payload = exchange_strava_code(code)
+        strava_set_connection(state, member_id, token_payload)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": f"Strava konnte nicht verbunden werden: {exc}"},
+        ) from exc
+
+    save_state(state)
+    return RedirectResponse("/integrationen", status_code=303)
+
+
+@app.post("/api/integrations/strava/sync")
+async def api_strava_sync(request: Request) -> dict[str, str]:
+    if not strava_is_configured():
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Strava ist noch nicht konfiguriert."},
+        )
+
+    payload = await read_json_payload(request)
+    member_id = str(payload.get("member_id") or "")
+    state = load_state()
+    connection = strava_get_connection(state, member_id)
+    if not connection:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Dieses Mitglied hat Strava noch nicht verbunden."},
+        )
+
+    try:
+        access_token, refreshed = strava_access_token(connection)
+        if refreshed:
+            strava_update_connection(state, member_id, refreshed)
+        activities = fetch_strava_activities(access_token)
+        imported = 0
+        for activity in activities:
+            entry = add_external_sport_entry(state, strava_activity_payload(activity, member_id))
+            if entry:
+                imported += 1
+        strava_set_last_sync(state, member_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": f"Strava Sync fehlgeschlagen: {exc}"},
+        ) from exc
+
+    save_state(state)
+    return {"message": f"Strava synchronisiert: {imported} neue Aktivitaeten importiert."}
 
 
 @app.post("/update")
