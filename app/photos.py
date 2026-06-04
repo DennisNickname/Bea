@@ -80,7 +80,7 @@ def require_photo_pin(state: dict, member_id: str, pin: str) -> None:
 
 def decode_image(data_url: str) -> tuple[str, str, bytes]:
     if not data_url.startswith("data:image/") or ";base64," not in data_url:
-        raise ValueError("Bitte ein Bild im Browser auswaehlen.")
+        raise ValueError("Bitte ein Bild im Browser auswählen.")
 
     header, encoded = data_url.split(";base64,", 1)
     mime_type = header.replace("data:", "", 1)
@@ -94,14 +94,14 @@ def decode_image(data_url: str) -> tuple[str, str, bytes]:
         raise ValueError("Das Bild konnte nicht gelesen werden.") from exc
 
     if len(raw) > MAX_PHOTO_BYTES:
-        raise ValueError("Das Bild ist groesser als 6 MB.")
+        raise ValueError("Das Bild ist größer als 6 MB.")
 
     if mime_type == "image/jpeg" and not raw.startswith(b"\xff\xd8"):
-        raise ValueError("JPEG-Datei ist ungueltig.")
+        raise ValueError("JPEG-Datei ist ungültig.")
     if mime_type == "image/png" and not raw.startswith(b"\x89PNG\r\n\x1a\n"):
-        raise ValueError("PNG-Datei ist ungueltig.")
+        raise ValueError("PNG-Datei ist ungültig.")
     if mime_type == "image/webp" and not (raw.startswith(b"RIFF") and raw[8:12] == b"WEBP"):
-        raise ValueError("WebP-Datei ist ungueltig.")
+        raise ValueError("WebP-Datei ist ungültig.")
 
     return mime_type, extension, raw
 

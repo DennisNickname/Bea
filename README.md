@@ -1,15 +1,15 @@
 # Bea
 
-FastAPI-App fuer gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, Sport- und Nahrungseintraegen.
+FastAPI-App für gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, Sport- und Nahrungseinträgen.
 
 ## Bereiche
 
 - `Dashboard`: Rangliste, Team-XP, aktive Challenges und Motivation
-- `Fragebogen`: Kalorienbedarf, Trainingsplan und Ernaehrungsplan erstellen
-- `Freunde`: Mitgliedervergleich, Motivation senden und Uebungen zuweisen
+- `Fragebogen`: Kalorienbedarf, Trainingsplan und Ernährungsplan erstellen
+- `Freunde`: Mitgliedervergleich, Motivation senden und Übungen zuweisen
 - `Challenges`: Gemeinsame Fortschritte eintragen und XP-Boni sammeln
-- `Fitnessplan`: Wettervorhersage fuer Outdoor- oder Studio-Entscheidungen
-- `Sport`: Ausdauer- und Krafttraining getrennt erfassen und YouTube-Trainingsvideos anhaengen
+- `Fitnessplan`: Wettervorhersage für Outdoor- oder Studio-Entscheidungen
+- `Sport`: Ausdauer- und Krafttraining getrennt erfassen und YouTube-Trainingsvideos anhängen
 - `Nahrung`: Lebensmittel-Datenbank, Gerichtauswahl, Mahlzeiten, Makros, Wasser und YouTube-Mahlzeitenvideos tracken
 - `Fotos`: Private Vergleichsfotos mit PIN-Schutz und optionaler Community-Freigabe
 - `Integrationen`: Strava verbinden und externe Ausdauereinheiten importieren
@@ -17,7 +17,7 @@ FastAPI-App fuer gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, 
 Die App speichert Live-Daten lokal in `data/bea_state.json`. Diese Datei wird nicht in Git committed.
 Private Fotos werden lokal unter `data/photos/` gespeichert und ebenfalls nicht committed.
 
-Der Fragebogen berechnet den Kalorienbedarf mit einer Mifflin-St-Jeor-Schaetzung, Aktivitaetsfaktor und Zielanpassung.
+Der Fragebogen berechnet den Kalorienbedarf mit einer Mifflin-St-Jeor-Schätzung, Aktivitätsfaktor und Zielanpassung.
 Die Werte sind Startpunkte und sollten nach einigen Wochen anhand von Gewicht, Energie und Trainingsleistung angepasst werden.
 
 ## Lokal starten
@@ -29,7 +29,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8010
 ```
 
-Danach im Browser oeffnen:
+Danach im Browser öffnen:
 
 ```text
 http://localhost:8010
@@ -45,15 +45,15 @@ cd bea
 bash scripts/install_pi.sh
 ```
 
-Das Skript installiert die Abhaengigkeiten, richtet `bea.service` ein und startet den Dienst auf Port `8010`.
+Das Skript installiert die Abhängigkeiten, richtet `bea.service` ein und startet den Dienst auf Port `8010`.
 
-Manuell starten, falls kein Systemd verfuegbar ist:
+Manuell starten, falls kein Systemd verfügbar ist:
 
 ```bash
 ./scripts/run.sh
 ```
 
-Der Server laeuft auf Port `8010`.
+Der Server läuft auf Port `8010`.
 
 Optional kann ein anderer Speicherort gesetzt werden:
 
@@ -75,7 +75,7 @@ Lege in Strava eine API-Anwendung an und trage als Redirect URI ein:
 http://<raspberry-pi-host>:8010/integrationen/strava/callback
 ```
 
-Auf dem Raspberry Pi koennen die Werte in `/etc/default/bea` gesetzt werden:
+Auf dem Raspberry Pi können die Werte in `/etc/default/bea` gesetzt werden:
 
 ```bash
 STRAVA_CLIENT_ID=...
@@ -89,16 +89,16 @@ Danach den Dienst neu starten:
 sudo systemctl restart bea.service
 ```
 
-Die Wettervorhersage im Fitnessplan nutzt Open-Meteo und benoetigt keinen API-Key.
+Die Wettervorhersage im Fitnessplan nutzt Open-Meteo und benötigt keinen API-Key.
 
 ## GitHub Update
 
 In der linken Seitenleiste gibt es den Button `GitHub Update`.
 
-Der Button fuehrt auf dem Server aus:
+Der Button führt auf dem Server aus:
 
 ```bash
 git pull --ff-only
 ```
 
-Wenn Bea als systemd-Dienst laeuft, beendet sich der Prozess danach selbst. systemd startet ihn wegen `Restart=always` neu. Das ist stabiler, als den Dienst aus seinem eigenen Prozess heraus per `systemctl restart` neu zu starten.
+Wenn Bea als systemd-Dienst läuft, beendet sich der Prozess danach selbst. systemd startet ihn wegen `Restart=always` neu. Das ist stabiler, als den Dienst aus seinem eigenen Prozess heraus per `systemctl restart` neu zu starten.

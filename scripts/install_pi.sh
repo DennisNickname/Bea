@@ -19,7 +19,7 @@ if [ -n "$systemctl_path" ] && [ -n "$sudo_path" ]; then
   env_file="/etc/default/bea"
   if [ ! -f "$env_file" ]; then
     sudo tee "$env_file" >/dev/null <<ENV
-# Optionaler Speicherort fuer Live-Daten
+# Optionaler Speicherort für Live-Daten
 # BEA_STATE_PATH=$project_dir/data/bea_state.json
 # BEA_PHOTO_PATH=$project_dir/data/photos
 
@@ -60,7 +60,7 @@ SERVICE
   sudo chmod 440 "$sudoers_file"
   sudo visudo -cf "$sudoers_file" >/dev/null
 
-  echo "Installation fertig. Dienst laeuft als $service_name auf Port 8010."
+  echo "Installation fertig. Dienst läuft als $service_name auf Port 8010."
 else
   echo "Installation fertig. Starte manuell mit: ./scripts/run.sh"
 fi

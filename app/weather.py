@@ -6,9 +6,9 @@ import urllib.request
 
 WEATHER_LABELS = {
     0: "Klar",
-    1: "Ueberwiegend klar",
-    2: "Teilweise bewoelkt",
-    3: "Bewoelkt",
+    1: "Überwiegend klar",
+    2: "Teilweise bewölkt",
+    3: "Bewölkt",
     45: "Nebel",
     48: "Raureifnebel",
     51: "Leichter Nieselregen",
@@ -93,23 +93,23 @@ def recommend_activity(day: dict) -> dict[str, str]:
 
     if wind <= 24 and rain <= 35 and 8 <= temp_max <= 28:
         return {
-            "activity": "Fahrrad draussen",
+            "activity": "Fahrrad draußen",
             "level": "outdoor",
-            "reason": "Wind und Regenwahrscheinlichkeit passen gut fuer eine Radtour.",
+            "reason": "Wind und Regenwahrscheinlichkeit passen gut für eine Radtour.",
         }
 
     if rain <= 45 and temp_min >= 0 and temp_max <= 29:
         return {
-            "activity": "Laufen draussen",
+            "activity": "Laufen draußen",
             "level": "outdoor",
-            "reason": "Gute Bedingungen fuer eine flexible Laufeinheit.",
+            "reason": "Gute Bedingungen für eine flexible Laufeinheit.",
         }
 
     if rain <= 40 and wind <= 35:
         return {
             "activity": "Wandern",
             "level": "outdoor",
-            "reason": "Es ist nicht perfekt, aber fuer eine ruhige Ausdauereinheit draussen geeignet.",
+            "reason": "Es ist nicht perfekt, aber für eine ruhige Ausdauereinheit draußen geeignet.",
         }
 
     return {

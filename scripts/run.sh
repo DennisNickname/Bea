@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if [ ! -d ".venv" ]; then
-  echo "Virtuelle Umgebung fehlt. Bitte zuerst ausfuehren: bash scripts/install_pi.sh"
+  echo "Virtuelle Umgebung fehlt. Bitte zuerst ausführen: bash scripts/install_pi.sh"
   exit 1
 fi
 

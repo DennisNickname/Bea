@@ -57,7 +57,7 @@ TRAINING_LABELS = {
 ENDURANCE_LABELS = {
     "outdoor": "Draussen",
     "indoor": "Studio",
-    "mixed": "Wetterabhaengig",
+    "mixed": "Wetterabhängig",
 }
 
 DIET_LABELS = {
@@ -71,19 +71,19 @@ GOAL_METRIC_LABELS = {
     "weight": "Gewicht",
     "performance": "Leistung",
     "habit": "Gewohnheiten",
-    "recomposition": "Koerperform",
+    "recomposition": "Körperform",
 }
 
 TRACKING_FREQUENCY_LABELS = {
-    "daily": "taeglich",
+    "daily": "täglich",
     "twice_weekly": "2x pro Woche",
-    "weekly": "woechentlich",
+    "weekly": "wöchentlich",
 }
 
 WORK_STYLE_LABELS = {
     "desk": "viel Sitzen",
     "standing": "viel Stehen",
-    "physical": "koerperlich aktiv",
+    "physical": "körperlich aktiv",
     "shift": "Schichtarbeit",
     "mixed": "abwechslungsreich",
 }
@@ -92,7 +92,7 @@ SLEEP_QUALITY_LABELS = {
     "good": "erholsam",
     "okay": "wechselhaft",
     "poor": "zu wenig erholsam",
-    "irregular": "unregelmaessig",
+    "irregular": "unregelmäßig",
 }
 
 STRESS_LABELS = {
@@ -109,10 +109,10 @@ RECOVERY_LABELS = {
 }
 
 ADVENTURE_ROLE_LABELS = {
-    "guardian": "Waechter",
+    "guardian": "Wächter",
     "scout": "Pfadfinder",
     "berserker": "Kraftheld",
-    "alchemist": "Kuechenalchemist",
+    "alchemist": "Küchenalchemist",
     "bard": "Motivator",
 }
 
@@ -124,39 +124,39 @@ MOTIVATION_STYLE_LABELS = {
 }
 
 TRAINING_FOCUS_LABELS = {
-    "balanced": "Ausgewogen staerker werden",
+    "balanced": "Ausgewogen stärker werden",
     "muscle": "Muskelaufbau",
     "strength": "Kraftwerte steigern",
     "endurance": "Ausdauer verbessern",
     "fat_loss": "Fett reduzieren",
-    "posture": "Haltung & Ruecken",
+    "posture": "Haltung & Rücken",
     "mobility": "Beweglichkeit & Kontrolle",
 }
 
 BODY_FOCUS_LABELS = {
-    "full_body": "Ganzkoerper",
-    "legs_glutes": "Beine & Gesaess",
+    "full_body": "Ganzkörper",
+    "legs_glutes": "Beine & Gesäß",
     "core": "Rumpf",
-    "back_posture": "Ruecken & Haltung",
-    "upper_body": "Oberkoerper",
+    "back_posture": "Rücken & Haltung",
+    "upper_body": "Oberkörper",
     "shoulders_arms": "Schultern & Arme",
     "mobility": "Beweglichkeit",
     "endurance_base": "Ausdauerbasis",
 }
 
 INJURY_AREA_LABELS = {
-    "none": "keine bekannten Einschraenkungen",
+    "none": "keine bekannten Einschränkungen",
     "shoulder": "Schulter",
-    "back": "Ruecken",
+    "back": "Rücken",
     "knee": "Knie",
-    "hip": "Huefte",
-    "ankle": "Sprunggelenk / Fuss",
+    "hip": "Hüfte",
+    "ankle": "Sprunggelenk / Fuß",
     "wrist": "Handgelenk",
     "other": "Sonstiges",
 }
 
 MEAL_LABELS = {
-    "breakfast": "Fruehstueck",
+    "breakfast": "Frühstück",
     "lunch": "Mittagessen",
     "dinner": "Abendessen",
     "snack": "Snack",
@@ -167,9 +167,9 @@ FOOD_CATEGORIES = {
     "carbs": "Kohlenhydrate",
     "fat": "Fette",
     "fruit": "Obst",
-    "vegetable": "Gemuese",
+    "vegetable": "Gemüse",
     "dairy": "Milchprodukte",
-    "drink": "Getraenke",
+    "drink": "Getränke",
     "other": "Sonstiges",
 }
 
@@ -185,7 +185,7 @@ DEFAULT_FOOD_ITEMS = [
     {"id": "broccoli", "name": "Brokkoli", "category": "vegetable", "calories": 34, "protein": 2.8, "carbs": 6.6, "fat": 0.4},
     {"id": "spinach", "name": "Spinat", "category": "vegetable", "calories": 23, "protein": 2.9, "carbs": 3.6, "fat": 0.4},
     {"id": "tomato", "name": "Tomate", "category": "vegetable", "calories": 18, "protein": 0.9, "carbs": 3.9, "fat": 0.2},
-    {"id": "chicken", "name": "Haehnchenbrust", "category": "protein", "calories": 165, "protein": 31.0, "carbs": 0.0, "fat": 3.6},
+    {"id": "chicken", "name": "Hähnchenbrust", "category": "protein", "calories": 165, "protein": 31.0, "carbs": 0.0, "fat": 3.6},
     {"id": "salmon", "name": "Lachs", "category": "protein", "calories": 208, "protein": 20.0, "carbs": 0.0, "fat": 13.0},
     {"id": "tuna", "name": "Thunfisch", "category": "protein", "calories": 116, "protein": 26.0, "carbs": 0.0, "fat": 1.0},
     {"id": "egg", "name": "Ei", "category": "protein", "calories": 155, "protein": 13.0, "carbs": 1.1, "fat": 11.0},
@@ -198,7 +198,7 @@ DEFAULT_FOOD_ITEMS = [
     {"id": "milk", "name": "Milch 1,5%", "category": "dairy", "calories": 47, "protein": 3.4, "carbs": 4.9, "fat": 1.5},
     {"id": "almonds", "name": "Mandeln", "category": "fat", "calories": 579, "protein": 21.0, "carbs": 22.0, "fat": 50.0},
     {"id": "peanut_butter", "name": "Erdnussbutter", "category": "fat", "calories": 588, "protein": 25.0, "carbs": 20.0, "fat": 50.0},
-    {"id": "olive_oil", "name": "Olivenoel", "category": "fat", "calories": 884, "protein": 0.0, "carbs": 0.0, "fat": 100.0},
+    {"id": "olive_oil", "name": "Olivenöl", "category": "fat", "calories": 884, "protein": 0.0, "carbs": 0.0, "fat": 100.0},
     {"id": "avocado", "name": "Avocado", "category": "fat", "calories": 160, "protein": 2.0, "carbs": 9.0, "fat": 15.0},
     {"id": "protein_powder", "name": "Proteinpulver", "category": "protein", "calories": 390, "protein": 78.0, "carbs": 8.0, "fat": 6.0},
     {"id": "water", "name": "Wasser", "category": "drink", "calories": 0, "protein": 0.0, "carbs": 0.0, "fat": 0.0},
@@ -208,9 +208,9 @@ DEFAULT_MEAL_IDEAS = [
     {"id": "protein_oats", "meal_type": "breakfast", "title": "Protein Oats", "description": "Haferflocken, Skyr, Beeren und Proteinpulver.", "calories": 560, "protein": 48, "carbs": 62, "fat": 11, "youtube_url": ""},
     {"id": "quark_bowl", "meal_type": "breakfast", "title": "Quark Bowl", "description": "Magerquark mit Banane, Beeren und Mandeln.", "calories": 480, "protein": 42, "carbs": 48, "fat": 13, "youtube_url": ""},
     {"id": "egg_bread", "meal_type": "breakfast", "title": "Ei auf Vollkornbrot", "description": "Eier, Vollkornbrot, Tomate und Spinat.", "calories": 520, "protein": 30, "carbs": 45, "fat": 22, "youtube_url": ""},
-    {"id": "chicken_rice", "meal_type": "lunch", "title": "Chicken Rice Bowl", "description": "Haehnchen, Reis, Brokkoli und Olivenoel.", "calories": 720, "protein": 55, "carbs": 82, "fat": 18, "youtube_url": ""},
+    {"id": "chicken_rice", "meal_type": "lunch", "title": "Chicken Rice Bowl", "description": "Hähnchen, Reis, Brokkoli und Olivenöl.", "calories": 720, "protein": 55, "carbs": 82, "fat": 18, "youtube_url": ""},
     {"id": "lentil_pasta", "meal_type": "lunch", "title": "Linsen-Pasta", "description": "Vollkornnudeln mit Linsen, Tomaten und Spinat.", "calories": 690, "protein": 34, "carbs": 105, "fat": 12, "youtube_url": ""},
-    {"id": "salmon_potatoes", "meal_type": "dinner", "title": "Lachs mit Kartoffeln", "description": "Lachs, Kartoffeln und Gemuese.", "calories": 680, "protein": 42, "carbs": 58, "fat": 28, "youtube_url": ""},
+    {"id": "salmon_potatoes", "meal_type": "dinner", "title": "Lachs mit Kartoffeln", "description": "Lachs, Kartoffeln und Gemüse.", "calories": 680, "protein": 42, "carbs": 58, "fat": 28, "youtube_url": ""},
     {"id": "tofu_bowl", "meal_type": "dinner", "title": "Tofu Bowl", "description": "Tofu, Reis, Brokkoli, Avocado und Tomate.", "calories": 650, "protein": 32, "carbs": 72, "fat": 24, "youtube_url": ""},
     {"id": "skyr_snack", "meal_type": "snack", "title": "Skyr Snack", "description": "Skyr mit Beeren und etwas Erdnussbutter.", "calories": 310, "protein": 32, "carbs": 24, "fat": 10, "youtube_url": ""},
     {"id": "shake_banana", "meal_type": "snack", "title": "Proteinshake Banane", "description": "Proteinpulver, Milch und Banane.", "calories": 360, "protein": 38, "carbs": 42, "fat": 6, "youtube_url": ""},
@@ -220,7 +220,7 @@ RPG_DAILY_QUEST_POOL = [
     {
         "id": "move-20",
         "title": "20 Minuten Bewegung",
-        "description": "Spaziergang, lockerer Lauf, Rad oder Laufband zaehlen.",
+        "description": "Spaziergang, lockerer Lauf, Rad oder Laufband zählen.",
         "area": "endurance",
         "reward_xp": 40,
         "damage": 28,
@@ -228,7 +228,7 @@ RPG_DAILY_QUEST_POOL = [
     {
         "id": "strength-set",
         "title": "Kraftanker setzen",
-        "description": "Mindestens eine Kraftuebung mit sauberer Technik erledigen.",
+        "description": "Mindestens eine Kraftübung mit sauberer Technik erledigen.",
         "area": "strength",
         "reward_xp": 45,
         "damage": 32,
@@ -251,7 +251,7 @@ RPG_DAILY_QUEST_POOL = [
     },
     {
         "id": "motivate-friend",
-        "title": "Verbuendeten staerken",
+        "title": "Verbündeten stärken",
         "description": "Einer Person Motivation schicken oder eine faire Aufgabe zuweisen.",
         "area": "team",
         "reward_xp": 35,
@@ -259,7 +259,7 @@ RPG_DAILY_QUEST_POOL = [
     },
     {
         "id": "plan-check",
-        "title": "Plan pruefen",
+        "title": "Plan prüfen",
         "description": "Fitnessplan, Wetter oder heutige Mahlzeiten ansehen und den Tag bewusst planen.",
         "area": "team",
         "reward_xp": 25,
@@ -275,10 +275,10 @@ RPG_DAILY_BOSSES = [
 ]
 
 RPG_WEEKLY_BOSSES = [
-    {"name": "Plateau-Drache", "title": "Woechentlicher Endgegner", "weakness": "Konstanz", "max_hp": 1100},
-    {"name": "Chaos-Titan", "title": "Woechentlicher Endgegner", "weakness": "Planung", "max_hp": 1000},
-    {"name": "Zucker-Hydra", "title": "Woechentlicher Endgegner", "weakness": "Nahrung", "max_hp": 1050},
-    {"name": "Traegheits-Kolos", "title": "Woechentlicher Endgegner", "weakness": "Gemeinschaft", "max_hp": 1150},
+    {"name": "Plateau-Drache", "title": "Wöchentlicher Endgegner", "weakness": "Konstanz", "max_hp": 1100},
+    {"name": "Chaos-Titan", "title": "Wöchentlicher Endgegner", "weakness": "Planung", "max_hp": 1000},
+    {"name": "Zucker-Hydra", "title": "Wöchentlicher Endgegner", "weakness": "Nahrung", "max_hp": 1050},
+    {"name": "Trägheits-Kolos", "title": "Wöchentlicher Endgegner", "weakness": "Gemeinschaft", "max_hp": 1150},
 ]
 
 RPG_TITLES = [
@@ -343,14 +343,14 @@ DEFAULT_STATE = {
         {
             "id": "jonas",
             "name": "Jonas",
-            "focus": "Ganzkoerper",
+            "focus": "Ganzkörper",
             "xp": {"endurance": 280, "strength": 470, "nutrition": 180, "team": 210},
             "streak": 3,
         },
         {
             "id": "nina",
             "name": "Nina",
-            "focus": "Ernaehrung",
+            "focus": "Ernährung",
             "xp": {"endurance": 190, "strength": 210, "nutrition": 540, "team": 390},
             "streak": 8,
         },
@@ -361,7 +361,7 @@ DEFAULT_STATE = {
             "member_id": "bea",
             "sport_type": "strength",
             "title": "Beintraining",
-            "amount": "4 Saetze",
+            "amount": "4 Sätze",
             "duration": 45,
             "effort": 4,
             "xp": 82,
@@ -410,7 +410,7 @@ DEFAULT_STATE = {
             "id": "motivation-1",
             "from_member": "mara",
             "to_member": "bea",
-            "message": "Stark drangeblieben, heute zaehlt die Routine.",
+            "message": "Stark drangeblieben, heute zählt die Routine.",
             "created_at": "2026-06-04",
         }
     ],
@@ -527,10 +527,10 @@ def update_settings(state: dict, payload: dict) -> dict:
         latitude = float(payload.get("latitude"))
         longitude = float(payload.get("longitude"))
     except (TypeError, ValueError) as exc:
-        raise ValueError("Bitte gueltige Koordinaten eintragen.") from exc
+        raise ValueError("Bitte gültige Koordinaten eintragen.") from exc
 
     if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
-        raise ValueError("Koordinaten liegen ausserhalb des gueltigen Bereichs.")
+        raise ValueError("Koordinaten liegen außerhalb des gültigen Bereichs.")
 
     settings = state.setdefault("settings", {})
     settings["location_label"] = label
@@ -588,7 +588,7 @@ def as_optional_date(payload: dict, key: str) -> str:
     try:
         parsed = date.fromisoformat(value)
     except ValueError as exc:
-        raise ValueError(f"{key} muss ein gueltiges Datum sein.") from exc
+        raise ValueError(f"{key} muss ein gültiges Datum sein.") from exc
     if parsed < date.today():
         raise ValueError("Bitte ein Zieldatum in der Zukunft eintragen.")
     return parsed.isoformat()
@@ -609,7 +609,7 @@ def as_choice_list(payload: dict, key: str, allowed: dict[str, str], default: li
         if not item:
             continue
         if item not in allowed:
-            raise ValueError(f"{key} enthaelt einen unbekannten Wert.")
+            raise ValueError(f"{key} enthält einen unbekannten Wert.")
         if item not in values:
             values.append(item)
     return values
@@ -681,16 +681,16 @@ def injury_considerations(profile: dict) -> list[dict]:
         ]
 
     templates = {
-        "shoulder": "Keine Uebung in stechenden Schulterwinkel erzwingen. Druecken neutral greifen, Ellenbogen etwa 30-45 Grad vom Koerper fuehren, Ueberkopf-Last nur schmerzfrei.",
-        "back": "Ruecken neutral halten, Rumpf vor jeder Wiederholung anspannen, schwere Hinge- oder Hebevarianten erst nach sauberer Technik steigern.",
-        "knee": "Knie folgen den Zehen, Spruenge und tiefe Kniebeugen nur schmerzfrei. Starte mit Box Squat, Step-up niedrig oder Beinpresse kontrolliert.",
-        "hip": "Huefte nicht in Schmerzbereiche pressen. Schrittlaenge verkleinern, Tempo reduzieren und Gesaessaktivierung vor Beintraining nutzen.",
+        "shoulder": "Keine Übung in stechenden Schulterwinkel erzwingen. Drücken neutral greifen, Ellenbogen etwa 30-45 Grad vom Körper führen, Überkopf-Last nur schmerzfrei.",
+        "back": "Rücken neutral halten, Rumpf vor jeder Wiederholung anspannen, schwere Hinge- oder Hebevarianten erst nach sauberer Technik steigern.",
+        "knee": "Knie folgen den Zehen, Sprünge und tiefe Kniebeugen nur schmerzfrei. Starte mit Box Squat, Step-up niedrig oder Beinpresse kontrolliert.",
+        "hip": "Hüfte nicht in Schmerzbereiche pressen. Schrittlänge verkleinern, Tempo reduzieren und Gesäßaktivierung vor Beintraining nutzen.",
         "ankle": "Bei Lauf- oder Sprungbelastung vorsichtig dosieren. Rad, Ergometer, Walking oder Laufband mit geringer Steigung sind die erste Wahl.",
-        "wrist": "Handgelenke neutral halten. Fuer Liegestuetze Griffe nutzen, Kurzhanteln neutral greifen und starke Beugung vermeiden.",
-        "other": "Unklare Beschwerden konservativ behandeln: Last reduzieren, Bewegungsausmass begrenzen und bei Unsicherheit medizinisch abklaeren.",
+        "wrist": "Handgelenke neutral halten. Für Liegestütze Griffe nutzen, Kurzhanteln neutral greifen und starke Beugung vermeiden.",
+        "other": "Unklare Beschwerden konservativ behandeln: Last reduzieren, Bewegungsausmaß begrenzen und bei Unsicherheit medizinisch abklären.",
     }
     notes = [
-        {"title": INJURY_AREA_LABELS.get(area, "Einschraenkung"), "details": templates.get(area, templates["other"])}
+        {"title": INJURY_AREA_LABELS.get(area, "Einschränkung"), "details": templates.get(area, templates["other"])}
         for area in injuries
     ]
     if profile.get("injury_notes"):
@@ -729,62 +729,62 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
 
     if profile["training_location"] == "gym":
         squat_name = "Beinpresse kontrolliert" if "knee" in injuries else "Goblet Squat oder Beinpresse"
-        row_name = "Brustgestuetztes Rudern" if "back" in injuries else "Kabelrudern"
-        push_name = "Brustpresse neutral" if "shoulder" in injuries or "wrist" in injuries else "Kurzhantel-Bankdruecken"
-        hinge_name = "Hip Thrust Maschine" if "back" in injuries else "Rumaenisches Kreuzheben leicht"
+        row_name = "Brustgestütztes Rudern" if "back" in injuries else "Kabelrudern"
+        push_name = "Brustpresse neutral" if "shoulder" in injuries or "wrist" in injuries else "Kurzhantel-Bankdrücken"
+        hinge_name = "Hip Thrust Maschine" if "back" in injuries else "Rumänisches Kreuzheben leicht"
     elif profile["training_location"] == "home":
         squat_name = "Box Squat zum Stuhl" if "knee" in injuries else "Goblet Squat mit Rucksack"
-        row_name = "Einarmiges Rudern abgestuetzt"
-        push_name = "Erhoehte Liegestuetze mit Griffen" if "wrist" in injuries or "shoulder" in injuries else "Erhoehte Liegestuetze"
+        row_name = "Einarmiges Rudern abgestützt"
+        push_name = "Erhöhte Liegestütze mit Griffen" if "wrist" in injuries or "shoulder" in injuries else "Erhöhte Liegestütze"
         hinge_name = "Hip Hinge mit Rucksack" if "back" not in injuries else "Glute Bridge"
     else:
         squat_name = "Goblet Squat oder Beinpresse" if "knee" not in injuries else "Box Squat oder Beinpresse kurz"
-        row_name = "Rudern abgestuetzt oder Kabelrudern"
-        push_name = "Brustpresse neutral oder erhoehte Liegestuetze" if "shoulder" in injuries else "Kurzhantel-Druecken oder Liegestuetze"
-        hinge_name = "Hip Thrust oder Rumaenisches Kreuzheben leicht" if "back" not in injuries else "Hip Thrust"
+        row_name = "Rudern abgestützt oder Kabelrudern"
+        push_name = "Brustpresse neutral oder erhöhte Liegestütze" if "shoulder" in injuries else "Kurzhantel-Drücken oder Liegestütze"
+        hinge_name = "Hip Thrust oder Rumänisches Kreuzheben leicht" if "back" not in injuries else "Hip Thrust"
 
     base = [
         exercise_item(
             squat_name,
             sets,
             reps,
-            "Trainiert Beine, Gesaess und Rumpf als Hauptbewegung.",
-            ["Fuesse fest, Gewicht ueber Mittelfuss", "Knie folgen den Zehen", "Brustkorb ruhig, Bauch fest"],
-            "Nicht in den unteren Ruecken fallen und keine schmerzhaften Kniepositionen erzwingen.",
-            "Bei Beschwerden: kleineres Bewegungsausmass oder nur Sitz-zu-Stand.",
+            "Trainiert Beine, Gesäß und Rumpf als Hauptbewegung.",
+            ["Füße fest, Gewicht über Mittelfuß", "Knie folgen den Zehen", "Brustkorb ruhig, Bauch fest"],
+            "Nicht in den unteren Rücken fallen und keine schmerzhaften Kniepositionen erzwingen.",
+            "Bei Beschwerden: kleineres Bewegungsausmaß oder nur Sitz-zu-Stand.",
         ),
         exercise_item(
             row_name,
             sets,
             "10-12",
-            "Staerkt oberen Ruecken und Haltung, wichtig als Ausgleich zu Drueckuebungen.",
-            ["Schulterblaetter nach hinten unten ziehen", "Nacken lang lassen", "Zug aus dem Ellenbogen fuehren"],
+            "Stärkt oberen Rücken und Haltung, wichtig als Ausgleich zu Drückübungen.",
+            ["Schulterblätter nach hinten unten ziehen", "Nacken lang lassen", "Zug aus dem Ellenbogen führen"],
             "Nicht mit Schwung reissen und nicht ins Hohlkreuz ausweichen.",
-            "Bei Rueckenstress: Brust abstuetzen oder Band-Rudern im Sitzen.",
+            "Bei Rückenstress: Brust abstützen oder Band-Rudern im Sitzen.",
         ),
         exercise_item(
             push_name,
             sets,
             "8-12",
             "Trainiert Brust, Schultern und Arme mit kontrollierter Druckbewegung.",
-            ["Handgelenke neutral", "Ellenbogen leicht schraeg am Koerper", "Langsam ablassen, kraftvoll hochdruecken"],
-            "Keine stechenden Schulterwinkel, kein Durchhaengen im unteren Ruecken.",
+            ["Handgelenke neutral", "Ellenbogen leicht schräg am Körper", "Langsam ablassen, kraftvoll hochdrücken"],
+            "Keine stechenden Schulterwinkel, kein Durchhängen im unteren Rücken.",
             "Bei Schulterthema: Bewegungsradius kleiner und neutraler Griff.",
         ),
         exercise_item(
             hinge_name,
             sets,
             "8-10",
-            "Staerkt Gesaess, Beinrueckseite und Hueftstreckung.",
-            ["Huefte nach hinten schieben", "Ruecken neutral", "Gewicht nah am Koerper halten"],
-            "Nicht aus dem Ruecken heben und nicht in Schmerz hineinziehen.",
-            "Bei Rueckenhistorie: Glute Bridge oder Hip Thrust statt freiem Heben.",
+            "Stärkt Gesäß, Beinrückseite und Hüftstreckung.",
+            ["Hüfte nach hinten schieben", "Rücken neutral", "Gewicht nah am Körper halten"],
+            "Nicht aus dem Rücken heben und nicht in Schmerz hineinziehen.",
+            "Bei Rückenhistorie: Glute Bridge oder Hip Thrust statt freiem Heben.",
         ),
         exercise_item(
             "Dead Bug" if "core" in focus or session_index % 2 == 0 else "Pallof Press",
             "2-3",
             "8-12 je Seite",
-            "Schult Rumpfspannung, damit Kraftuebungen stabiler und sicherer werden.",
+            "Schult Rumpfspannung, damit Kraftübungen stabiler und sicherer werden.",
             ["Rippen unten halten", "Langsam ausatmen", "Becken ruhig halten"],
             "Nicht ins Hohlkreuz kippen und nicht hektisch arbeiten.",
             "Bei Nackenstress: Kopf ablegen und Bewegung kleiner machen.",
@@ -798,10 +798,10 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
                 "Face Pull oder Band Pull-Apart",
                 "2-3",
                 "12-15",
-                "Extra-Fokus fuer Haltung, Schulterblattkontrolle und oberen Ruecken.",
-                ["Daumen Richtung Ohren", "Schultern tief", "Langsam zurueckfuehren"],
+                "Extra-Fokus für Haltung, Schulterblattkontrolle und oberen Rücken.",
+                ["Daumen Richtung Ohren", "Schultern tief", "Langsam zurückführen"],
                 "Nicht ins Hohlkreuz ziehen und nicht mit dem Nacken arbeiten.",
-                "Bei Schulterreiz: Band leichter waehlen oder Bewegung kleiner.",
+                "Bei Schulterreiz: Band leichter wählen oder Bewegung kleiner.",
                 "45-60 s",
             )
         )
@@ -811,10 +811,10 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
                 "Glute Bridge Pause Reps",
                 "2-3",
                 "10-14",
-                "Zusaetzlicher Gesaessfokus ohne hohe Gelenkbelastung.",
-                ["Oben 1 Sekunde halten", "Rippen unten", "Druck ueber Fersen"],
-                "Nicht aus dem unteren Ruecken ueberstrecken.",
-                "Bei Hueftreiz: Bewegungsradius verkleinern.",
+                "Zusätzlicher Gesäßfokus ohne hohe Gelenkbelastung.",
+                ["Oben 1 Sekunde halten", "Rippen unten", "Druck über Fersen"],
+                "Nicht aus dem unteren Rücken überstrecken.",
+                "Bei Hüftreiz: Bewegungsradius verkleinern.",
                 "45-60 s",
             )
         )
@@ -830,14 +830,14 @@ def endurance_blocks(profile: dict, session_index: int, endurance_place: str) ->
     elif profile["endurance_preference"] == "indoor":
         mode = "Laufband, Ruderergometer oder Bike"
     elif profile["endurance_preference"] == "outdoor":
-        mode = "Laufen, Radfahren oder Wandern draussen"
+        mode = "Laufen, Radfahren oder Wandern draußen"
     else:
         mode = f"Laufen, Radfahren, Wandern oder Studiooption {endurance_place}"
 
     if profile["goal"] == "performance" and session_index % 2 == 1 and not low_impact:
-        main = "6 x 1 min zuegig, dazwischen 2 min locker. Nur ausfuehren, wenn Schlaf und Gelenke gut sind."
+        main = "6 x 1 min zügig, dazwischen 2 min locker. Nur ausführen, wenn Schlaf und Gelenke gut sind."
     else:
-        main = "25-40 min Zone 2: du kannst noch kurze Saetze sprechen und atmest kontrolliert."
+        main = "25-40 min Zone 2: du kannst noch kurze Sätze sprechen und atmest kontrolliert."
 
     return [
         exercise_item(
@@ -854,9 +854,9 @@ def endurance_blocks(profile: dict, session_index: int, endurance_place: str) ->
             "Hauptteil",
             "1",
             main,
-            "Der Hauptreiz fuer Herz-Kreislauf, Fettstoffwechsel oder Leistungsaufbau.",
-            ["Atmung kontrollieren", "Schritte oder Trittfrequenz gleichmaessig", "Intensitaet nicht durch Ego treiben lassen"],
-            "Kein Sprinten bei Knie-, Hueft- oder Sprunggelenkschmerz.",
+            "Der Hauptreiz für Herz-Kreislauf, Fettstoffwechsel oder Leistungsaufbau.",
+            ["Atmung kontrollieren", "Schritte oder Trittfrequenz gleichmäßig", "Intensität nicht durch Ego treiben lassen"],
+            "Kein Sprinten bei Knie-, Hüft- oder Sprunggelenkschmerz.",
             "Bei Belastungsproblemen: Bike oder Crosstrainer statt Laufbelastung.",
             "nach Bedarf",
         ),
@@ -866,7 +866,7 @@ def endurance_blocks(profile: dict, session_index: int, endurance_place: str) ->
             "5-8 min",
             "Puls langsam senken und Regeneration einleiten.",
             ["Tempo schrittweise senken", "Locker ausschwingen", "Danach Wasser und kurzer Energie-Check"],
-            "Nicht abrupt nach hoher Intensitaet stoppen.",
+            "Nicht abrupt nach hoher Intensität stoppen.",
             "Bei Schwindel: hinsetzen, trinken, Training dokumentieren.",
             "ohne Pause",
         ),
@@ -877,7 +877,7 @@ def focus_recommendations(profile: dict) -> list[dict]:
     selected = [BODY_FOCUS_LABELS[item] for item in profile.get("focus_areas", []) if item in BODY_FOCUS_LABELS]
     suggested = [BODY_FOCUS_LABELS[item] for item in suggested_focus_areas(profile["goal"], profile["training_focus"])]
     goal_label = GOAL_LABELS.get(profile["goal"], "Fitnessziel")
-    focus_label = TRAINING_FOCUS_LABELS.get(profile["training_focus"], "Ausgewogen staerker werden")
+    focus_label = TRAINING_FOCUS_LABELS.get(profile["training_focus"], "Ausgewogen stärker werden")
     recommendations = [
         {
             "title": "Dein Fokus",
@@ -885,7 +885,7 @@ def focus_recommendations(profile: dict) -> list[dict]:
         },
         {
             "title": "Bea Vorschlag",
-            "details": f"Fuer {goal_label} mit Fokus {focus_label}: {', '.join(suggested)}.",
+            "details": f"Für {goal_label} mit Fokus {focus_label}: {', '.join(suggested)}.",
         },
         {
             "title": "Progression",
@@ -920,11 +920,11 @@ def training_sessions(profile: dict) -> list[dict]:
 
     equipment = {
         "gym": "Langhantel, Maschinen und freie Gewichte",
-        "home": "Koerpergewicht, Band oder Kurzhanteln",
+        "home": "Körpergewicht, Band oder Kurzhanteln",
         "mixed": "Studio oder Zuhause, je nach Woche",
     }[location]
     endurance_place = {
-        "outdoor": "draussen",
+        "outdoor": "draußen",
         "indoor": "im Studio",
         "mixed": "je nach Wetter aus dem Fitnessplan",
     }[endurance]
@@ -940,7 +940,7 @@ def training_sessions(profile: dict) -> list[dict]:
 
     sessions = []
     safety_notes = injury_considerations(profile)
-    focus_label = TRAINING_FOCUS_LABELS.get(profile.get("training_focus", "balanced"), "Ausgewogen staerker werden")
+    focus_label = TRAINING_FOCUS_LABELS.get(profile.get("training_focus", "balanced"), "Ausgewogen stärker werden")
     for index in range(strength_count):
         sessions.append(
             {
@@ -948,7 +948,7 @@ def training_sessions(profile: dict) -> list[dict]:
                 "title": f"Kraft Einheit {index + 1}",
                 "duration": "45-60 min",
                 "focus": focus_label,
-                "details": f"Ganzkoerper mit {equipment}: Unterkoerper, Zug, Druck, Huefte und Rumpf. Intensitaet: {intensity}.",
+                "details": f"Ganzkörper mit {equipment}: Unterkörper, Zug, Druck, Hüfte und Rumpf. Intensität: {intensity}.",
                 "exercises": strength_exercises(profile, index, equipment),
                 "safety_notes": safety_notes,
             }
@@ -958,9 +958,9 @@ def training_sessions(profile: dict) -> list[dict]:
         if goal == "performance":
             detail = "1 lockere Zone-2 Einheit und 1 Intervallblock, wenn die Woche es erlaubt."
         elif goal == "lose":
-            detail = "Ruhige Zone-2 Einheit fuer zusaetzlichen Verbrauch und Regeneration."
+            detail = "Ruhige Zone-2 Einheit für zusätzlichen Verbrauch und Regeneration."
         else:
-            detail = "Grundlagenausdauer ohne die Krafttage zu stoeren."
+            detail = "Grundlagenausdauer ohne die Krafttage zu stören."
         sessions.append(
             {
                 "type": "Ausdauer",
@@ -985,14 +985,14 @@ def recovery_sessions(profile: dict) -> list[dict]:
     work_style = WORK_STYLE_LABELS.get(profile.get("work_style", "mixed"), "abwechslungsreich")
 
     mobility_text = f"{mobility} min Mobility" if mobility else "5-10 min lockere Gelenkpflege"
-    sleep_note = "Schlaf stabil halten" if sleep_hours >= 7 and sleep_quality == "good" else "Schlaf priorisieren und Spaetbelastung reduzieren"
+    sleep_note = "Schlaf stabil halten" if sleep_hours >= 7 and sleep_quality == "good" else "Schlaf priorisieren und Spätbelastung reduzieren"
     stress_note = "Atmung, Spaziergang oder leichtes Dehnen" if stress_level in ("high", "very_high") else "lockere Bewegung ohne Leistungsdruck"
     blocks = [
         {
             "type": "Regeneration",
             "title": "Ruhetag mit Beweglichkeit",
             "duration": f"{mobility_text}",
-            "details": f"Entlastet den Plan bei Alltag mit {work_style}. Fokus: Huefte, Brustwirbelsaeule, Waden und Nacken.",
+            "details": f"Entlastet den Plan bei Alltag mit {work_style}. Fokus: Hüfte, Brustwirbelsäule, Waden und Nacken.",
         },
         {
             "type": "Regeneration",
@@ -1004,7 +1004,7 @@ def recovery_sessions(profile: dict) -> list[dict]:
             "type": "Regeneration",
             "title": "Aktive Erholung",
             "duration": "20-40 min",
-            "details": f"{stress_note}. Geeignet fuer lockeres Gehen, entspanntes Radfahren oder sehr leichtes Laufband.",
+            "details": f"{stress_note}. Geeignet für lockeres Gehen, entspanntes Radfahren oder sehr leichtes Laufband.",
         },
         {
             "type": "Regeneration",
@@ -1025,8 +1025,8 @@ def goal_tracking_plan(profile: dict, calories: dict, training: list[dict]) -> d
     goal_text = profile.get("primary_goal_text") or GOAL_LABELS.get(profile["goal"], "Fitnessziel")
 
     milestones = [
-        "Woche 1: Basiswerte eintragen und die ersten Quests abschliessen.",
-        "Woche 2-3: Training, Hunger, Schlaf und Stimmung gegen den Plan pruefen.",
+        "Woche 1: Basiswerte eintragen und die ersten Quests abschließen.",
+        "Woche 2-3: Training, Hunger, Schlaf und Stimmung gegen den Plan prüfen.",
         "Woche 4: Kalorien und Trainingslast anhand der echten Bilanz anpassen.",
     ]
     if target_weight:
@@ -1039,15 +1039,15 @@ def goal_tracking_plan(profile: dict, calories: dict, training: list[dict]) -> d
     checkpoints = [
         {
             "title": "Check-in Rhythmus",
-            "details": f"{TRACKING_FREQUENCY_LABELS.get(tracking, 'woechentlich')} Gewicht, Energie, Schlaf, Hunger und Questserie bewerten.",
+            "details": f"{TRACKING_FREQUENCY_LABELS.get(tracking, 'wöchentlich')} Gewicht, Energie, Schlaf, Hunger und Questserie bewerten.",
         },
         {
             "title": "Plan-Treue",
-            "details": f"{len(training)} geplante Einheiten inklusive Regeneration markieren und Ausfaelle als Alltagshinweis notieren.",
+            "details": f"{len(training)} geplante Einheiten inklusive Regeneration markieren und Ausfälle als Alltagshinweis notieren.",
         },
         {
             "title": "Boss-Fortschritt",
-            "details": "Taegliche Quests zeigen, ob der Charakter wirklich staerker wird: nicht perfekt sein, sondern wieder auftauchen.",
+            "details": "Tägliche Quests zeigen, ob der Charakter wirklich stärker wird: nicht perfekt sein, sondern wieder auftauchen.",
         },
     ]
     return {
@@ -1055,7 +1055,7 @@ def goal_tracking_plan(profile: dict, calories: dict, training: list[dict]) -> d
         "metric": metric,
         "metric_label": GOAL_METRIC_LABELS.get(metric, "Gewohnheiten"),
         "tracking_frequency": tracking,
-        "tracking_label": TRACKING_FREQUENCY_LABELS.get(tracking, "woechentlich"),
+        "tracking_label": TRACKING_FREQUENCY_LABELS.get(tracking, "wöchentlich"),
         "target_weight_kg": target_weight,
         "target_date": target_date,
         "calorie_delta": int(calories["target"]) - int(calories["maintenance"]),
@@ -1075,13 +1075,13 @@ def adventure_profile(profile: dict) -> dict:
     return {
         "character_name": character_name,
         "role": role,
-        "role_label": ADVENTURE_ROLE_LABELS.get(role, "Waechter"),
+        "role_label": ADVENTURE_ROLE_LABELS.get(role, "Wächter"),
         "origin": origin,
         "hobbies": hobbies,
         "daily_life": f"{WORK_STYLE_LABELS.get(work_style, 'abwechslungsreich')}, {profile.get('daily_steps', 6000)} Schritte, {profile.get('work_schedule') or 'normaler Wochenrhythmus'}",
         "sleep": f"{profile.get('sleep_hours', 7)} h, {SLEEP_QUALITY_LABELS.get(sleep_quality, 'wechselhaft')}",
         "motivation_label": MOTIVATION_STYLE_LABELS.get(motivation, "Story, Quests und Abenteuer"),
-        "avatar_notes": "Avatar und Koerperform werden mit Ganzkoerperbildern, Groesse und manuellen Anpassungen fortgeschrieben.",
+        "avatar_notes": "Avatar und Körperform werden mit Ganzkörperbildern, Größe und manuellen Anpassungen fortgeschrieben.",
     }
 
 
@@ -1089,8 +1089,8 @@ def meal_templates(profile: dict, calories: int, macros: dict) -> list[dict]:
     meals = profile["meals_per_day"]
     diet = profile["diet_style"]
     protein_source = {
-        "mixed": "Eier, Fisch, Fleisch, Quark oder Huelsenfruechte",
-        "vegetarian": "Quark, Skyr, Eier, Tofu oder Huelsenfruechte",
+        "mixed": "Eier, Fisch, Fleisch, Quark oder Hülsenfrüchte",
+        "vegetarian": "Quark, Skyr, Eier, Tofu oder Hülsenfrüchte",
         "vegan": "Tofu, Tempeh, Seitan, Bohnen oder veganes Protein",
         "high_protein": "mageres Protein, Skyr, Eier oder Proteinshake",
     }[diet]
@@ -1099,14 +1099,14 @@ def meal_templates(profile: dict, calories: int, macros: dict) -> list[dict]:
     templates = []
     for index in range(meals):
         if index == 0:
-            title = "Fruehstueck"
+            title = "Frühstück"
             focus = "Protein plus langsam verdauliche Kohlenhydrate"
         elif index == meals - 1:
             title = "Abendessen"
-            focus = "Protein, Gemuese und je nach Training Kohlenhydrate"
+            focus = "Protein, Gemüse und je nach Training Kohlenhydrate"
         else:
             title = f"Mahlzeit {index + 1}"
-            focus = "Planbare Energie fuer Training und Alltag"
+            focus = "Planbare Energie für Training und Alltag"
         templates.append(
             {
                 "title": title,
@@ -1176,21 +1176,21 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
     if not 13 <= profile["age"] <= 90:
         raise ValueError("Bitte ein Alter zwischen 13 und 90 eintragen.")
     if profile["sex"] not in ("female", "male", "neutral"):
-        raise ValueError("Bitte ein Geschlecht fuer die Formel auswaehlen.")
+        raise ValueError("Bitte ein Geschlecht für die Formel auswählen.")
     if not 120 <= profile["height_cm"] <= 230:
-        raise ValueError("Bitte eine plausible Koerpergroesse eintragen.")
+        raise ValueError("Bitte eine plausible Körpergröße eintragen.")
     if not 35 <= profile["weight_kg"] <= 250:
         raise ValueError("Bitte ein plausibles Gewicht eintragen.")
     if profile["activity"] not in ACTIVITY_FACTORS:
-        raise ValueError("Aktivitaetslevel wurde nicht gefunden.")
+        raise ValueError("Aktivitätslevel wurde nicht gefunden.")
     if profile["goal"] not in GOAL_ADJUSTMENTS:
         raise ValueError("Ziel wurde nicht gefunden.")
     if profile["training_location"] not in TRAINING_LABELS:
         raise ValueError("Trainingsort wurde nicht gefunden.")
     if profile["endurance_preference"] not in ENDURANCE_LABELS:
-        raise ValueError("Ausdauerpraeferenz wurde nicht gefunden.")
+        raise ValueError("Ausdauerpräferenz wurde nicht gefunden.")
     if profile["diet_style"] not in DIET_LABELS:
-        raise ValueError("Ernaehrungsform wurde nicht gefunden.")
+        raise ValueError("Ernährungsform wurde nicht gefunden.")
     if profile["experience"] not in ("beginner", "intermediate", "advanced"):
         raise ValueError("Trainingserfahrung wurde nicht gefunden.")
     if target_weight_kg is not None and not 35 <= target_weight_kg <= 250:
@@ -1204,7 +1204,7 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
     if not 3 <= profile["sleep_hours"] <= 12:
         raise ValueError("Bitte realistische Schlafstunden zwischen 3 und 12 eintragen.")
     if profile["sleep_quality"] not in SLEEP_QUALITY_LABELS:
-        raise ValueError("Schlafqualitaet wurde nicht gefunden.")
+        raise ValueError("Schlafqualität wurde nicht gefunden.")
     if profile["stress_level"] not in STRESS_LABELS:
         raise ValueError("Stresslevel wurde nicht gefunden.")
     if profile["recovery_style"] not in RECOVERY_LABELS:
@@ -1255,14 +1255,14 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
             "recovery_label": RECOVERY_LABELS[profile["recovery_style"]],
         },
         "notes": [
-            "Kalorienbedarf ist eine Schaetzung und sollte nach 2-3 Wochen anhand von Gewicht, Energie und Leistung angepasst werden.",
-            "Bei Erkrankungen, Schwangerschaft oder Essstoerungen bitte medizinisch abklaeren.",
+            "Kalorienbedarf ist eine Schätzung und sollte nach 2-3 Wochen anhand von Gewicht, Energie und Leistung angepasst werden.",
+            "Bei Erkrankungen, Schwangerschaft oder Essstörungen bitte medizinisch abklären.",
         ],
     }
     if profile["restrictions"]:
-        plan["notes"].append(f"Ruecksicht auf: {profile['restrictions']}.")
+        plan["notes"].append(f"Rücksicht auf: {profile['restrictions']}.")
     if active_injury_areas(profile) or profile["injury_notes"]:
-        plan["notes"].append("Verletzungshistorie wurde beruecksichtigt. Bei akuten Schmerzen, Taubheit oder Unsicherheit bitte medizinisch abklaeren.")
+        plan["notes"].append("Verletzungshistorie wurde berücksichtigt. Bei akuten Schmerzen, Taubheit oder Unsicherheit bitte medizinisch abklären.")
 
     state.setdefault("profiles", {})[member_id] = profile
     state.setdefault("generated_plans", {})[member_id] = plan
@@ -1448,7 +1448,7 @@ def complete_daily_quest(state: dict, payload: dict) -> dict:
     completion_key = rpg_completion_key(rpg["daily_date"], member_id, quest_id)
     completions = rpg.setdefault("completed_quests", {})
     if completion_key in completions:
-        raise ValueError("Diese Quest wurde fuer dieses Mitglied heute schon abgeschlossen.")
+        raise ValueError("Diese Quest wurde für dieses Mitglied heute schon abgeschlossen.")
 
     reward_xp = int(quest["reward_xp"])
     award_xp(state, member_id, quest["area"], reward_xp)
@@ -1634,7 +1634,7 @@ def add_weight_entry(state: dict, payload: dict) -> dict:
     try:
         date.fromisoformat(entry_date)
     except ValueError as exc:
-        raise ValueError("Bitte ein gueltiges Datum eintragen.") from exc
+        raise ValueError("Bitte ein gültiges Datum eintragen.") from exc
 
     entry = {
         "id": new_id("weight"),
@@ -1707,7 +1707,7 @@ def meal_idea_by_id(state: dict, idea_id: str) -> dict | None:
 def add_food_item(state: dict, payload: dict) -> dict:
     name = str(payload.get("name") or "").strip()
     if not name:
-        raise ValueError("Bitte einen Namen fuer das Lebensmittel eintragen.")
+        raise ValueError("Bitte einen Namen für das Lebensmittel eintragen.")
 
     category = str(payload.get("category") or "other")
     if category not in FOOD_CATEGORIES:
@@ -1758,7 +1758,7 @@ def add_sport_entry(state: dict, payload: dict) -> dict:
     effort = min(5, max(1, int(payload.get("effort") or 3)))
     title = str(payload.get("title") or "").strip()
     if not title:
-        raise ValueError("Bitte eine Uebung eintragen.")
+        raise ValueError("Bitte eine Übung eintragen.")
 
     xp = duration + effort * 12
     entry = {
@@ -1782,7 +1782,7 @@ def add_external_sport_entry(state: dict, payload: dict) -> dict | None:
     source = str(payload.get("external_source") or "").strip()
     external_id = str(payload.get("external_id") or "").strip()
     if not source or not external_id:
-        raise ValueError("Externe Aktivitaet ist unvollstaendig.")
+        raise ValueError("Externe Aktivität ist unvollständig.")
 
     for entry in state["sport_entries"]:
         if entry.get("external_source") == source and entry.get("external_id") == external_id:
@@ -1873,7 +1873,7 @@ def add_youtube_link(state: dict, payload: dict) -> dict:
     title = str(payload.get("title") or "").strip()
     url = normalize_youtube_url(str(payload.get("youtube_url") or ""))
     if not title:
-        raise ValueError("Bitte einen Titel fuer das Video eintragen.")
+        raise ValueError("Bitte einen Titel für das Video eintragen.")
     if not url:
         raise ValueError("Bitte einen YouTube-Link eintragen.")
 
@@ -2123,7 +2123,7 @@ def strava_consume_pending(state: dict, oauth_state: str) -> str:
     pending = strava.setdefault("pending", {})
     payload = pending.pop(oauth_state, None)
     if not payload:
-        raise ValueError("Strava-Verbindung konnte nicht bestaetigt werden.")
+        raise ValueError("Strava-Verbindung konnte nicht bestätigt werden.")
     return str(payload["member_id"])
 
 
@@ -2160,7 +2160,7 @@ def strava_get_connection(state: dict, member_id: str) -> dict | None:
 def strava_update_connection(state: dict, member_id: str, token_payload: dict) -> None:
     connection = strava_get_connection(state, member_id)
     if not connection:
-        raise ValueError("Strava ist fuer dieses Mitglied nicht verbunden.")
+        raise ValueError("Strava ist für dieses Mitglied nicht verbunden.")
 
     for key in ("access_token", "refresh_token", "expires_at"):
         if token_payload.get(key) is not None:

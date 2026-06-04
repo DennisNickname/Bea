@@ -331,7 +331,7 @@ def render_youtube_links(state: dict, context: str) -> str:
                 cards.append(render_video_card(entry["meal"], entry["youtube_url"], f'{member_name(state, entry["member_id"])} - {entry["created_at"]}'))
 
     if not cards:
-        return '<article class="card"><p class="subtle">Noch keine YouTube-Videos angehaengt.</p></article>'
+        return '<article class="card"><p class="subtle">Noch keine YouTube-Videos angehängt.</p></article>'
     return "".join(cards[:6])
 
 
@@ -353,7 +353,7 @@ def level_meter(label: str, xp: int, area: str) -> str:
           <strong>Level {level["level"]}</strong>
         </div>
         {progress_bar(level["progress"], f'{label} Fortschritt')}
-        <small>{xp} XP / naechstes Level bei {level["next_xp"]} XP</small>
+        <small>{xp} XP / nächstes Level bei {level["next_xp"]} XP</small>
       </article>
     """
 
@@ -1517,7 +1517,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
                     <input class="photo-compare" type="checkbox" value="${{photo.id}}">
                     Vergleichen
                   </label>
-                  <button class="button secondary" type="button" data-publish-photo="${{photo.id}}">In Community veroeffentlichen</button>
+                  <button class="button secondary" type="button" data-publish-photo="${{photo.id}}">In Community veröffentlichen</button>
                 </div>
               </article>
             `).join("");
@@ -1530,10 +1530,10 @@ def render_layout(active_path: str, title: str, body: str) -> str:
                     pin,
                     photo_id: button.dataset.publishPhoto,
                   }});
-                  showStatus(data.message || "Foto veroeffentlicht.");
+                  showStatus(data.message || "Foto veröffentlicht.");
                   window.setTimeout(() => window.location.reload(), 650);
                 }} catch (error) {{
-                  showStatus(error.message || "Foto konnte nicht veroeffentlicht werden.");
+                  showStatus(error.message || "Foto konnte nicht veröffentlicht werden.");
                 }}
               }});
             }});
@@ -1547,7 +1547,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
               const fileInput = photoUploadForm.querySelector("input[type='file']");
               const file = fileInput.files[0];
               if (!file) {{
-                showStatus("Bitte ein Foto auswaehlen.");
+                showStatus("Bitte ein Foto auswählen.");
                 return;
               }}
               if (button) {{
@@ -1648,7 +1648,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             compareButton.addEventListener("click", () => {{
               const selected = [...document.querySelectorAll(".photo-compare:checked")].map((item) => item.value);
               if (selected.length !== 2) {{
-                showStatus("Bitte genau zwei Fotos zum Vergleichen auswaehlen.");
+                showStatus("Bitte genau zwei Fotos zum Vergleichen auswählen.");
                 return;
               }}
               const photos = window.__beaPrivatePhotos || [];
@@ -1726,7 +1726,7 @@ def stat_cards(state: dict) -> str:
         ("Mitglieder", len(state["members"])),
         ("Team XP", team_xp),
         ("Offene Aufgaben", open_assignments),
-        ("Eintraege", sport_count + meal_count),
+        ("Einträge", sport_count + meal_count),
     )
     return "\n".join(
         f"""
@@ -1890,14 +1890,14 @@ def render_rpg_boss_card(boss: dict) -> str:
           <div>
             <span class="tag area-team">{h(boss.get("title", "Boss"))}</span>
             <h3 style="margin-top: 0.65rem;">{h(boss.get("name", "Boss"))}</h3>
-            <p class="subtle">Schwaeche: {h(boss.get("weakness", "Konstanz"))}</p>
+            <p class="subtle">Schwäche: {h(boss.get("weakness", "Konstanz"))}</p>
           </div>
           <span class="tag {status_class}">{status}</span>
         </div>
         <div class="boss-hp" style="margin-top: 0.9rem;">
           {progress_bar(damage_progress, f'{boss.get("name", "Boss")} Schaden')}
         </div>
-        <p class="subtle" style="margin-top: 0.65rem;">{hp} / {max_hp} LP uebrig</p>
+        <p class="subtle" style="margin-top: 0.65rem;">{hp} / {max_hp} LP übrig</p>
       </article>
     """
 
@@ -1910,7 +1910,7 @@ def render_character_cards(state: dict) -> str:
         plan = state.get("generated_plans", {}).get(member["id"], {})
         adventure = plan.get("adventure", {})
         display_name = adventure.get("character_name") or character["name"]
-        role_label = adventure.get("role_label") or ADVENTURE_ROLE_LABELS.get(profile.get("adventure_role", "guardian"), "Waechter")
+        role_label = adventure.get("role_label") or ADVENTURE_ROLE_LABELS.get(profile.get("adventure_role", "guardian"), "Wächter")
         origin = adventure.get("origin") or profile.get("character_origin") or "Noch keine Herkunft notiert."
         hobbies = adventure.get("hobbies") or profile.get("hobbies") or "Hobbies noch offen"
         daily_life = adventure.get("daily_life") or WORK_STYLE_LABELS.get(profile.get("work_style", "mixed"), "abwechslungsreich")
@@ -1933,7 +1933,7 @@ def render_character_cards(state: dict) -> str:
                 <p class="subtle" style="margin-top: 0.45rem;">{h(character["total_xp"])} XP - Serie {h(character["streak"])} Tage</p>
                 <p class="subtle" style="margin-top: 0.45rem;">Herkunft: {h(origin)}</p>
                 <p class="subtle" style="margin-top: 0.45rem;">Hobbies: {h(hobbies)} - Alltag: {h(daily_life)} - Schlaf: {h(sleep)}</p>
-                <p class="subtle" style="margin-top: 0.45rem;">Motivation: {h(motivation)}. {h(adventure.get("avatar_notes", "Avatar wird ueber Fotos und Koerperwerte weiter verfeinert."))}</p>
+                <p class="subtle" style="margin-top: 0.45rem;">Motivation: {h(motivation)}. {h(adventure.get("avatar_notes", "Avatar wird über Fotos und Körperwerte weiter verfeinert."))}</p>
               </div>
             </article>
             """
@@ -2096,7 +2096,7 @@ def render_avatar_card(profile: dict) -> str:
           <div class="row">
             <div>
               <h3>{h(profile["name"])}</h3>
-              <p class="subtle">Koerperbau: {h(profile["body_label"])} - Kalibrierung: {h(profile["calibration"])}</p>
+              <p class="subtle">Körperbau: {h(profile["body_label"])} - Kalibrierung: {h(profile["calibration"])}</p>
             </div>
             <span class="tag area-team">{h(profile["height_cm"])} cm / {h(profile.get("weight_kg", "-"))} kg</span>
           </div>
@@ -2106,7 +2106,7 @@ def render_avatar_card(profile: dict) -> str:
             <span class="tag area-endurance">Schulter {h(profile.get("shoulder_width", "-"))}</span>
             <span class="tag area-strength">Brust {h(profile.get("chest_cm", "-"))}</span>
             <span class="tag area-nutrition">Taille {h(profile.get("waist_width", "-"))}</span>
-            <span class="tag area-nutrition">Huefte {h(profile.get("hip_width", "-"))}</span>
+            <span class="tag area-nutrition">Hüfte {h(profile.get("hip_width", "-"))}</span>
             <span class="tag area-team">L/R OS {h(profile.get("thigh_left_cm", "-"))}/{h(profile.get("thigh_right_cm", "-"))}</span>
             <span class="tag area-team">{h(hair_label)}</span>
             <span class="tag area-team">{h(clothing_label)}</span>
@@ -2174,8 +2174,8 @@ def bmi_label(value: float | None) -> str:
     if value < 25:
         return "Normalbereich"
     if value < 30:
-        return "erhoeht"
-    return "stark erhoeht"
+        return "erhöht"
+    return "stark erhöht"
 
 
 def render_progress_member_card(state: dict, member: dict) -> str:
@@ -2239,7 +2239,7 @@ def render_balance_table(balance: dict) -> str:
             <td>{h(balance["sport_sessions"])} Einheiten / {h(balance["sport_minutes"])} min</td>
             <td>{h(balance["endurance_minutes"])} min</td>
             <td>{h(balance["strength_sessions"])} Einheiten</td>
-            <td>{h(balance["meal_count"])} Eintraege</td>
+            <td>{h(balance["meal_count"])} Einträge</td>
             <td>{h(balance["avg_calories"])} kcal</td>
             <td>{h(balance["avg_protein"])} g</td>
             <td>{h(balance["avg_water"])} l</td>
@@ -2263,7 +2263,7 @@ def render_weight_history(state: dict, member_id: str) -> str:
             """
         )
     if not rows:
-        rows.append('<tr><td colspan="3" class="subtle">Noch keine Gewichtseintraege.</td></tr>')
+        rows.append('<tr><td colspan="3" class="subtle">Noch keine Gewichtseinträge.</td></tr>')
     return f"""
       <table>
         <thead>
@@ -2291,7 +2291,7 @@ def render_goal_tracking_summary(state: dict, member_id: str) -> str:
 
     goal = plan.get("goal_tracking", {})
     checkpoints = goal.get("checkpoints", [])
-    first_checkpoint = checkpoints[0]["details"] if checkpoints else "Check-ins entstehen mit dem naechsten Plan."
+    first_checkpoint = checkpoints[0]["details"] if checkpoints else "Check-ins entstehen mit dem nächsten Plan."
     target_parts = []
     if goal.get("target_weight_kg"):
         target_parts.append(f'{goal["target_weight_kg"]} kg')
@@ -2307,7 +2307,7 @@ def render_goal_tracking_summary(state: dict, member_id: str) -> str:
             <span class="tag area-team">Zieltracking</span>
             <h3 style="margin-top: 0.65rem;">{h(goal.get("goal_text", "Fitnessziel"))}</h3>
           </div>
-          <span class="tag area-nutrition">{h(goal.get("tracking_label", "woechentlich"))}</span>
+          <span class="tag area-nutrition">{h(goal.get("tracking_label", "wöchentlich"))}</span>
         </div>
         <div class="grid three" style="margin-top: 0.9rem;">
           <div class="mini-metric">
@@ -2335,7 +2335,7 @@ def render_plan_outlook(state: dict, member_id: str) -> str:
         return """
           <article class="card">
             <h3>Noch kein Ausblick</h3>
-            <p class="subtle">Fuellt zuerst den Fragebogen aus. Danach berechnet Bea den Ausblick aus Zielkalorien, Erhaltung und Training.</p>
+            <p class="subtle">Füllt zuerst den Fragebogen aus. Danach berechnet Bea den Ausblick aus Zielkalorien, Erhaltung und Training.</p>
             <a class="button blue" href="/fragebogen" style="margin-top: 0.85rem;">Fragebogen starten</a>
           </article>
         """
@@ -2353,7 +2353,7 @@ def render_plan_outlook(state: dict, member_id: str) -> str:
         <div class="row">
           <div>
             <h3>Wenn der Plan eingehalten wird</h3>
-            <p class="subtle">Ziel: {h(calories["goal_label"])} - Aktivitaet: {h(calories["activity_label"])}</p>
+            <p class="subtle">Ziel: {h(calories["goal_label"])} - Aktivität: {h(calories["activity_label"])}</p>
           </div>
           <span class="tag area-nutrition">{h(target)} kcal/Tag</span>
         </div>
@@ -2371,7 +2371,7 @@ def render_plan_outlook(state: dict, member_id: str) -> str:
             <strong>{h(f"{four_week_delta:+.1f} kg")}</strong>
           </div>
         </div>
-        <p class="subtle" style="margin-top: 0.75rem;">Erwartung: Gewicht eher {h(direction)}. Geplant sind {h(training_count)} Trainingseinheiten pro Woche. Realitaet kann durch Wasser, Zyklus, Schlaf, Stress und Muskelaufbau abweichen.</p>
+        <p class="subtle" style="margin-top: 0.75rem;">Erwartung: Gewicht eher {h(direction)}. Geplant sind {h(training_count)} Trainingseinheiten pro Woche. Realität kann durch Wasser, Zyklus, Schlaf, Stress und Muskelaufbau abweichen.</p>
       </article>
     """
 
@@ -2409,7 +2409,7 @@ def render_daily_quest_card(state: dict, rpg: dict, quest: dict) -> str:
             Charakter
             <select name="member_id">{render_member_options(state, "bea")}</select>
           </label>
-          <button class="button blue" type="submit">Quest abschliessen</button>
+          <button class="button blue" type="submit">Quest abschließen</button>
         </form>
       </article>
     """
@@ -2437,7 +2437,7 @@ def render_battle_log(state: dict, rpg: dict) -> str:
             """
         )
     if not rows:
-        return '<article class="card"><p class="subtle">Noch keine Kaempfe protokolliert. Schliesst die erste Tagesquest ab.</p></article>'
+        return '<article class="card"><p class="subtle">Noch keine Kämpfe protokolliert. Schließt die erste Tagesquest ab.</p></article>'
     return "".join(rows)
 
 
@@ -2451,7 +2451,7 @@ def render_exercise_list(exercises: list[dict]) -> str:
             f"""
             <div class="exercise-item">
               <div class="row">
-                <h3>{h(exercise.get("name", "Uebung"))}</h3>
+                <h3>{h(exercise.get("name", "Übung"))}</h3>
                 <span class="tag area-team">{h(exercise.get("sets", "-"))} x {h(exercise.get("reps", "-"))}</span>
               </div>
               <span class="meta">Pause: {h(exercise.get("rest", "60-90 s"))}</span>
@@ -2535,7 +2535,7 @@ def render_generated_plan(state: dict, plan: dict) -> str:
     )
     focus_cards = render_plan_info_cards(
         training_focus.get("recommendations", []),
-        "Nach dem naechsten Fragebogen entstehen Fokusvorschlaege.",
+        "Nach dem nächsten Fragebogen entstehen Fokusvorschläge.",
     )
     injury_cards = render_plan_info_cards(
         training_focus.get("injury_considerations", []),
@@ -2559,8 +2559,8 @@ def render_generated_plan(state: dict, plan: dict) -> str:
       <article class="panel">
         <div class="row">
           <div>
-            <h2>{h(member_name(state, plan["member_id"]))}: Trainings- und Ernaehrungsplan</h2>
-            <p class="subtle">Erstellt am {h(plan["created_at"])} - Ziel: {h(calories["goal_label"])} - Aktivitaet: {h(calories["activity_label"])}</p>
+            <h2>{h(member_name(state, plan["member_id"]))}: Trainings- und Ernährungsplan</h2>
+            <p class="subtle">Erstellt am {h(plan["created_at"])} - Ziel: {h(calories["goal_label"])} - Aktivität: {h(calories["activity_label"])}</p>
           </div>
           <span class="tag area-nutrition">{h(calories["target"])} kcal/Tag</span>
         </div>
@@ -2596,7 +2596,7 @@ def render_generated_plan(state: dict, plan: dict) -> str:
             <div class="grid three" style="margin-top: 0.9rem;">
               <div class="mini-metric">
                 <span>Rhythmus</span>
-                <strong>{h(goal_tracking.get("tracking_label", "woechentlich"))}</strong>
+                <strong>{h(goal_tracking.get("tracking_label", "wöchentlich"))}</strong>
               </div>
               <div class="mini-metric">
                 <span>Zielmarke</span>
@@ -2616,7 +2616,7 @@ def render_generated_plan(state: dict, plan: dict) -> str:
                 <span class="tag area-strength">Abenteuerfigur</span>
                 <h3 style="margin-top: 0.65rem;">{h(adventure.get("character_name") or member_name(state, plan["member_id"]))}</h3>
               </div>
-              <span class="tag area-team">{h(adventure.get("role_label", "Waechter"))}</span>
+              <span class="tag area-team">{h(adventure.get("role_label", "Wächter"))}</span>
             </div>
             <p class="subtle" style="margin-top: 0.75rem;">{h(adventure.get("origin", "Der Alltag ist das Startgebiet."))}</p>
             <p class="subtle" style="margin-top: 0.45rem;">Hobbies: {h(adventure.get("hobbies", "noch offen"))}</p>
@@ -2627,15 +2627,15 @@ def render_generated_plan(state: dict, plan: dict) -> str:
 
         <section class="grid two" style="margin-top: 1rem;">
           <div>
-            <h2>Fokus & Vorschlaege</h2>
+            <h2>Fokus & Vorschläge</h2>
             <article class="card area-strength">
               <div class="row">
                 <div>
                   <span class="tag area-strength">Trainingsfokus</span>
-                  <h3 style="margin-top: 0.65rem;">{h(training_focus.get("label", "Ausgewogen staerker werden"))}</h3>
+                  <h3 style="margin-top: 0.65rem;">{h(training_focus.get("label", "Ausgewogen stärker werden"))}</h3>
                 </div>
               </div>
-              <div class="row" style="justify-content: flex-start; margin-top: 0.75rem;">{focus_area_tags or '<span class="meta">Ganzkoerper</span>'}</div>
+              <div class="row" style="justify-content: flex-start; margin-top: 0.75rem;">{focus_area_tags or '<span class="meta">Ganzkörper</span>'}</div>
             </article>
             <div class="list" style="margin-top: 0.8rem;">{focus_cards}</div>
           </div>
@@ -2648,11 +2648,11 @@ def render_generated_plan(state: dict, plan: dict) -> str:
         <section class="grid two" style="margin-top: 1rem;">
           <div>
             <h2>Check-ins</h2>
-            <div class="list">{checkpoints or '<article class="card"><p class="subtle">Nach dem naechsten Fragebogen entstehen Check-ins.</p></article>'}</div>
+            <div class="list">{checkpoints or '<article class="card"><p class="subtle">Nach dem nächsten Fragebogen entstehen Check-ins.</p></article>'}</div>
           </div>
           <div>
             <h2>Regeneration</h2>
-            <div class="list">{regeneration or '<article class="card"><p class="subtle">Regeneration wird beim naechsten Plan automatisch eingeplant.</p></article>'}</div>
+            <div class="list">{regeneration or '<article class="card"><p class="subtle">Regeneration wird beim nächsten Plan automatisch eingeplant.</p></article>'}</div>
           </div>
         </section>
 
@@ -2662,7 +2662,7 @@ def render_generated_plan(state: dict, plan: dict) -> str:
             <div class="list">{training}</div>
           </div>
           <div>
-            <h2>Ernaehrungsplan</h2>
+            <h2>Ernährungsplan</h2>
             <div class="list">{nutrition}</div>
           </div>
         </section>
@@ -2681,7 +2681,7 @@ def render_plan_collection(state: dict) -> str:
         return """
           <article class="card">
             <h3>Noch kein Plan vorhanden</h3>
-            <p class="subtle">Fuellt zuerst den Fragebogen aus. Danach erscheinen Kalorienbedarf, Trainingsplan und Ernaehrungsplan hier.</p>
+            <p class="subtle">Füllt zuerst den Fragebogen aus. Danach erscheinen Kalorienbedarf, Trainingsplan und Ernährungsplan hier.</p>
           </article>
         """
 
@@ -2707,7 +2707,7 @@ def dashboard() -> str:
             <div class="row">
               <div>
                 <h2>Starte mit dem Fragebogen</h2>
-                <p class="subtle">Danach erstellt Bea automatisch deinen Kalorienbedarf, Trainingsplan und Ernaehrungsplan.</p>
+                <p class="subtle">Danach erstellt Bea automatisch deinen Kalorienbedarf, Trainingsplan und Ernährungsplan.</p>
               </div>
               <a class="button blue" href="/fragebogen">Fragebogen starten</a>
             </div>
@@ -2747,7 +2747,7 @@ def dashboard() -> str:
         <div class="row">
           <div>
             <h2>Heutiges Abenteuer</h2>
-            <p class="subtle">Schliesst Tagesquests ab, macht Schaden und besiegt gemeinsam Tages- und Wochenboss.</p>
+            <p class="subtle">Schließt Tagesquests ab, macht Schaden und besiegt gemeinsam Tages- und Wochenboss.</p>
           </div>
           <a class="button blue" href="/abenteuer">Zum Abenteuer</a>
         </div>
@@ -2835,7 +2835,7 @@ def adventure_page() -> str:
 
       <section class="grid two" style="margin-top: 1rem;">
         <div class="panel">
-          <h2>Taegliche Aufgaben</h2>
+          <h2>Tägliche Aufgaben</h2>
           <div class="list">{quest_cards}</div>
         </div>
         <div class="panel">
@@ -2866,7 +2866,7 @@ def avatar_page() -> str:
           <p class="eyebrow">Avatar Studio</p>
           <h1>Dein Charakter</h1>
         </div>
-        <p class="subtle">Masse, Frisur, Kleidung und private Ganzkoerperbilder formen deinen Charakter.</p>
+        <p class="subtle">Masse, Frisur, Kleidung und private Ganzkörperbilder formen deinen Charakter.</p>
       </section>
 
       <section class="grid two">
@@ -2887,10 +2887,10 @@ def avatar_page() -> str:
             </label>
             <div class="form-section-title">
               <h3>Wichtige Masse</h3>
-              <p class="subtle">Diese Werte bestimmen Koerperform, Proportionen und BMI des Avatars.</p>
+              <p class="subtle">Diese Werte bestimmen Körperform, Proportionen und BMI des Avatars.</p>
             </div>
             <label>
-              Groesse in cm
+              Größe in cm
               <input name="height_cm" id="avatar-height" type="number" min="120" max="230" value="{h(default_profile["height_cm"])}">
             </label>
             <label>
@@ -2918,7 +2918,7 @@ def avatar_page() -> str:
               <input name="waist_width" type="number" min="55" max="150" value="{h(default_profile["waist_width"])}">
             </label>
             <label>
-              Huefte in cm
+              Hüfte in cm
               <input name="hip_width" type="number" min="60" max="150" value="{h(default_profile["hip_width"])}">
             </label>
             <label>
@@ -2932,7 +2932,7 @@ def avatar_page() -> str:
 
             <div class="form-section-title">
               <h3>Stil</h3>
-              <p class="subtle">Frisur, Kleidung und Farben machen den Avatar persoenlicher.</p>
+              <p class="subtle">Frisur, Kleidung und Farben machen den Avatar persönlicher.</p>
             </div>
             <label>
               Frisur
@@ -3005,7 +3005,7 @@ def progress_page(member_id: str = "bea") -> str:
           <p class="eyebrow">Fortschritt</p>
           <h1>Bilanz & Ausblick</h1>
         </div>
-        <p class="subtle">Vergangene Aktivitaet, BMI, Gewicht und Plan-Projektion auf einer Seite.</p>
+        <p class="subtle">Vergangene Aktivität, BMI, Gewicht und Plan-Projektion auf einer Seite.</p>
       </section>
 
       <section class="grid four">
@@ -3031,8 +3031,8 @@ def progress_page(member_id: str = "bea") -> str:
         <div class="panel">
           <div class="row">
             <div>
-              <h2>Mitglied auswaehlen</h2>
-              <p class="subtle">Die Bilanz wird fuer die gewaehlte Person berechnet.</p>
+              <h2>Mitglied auswählen</h2>
+              <p class="subtle">Die Bilanz wird für die gewählte Person berechnet.</p>
             </div>
           </div>
           <form class="form-grid" action="/fortschritt" method="get">
@@ -3099,7 +3099,7 @@ def progress_page(member_id: str = "bea") -> str:
       </section>
 
       <section class="panel" style="margin-top: 1rem;">
-        <h2>Team-Uebersicht</h2>
+        <h2>Team-Übersicht</h2>
         <div class="grid two">{all_member_cards}</div>
       </section>
     """
@@ -3109,7 +3109,7 @@ def progress_page(member_id: str = "bea") -> str:
 @app.get("/fragebogen", response_class=HTMLResponse)
 def questionnaire_page() -> str:
     state = load_state()
-    sex_options = {"female": "weiblich", "male": "maennlich", "neutral": "neutral / Durchschnitt"}
+    sex_options = {"female": "weiblich", "male": "männlich", "neutral": "neutral / Durchschnitt"}
     experience_options = {
         "beginner": "Einsteiger",
         "intermediate": "Fortgeschritten",
@@ -3122,7 +3122,7 @@ def questionnaire_page() -> str:
           <p class="eyebrow">Onboarding</p>
           <h1>Fragebogen</h1>
         </div>
-        <p class="subtle">Aus deinen Antworten entstehen Zielpfad, Charakterprofil, Kalorienziel, Training, Regeneration und Ernaehrungsplan.</p>
+        <p class="subtle">Aus deinen Antworten entstehen Zielpfad, Charakterprofil, Kalorienziel, Training, Regeneration und Ernährungsplan.</p>
       </section>
 
       <section class="grid two">
@@ -3131,7 +3131,7 @@ def questionnaire_page() -> str:
           <form class="form-grid" data-api-form data-endpoint="/api/questionnaire">
             <div class="form-section-title">
               <h3>Person & Ziel</h3>
-              <p class="subtle">Hier entsteht der Hauptauftrag fuer dein Abenteuer.</p>
+              <p class="subtle">Hier entsteht der Hauptauftrag für dein Abenteuer.</p>
             </div>
             <label>
               Mitglied
@@ -3150,7 +3150,7 @@ def questionnaire_page() -> str:
               <select name="sex">{render_options(sex_options, "neutral")}</select>
             </label>
             <label>
-              Koerpergroesse in cm
+              Körpergröße in cm
               <input name="height_cm" type="number" min="120" max="230" value="170">
             </label>
             <label>
@@ -3183,7 +3183,7 @@ def questionnaire_page() -> str:
               <p class="subtle">Der Plan soll zu deinem echten Tagesablauf passen.</p>
             </div>
             <label>
-              Aktivitaetslevel
+              Aktivitätslevel
               <select name="activity">{render_options(ACTIVITY_LABELS, "moderate")}</select>
             </label>
             <label>
@@ -3228,11 +3228,11 @@ def questionnaire_page() -> str:
               <select name="training_focus">{render_options(TRAINING_FOCUS_LABELS, "balanced")}</select>
             </label>
             <div class="full">
-              <label>Koerperbereiche, die du besonders trainieren moechtest</label>
+              <label>Körperbereiche, die du besonders trainieren möchtest</label>
               <div class="choice-grid" style="margin-top: 0.45rem;">
                 {render_checkbox_options(BODY_FOCUS_LABELS, "focus_areas", ("full_body", "core"))}
               </div>
-              <p class="subtle" style="margin-top: 0.45rem;">Wenn du nichts aenderst, nutzt Bea diese Auswahl plus Zielvorschlaege.</p>
+              <p class="subtle" style="margin-top: 0.45rem;">Wenn du nichts änderst, nutzt Bea diese Auswahl plus Zielvorschläge.</p>
             </div>
             <div class="full">
               <label>Vergangene Verletzungen oder sensible Bereiche</label>
@@ -3242,7 +3242,7 @@ def questionnaire_page() -> str:
             </div>
             <label class="full">
               Verletzungsnotizen
-              <textarea name="injury_notes" placeholder="z.B. rechtes Knie nach Laufbelastung, Schulter beim Ueberkopfdruecken, Bandscheibenvorfall 2021"></textarea>
+              <textarea name="injury_notes" placeholder="z.B. rechtes Knie nach Laufbelastung, Schulter beim Überkopfdrücken, Bandscheibenvorfall 2021"></textarea>
             </label>
             <label>
               Regenerationsstil
@@ -3253,7 +3253,7 @@ def questionnaire_page() -> str:
               <input name="sleep_hours" type="number" min="3" max="12" step="0.5" value="7">
             </label>
             <label>
-              Schlafqualitaet
+              Schlafqualität
               <select name="sleep_quality">{render_options(SLEEP_QUALITY_LABELS, "okay")}</select>
             </label>
             <label>
@@ -3270,7 +3270,7 @@ def questionnaire_page() -> str:
             </label>
 
             <div class="form-section-title">
-              <h3>Ernaehrung</h3>
+              <h3>Ernährung</h3>
               <p class="subtle">Die Mahlzeiten sollen zu Ziel, Alltag und Vorlieben passen.</p>
             </div>
             <label>
@@ -3278,11 +3278,11 @@ def questionnaire_page() -> str:
               <input name="meals_per_day" type="number" min="2" max="6" value="3">
             </label>
             <label class="full">
-              Ernaehrungsform
+              Ernährungsform
               <select name="diet_style">{render_options(DIET_LABELS, "mixed")}</select>
             </label>
             <label class="full">
-              Unvertraeglichkeiten, Ausschluesse oder Notizen
+              Unverträglichkeiten, Ausschlüsse oder Notizen
               <textarea name="restrictions" placeholder="z.B. laktosefrei, kein Fisch, wenig Zeit morgens"></textarea>
             </label>
 
@@ -3303,8 +3303,8 @@ def questionnaire_page() -> str:
               <select name="motivation_style">{render_options(MOTIVATION_STYLE_LABELS, "story")}</select>
             </label>
             <label class="full">
-              Herkunft & Erklaerung
-              <textarea name="character_origin" placeholder="z.B. Buero-Heldin mit Wanderlust, die ihren Schlafrhythmus zur Superkraft macht."></textarea>
+              Herkunft & Erklärung
+              <textarea name="character_origin" placeholder="z.B. Büro-Heldin mit Wanderlust, die ihren Schlafrhythmus zur Superkraft macht."></textarea>
             </label>
             <button class="button blue full" type="submit">Plan erstellen</button>
           </form>
@@ -3315,31 +3315,31 @@ def questionnaire_page() -> str:
           <div class="list">
             <article class="card">
               <span class="tag area-team">Zielpfad</span>
-              <p class="subtle" style="margin-top: 0.65rem;">Etappen, Check-ins, Zielmarken und Plan-Ausblick fuer die Fortschrittsseite.</p>
+              <p class="subtle" style="margin-top: 0.65rem;">Etappen, Check-ins, Zielmarken und Plan-Ausblick für die Fortschrittsseite.</p>
             </article>
             <article class="card">
               <span class="tag area-strength">Training</span>
-              <p class="subtle" style="margin-top: 0.65rem;">Konkrete Uebungen, Saetze, Wiederholungen, Ausfuehrung und Alternativen.</p>
+              <p class="subtle" style="margin-top: 0.65rem;">Konkrete Übungen, Sätze, Wiederholungen, Ausführung und Alternativen.</p>
             </article>
             <article class="card">
               <span class="tag area-strength">Fokus</span>
-              <p class="subtle" style="margin-top: 0.65rem;">Koerperbereiche werden mit Zielvorschlaegen abgeglichen, damit der Plan sinnvoll bleibt.</p>
+              <p class="subtle" style="margin-top: 0.65rem;">Körperbereiche werden mit Zielvorschlägen abgeglichen, damit der Plan sinnvoll bleibt.</p>
             </article>
             <article class="card">
               <span class="tag area-team">Sicherheit</span>
-              <p class="subtle" style="margin-top: 0.65rem;">Vergangene Verletzungen steuern Uebungsauswahl, Technikhinweise und Schonvarianten.</p>
+              <p class="subtle" style="margin-top: 0.65rem;">Vergangene Verletzungen steuern Übungsauswahl, Technikhinweise und Schonvarianten.</p>
             </article>
             <article class="card">
-              <span class="tag area-nutrition">Ernaehrung</span>
-              <p class="subtle" style="margin-top: 0.65rem;">Protein, Fett, Kohlenhydrate und Mahlzeitenstruktur fuer den Alltag.</p>
+              <span class="tag area-nutrition">Ernährung</span>
+              <p class="subtle" style="margin-top: 0.65rem;">Protein, Fett, Kohlenhydrate und Mahlzeitenstruktur für den Alltag.</p>
             </article>
             <article class="card">
               <span class="tag area-team">Abenteuer</span>
-              <p class="subtle" style="margin-top: 0.65rem;">Charakterrolle, Herkunft, Motivation und Avatar-Hinweise fuer das Rollenspiel-System.</p>
+              <p class="subtle" style="margin-top: 0.65rem;">Charakterrolle, Herkunft, Motivation und Avatar-Hinweise für das Rollenspiel-System.</p>
             </article>
             <article class="card">
               <span class="tag area-endurance">Alltag</span>
-              <p class="subtle" style="margin-top: 0.65rem;">Hobbies, Arbeit, Schritte und Schlaf erklaeren, warum dein Plan genau so aufgebaut ist.</p>
+              <p class="subtle" style="margin-top: 0.65rem;">Hobbies, Arbeit, Schritte und Schlaf erklären, warum dein Plan genau so aufgebaut ist.</p>
             </article>
           </div>
         </div>
@@ -3404,7 +3404,7 @@ def friends_page() -> str:
           </form>
         </div>
         <div class="panel">
-          <h2>Uebung zuweisen</h2>
+          <h2>Übung zuweisen</h2>
           <form class="form-grid" data-api-form data-endpoint="/api/assignments">
             <label>
               Von
@@ -3419,7 +3419,7 @@ def friends_page() -> str:
               <select name="category">{render_category_options("strength")}</select>
             </label>
             <label>
-              Faellig
+              Fällig
               <input name="due" value="Diese Woche">
             </label>
             <label class="full">
@@ -3472,7 +3472,7 @@ def groups_page() -> str:
           <p class="eyebrow">Gruppen</p>
           <h1>Squads finden</h1>
         </div>
-        <p class="subtle">Tritt passenden Gruppen bei und startet eigene Challenges fuer genau diese Crew.</p>
+        <p class="subtle">Tritt passenden Gruppen bei und startet eigene Challenges für genau diese Crew.</p>
       </section>
 
       <section class="grid two">
@@ -3515,7 +3515,7 @@ def groups_page() -> str:
       </section>
 
       <section class="panel" style="margin-top: 1rem;">
-        <h2>Verfuegbare Gruppen</h2>
+        <h2>Verfügbare Gruppen</h2>
         <div class="grid three">{group_cards}</div>
       </section>
     """
@@ -3568,7 +3568,7 @@ def challenges_page() -> str:
           </label>
           <label class="full">
             Beschreibung
-            <textarea name="description" placeholder="Was zaehlt und wie sammelt die Gruppe Fortschritt?"></textarea>
+            <textarea name="description" placeholder="Was zählt und wie sammelt die Gruppe Fortschritt?"></textarea>
           </label>
           <button class="button blue full" type="submit">Challenge erstellen</button>
         </form>
@@ -3665,8 +3665,8 @@ def sport_page() -> str:
               </select>
             </label>
             <label>
-              Uebung
-              <input name="title" placeholder="Bankdruecken, Kniebeugen">
+              Übung
+              <input name="title" placeholder="Bankdrücken, Kniebeugen">
             </label>
             <label>
               Umfang
@@ -3687,7 +3687,7 @@ def sport_page() -> str:
 
       <section class="grid two" style="margin-top: 1rem;">
         <div class="panel">
-          <h2>YouTube Training anhaengen</h2>
+          <h2>YouTube Training anhängen</h2>
           <form class="form-grid" data-api-form data-endpoint="/api/youtube">
             <input type="hidden" name="context" value="training">
             <label>
@@ -3704,7 +3704,7 @@ def sport_page() -> str:
             </label>
             <label class="full">
               Notiz
-              <textarea name="note" placeholder="Wofuer ist das Video hilfreich?"></textarea>
+              <textarea name="note" placeholder="Wofür ist das Video hilfreich?"></textarea>
             </label>
             <button class="button blue full" type="submit">Trainingsvideo speichern</button>
           </form>
@@ -3716,7 +3716,7 @@ def sport_page() -> str:
       </section>
 
       <section class="panel" style="margin-top: 1rem;">
-        <h2>Letzte Sporteintraege</h2>
+        <h2>Letzte Sporteinträge</h2>
         <table>
           <thead>
             <tr>
@@ -3809,14 +3809,14 @@ def nutrition_page() -> str:
           <strong>{h(round(water_total, 1))} l</strong>
         </article>
         <article class="stat-card">
-          <span>Eintraege</span>
+          <span>Einträge</span>
           <strong>{h(len(state["nutrition_entries"]))}</strong>
         </article>
       </section>
 
       <section class="grid two" style="margin-top: 1rem;">
         <div class="panel">
-          <h2>Gericht auswaehlen</h2>
+          <h2>Gericht auswählen</h2>
           <form class="form-grid" data-api-form data-endpoint="/api/nutrition">
             <label>
               Mitglied
@@ -3950,7 +3950,7 @@ def nutrition_page() -> str:
           <div class="grid two">{idea_cards}</div>
         </div>
         <div class="panel">
-          <h2>YouTube Mahlzeit anhaengen</h2>
+          <h2>YouTube Mahlzeit anhängen</h2>
           <form class="form-grid" data-api-form data-endpoint="/api/youtube">
             <input type="hidden" name="context" value="meal">
             <label>
@@ -4005,7 +4005,7 @@ def nutrition_page() -> str:
       </section>
 
       <section class="panel" style="margin-top: 1rem;">
-        <h2>Letzte Nahrungseintraege</h2>
+        <h2>Letzte Nahrungseinträge</h2>
         <table>
           <thead>
             <tr>
@@ -4073,7 +4073,7 @@ def photos_page() -> str:
     if not public_cards:
         public_cards = """
           <article class="card">
-            <p class="subtle">Noch keine Community-Fotos veroeffentlicht.</p>
+            <p class="subtle">Noch keine Community-Fotos veröffentlicht.</p>
           </article>
         """
 
@@ -4083,7 +4083,7 @@ def photos_page() -> str:
           <p class="eyebrow">Vergleichsfotos</p>
           <h1>Privat zuerst</h1>
         </div>
-        <p class="subtle">Fotos sind PIN-geschuetzt und werden erst sichtbar, wenn du sie selbst in die Community stellst.</p>
+        <p class="subtle">Fotos sind PIN-geschützt und werden erst sichtbar, wenn du sie selbst in die Community stellst.</p>
       </section>
 
       <section class="grid two">
@@ -4099,7 +4099,7 @@ def photos_page() -> str:
               <input name="pin" type="password" minlength="4" autocomplete="new-password">
             </label>
             <label class="full">
-              Aktueller PIN, nur beim Aendern
+              Aktueller PIN, nur beim Ändern
               <input name="current_pin" type="password" autocomplete="current-password">
             </label>
             <button class="button full" type="submit">PIN speichern</button>
@@ -4127,9 +4127,9 @@ def photos_page() -> str:
               <select name="photo_type">
                 <option>Front</option>
                 <option>Seite</option>
-                <option>Ruecken</option>
-                <option>Avatar Ganzkoerper Front</option>
-                <option>Avatar Ganzkoerper Seite</option>
+                <option>Rücken</option>
+                <option>Avatar Ganzkörper Front</option>
+                <option>Avatar Ganzkörper Seite</option>
                 <option selected>Check-in</option>
               </select>
             </label>
@@ -4150,7 +4150,7 @@ def photos_page() -> str:
         <div class="row">
           <div>
             <h2>Private Galerie</h2>
-            <p class="subtle">Die Fotos werden erst nach PIN-Pruefung geladen.</p>
+            <p class="subtle">Die Fotos werden erst nach PIN-Prüfung geladen.</p>
           </div>
           <button class="button secondary" id="photo-compare-button" type="button">Auswahl vergleichen</button>
         </div>
@@ -4168,7 +4168,7 @@ def photos_page() -> str:
         <div class="compare-board" id="compare-board"></div>
         <div class="photo-grid" id="private-photo-gallery" style="margin-top: 1rem;">
           <article class="card">
-            <p class="subtle">Waehle dein Mitglied aus und gib deinen PIN ein.</p>
+            <p class="subtle">Wähle dein Mitglied aus und gib deinen PIN ein.</p>
           </article>
         </div>
       </section>
@@ -4177,7 +4177,7 @@ def photos_page() -> str:
         <div class="row">
           <div>
             <h2>Community-Fotos</h2>
-            <p class="subtle">Nur bewusst veroeffentlichte Fotos erscheinen hier.</p>
+            <p class="subtle">Nur bewusst veröffentlichte Fotos erscheinen hier.</p>
           </div>
         </div>
         <div class="photo-grid" style="margin-top: 1rem;">{public_cards}</div>
@@ -4230,7 +4230,7 @@ def fitness_plan_page() -> str:
         weather_cards = f"""
           <article class="card">
             <h3>Wetter gerade nicht erreichbar</h3>
-            <p class="subtle">{h(forecast["error"] or "Bitte spaeter erneut pruefen.")}</p>
+            <p class="subtle">{h(forecast["error"] or "Bitte später erneut prüfen.")}</p>
           </article>
         """
 
@@ -4256,7 +4256,7 @@ def fitness_plan_page() -> str:
               <input name="latitude" type="number" step="0.000001" value="{h(settings.get("latitude", 52.52))}">
             </label>
             <label>
-              Laengengrad
+              Längengrad
               <input name="longitude" type="number" step="0.000001" value="{h(settings.get("longitude", 13.405))}">
             </label>
             <button class="button full" type="submit">Standort speichern</button>
@@ -4280,7 +4280,7 @@ def fitness_plan_page() -> str:
       <section class="panel" style="margin-top: 1rem;">
         <div class="row">
           <div>
-            <h2>Vorhersage fuer {h(settings.get("location_label", "Berlin"))}</h2>
+            <h2>Vorhersage für {h(settings.get("location_label", "Berlin"))}</h2>
             <p class="subtle">Quelle: Open-Meteo, 5-Tage-Prognose</p>
           </div>
         </div>
@@ -4346,7 +4346,7 @@ def integrations_page(request: Request) -> str:
           </form>
           <form class="form-grid" data-api-form data-endpoint="/api/integrations/strava/sync" style="margin-top: 0.8rem;">
             <label class="full">
-              Aktivitaeten importieren fuer
+              Aktivitäten importieren für
               <select name="member_id">{render_member_options(state, "bea")}</select>
             </label>
             <button class="button full" type="submit">Strava synchronisieren</button>
@@ -4366,7 +4366,7 @@ def integrations_page(request: Request) -> str:
           <p class="eyebrow">Integrationen</p>
           <h1>Apps verbinden</h1>
         </div>
-        <p class="subtle">Ausdauereinheiten koennen aus verbundenen Apps in den Sportbereich importiert werden.</p>
+        <p class="subtle">Ausdauereinheiten können aus verbundenen Apps in den Sportbereich importiert werden.</p>
       </section>
 
       <section class="grid two">
@@ -4374,7 +4374,7 @@ def integrations_page(request: Request) -> str:
           <div class="row">
             <div>
               <h2>Strava</h2>
-              <p class="subtle">Importiert Laeufe, Fahrten, Wanderungen und weitere Aktivitaeten.</p>
+              <p class="subtle">Importiert Läufe, Fahrten, Wanderungen und weitere Aktivitäten.</p>
             </div>
             <span class="integration-status {"connected" if strava_configured else "missing"}">{h("Bereit" if strava_configured else "Setup")}</span>
           </div>
@@ -4385,11 +4385,11 @@ def integrations_page(request: Request) -> str:
           <div class="list">
             <article class="card">
               <h3>Garmin Connect</h3>
-              <p class="subtle">Als naechste Integrationskarte vorbereitet.</p>
+              <p class="subtle">Als nächste Integrationskarte vorbereitet.</p>
             </article>
             <article class="card">
               <h3>Apple Health / Google Fit</h3>
-              <p class="subtle">Kann spaeter ueber Export oder API-Sync angebunden werden.</p>
+              <p class="subtle">Kann später über Export oder API-Sync angebunden werden.</p>
             </article>
           </div>
         </div>
@@ -4411,12 +4411,12 @@ def imprint_page() -> str:
           <p class="eyebrow">Rechtliches</p>
           <h1>Impressum</h1>
         </div>
-        <p class="subtle">Fiktives Muster fuer dieses Projekt.</p>
+        <p class="subtle">Fiktives Muster für dieses Projekt.</p>
       </section>
 
       <section class="grid two">
         <article class="panel">
-          <h2>Angaben gemaess Paragraf 5 DDG</h2>
+          <h2>Angaben gemäß Paragraf 5 DDG</h2>
           <div class="list">
             <article class="card">
               <h3>Betreiber</h3>
@@ -4436,7 +4436,7 @@ def imprint_page() -> str:
               </p>
             </article>
             <article class="card">
-              <h3>Verantwortlich fuer Inhalte</h3>
+              <h3>Verantwortlich für Inhalte</h3>
               <p>
                 Bea Beispiel<br>
                 Trainingsweg 10<br>
@@ -4452,11 +4452,11 @@ def imprint_page() -> str:
           <div class="list">
             <article class="card area-nutrition">
               <h3>Fiktives Muster</h3>
-              <p class="subtle">Dieses Impressum ist frei erfunden und dient nur als Platzhalter. Vor einer echten Veroeffentlichung muessen Name, Anschrift, Kontakt, Verantwortliche und weitere Pflichtangaben durch echte Daten ersetzt und rechtlich geprueft werden.</p>
+              <p class="subtle">Dieses Impressum ist frei erfunden und dient nur als Platzhalter. Vor einer echten Veröffentlichung müssen Name, Anschrift, Kontakt, Verantwortliche und weitere Pflichtangaben durch echte Daten ersetzt und rechtlich geprüft werden.</p>
             </article>
             <article class="card area-endurance">
               <h3>Umsatzsteuer</h3>
-              <p class="subtle">Keine Umsatzsteuer-ID hinterlegt, da dieses Projekt aktuell als privates Musterprojekt gefuehrt wird.</p>
+              <p class="subtle">Keine Umsatzsteuer-ID hinterlegt, da dieses Projekt aktuell als privates Musterprojekt geführt wird.</p>
             </article>
             <article class="card area-team">
               <h3>Streitbeilegung</h3>
@@ -4473,9 +4473,9 @@ async def read_json_payload(request: Request) -> dict:
     try:
         payload = await request.json()
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=400, detail={"message": "Ungueltige Anfrage."}) from exc
+        raise HTTPException(status_code=400, detail={"message": "Ungültige Anfrage."}) from exc
     if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail={"message": "Ungueltige Anfrage."})
+        raise HTTPException(status_code=400, detail={"message": "Ungültige Anfrage."})
     return payload
 
 
@@ -4648,7 +4648,7 @@ def strava_callback(request: Request) -> RedirectResponse:
     if not code or not oauth_state:
         raise HTTPException(
             status_code=400,
-            detail={"message": "Strava Callback ist unvollstaendig."},
+            detail={"message": "Strava Callback ist unvollständig."},
         )
 
     state = load_state()
@@ -4702,7 +4702,7 @@ async def api_strava_sync(request: Request) -> dict[str, str]:
         ) from exc
 
     save_state(state)
-    return {"message": f"Strava synchronisiert: {imported} neue Aktivitaeten importiert."}
+    return {"message": f"Strava synchronisiert: {imported} neue Aktivitäten importiert."}
 
 
 @app.post("/api/photos/pin")
@@ -4740,8 +4740,8 @@ async def api_save_avatar(request: Request) -> dict[str, str]:
                     "pin": pin,
                     "image_data": payload.get("front_image_data"),
                     "title": f"Avatar Front {member_name(state, member_id)}",
-                    "photo_type": "Avatar Ganzkoerper Front",
-                    "note": "Privates Kalibrierfoto fuer den Avatar.",
+                    "photo_type": "Avatar Ganzkörper Front",
+                    "note": "Privates Kalibrierfoto für den Avatar.",
                 },
             )
             photo_ids["front_photo_id"] = photo["id"]
@@ -4753,8 +4753,8 @@ async def api_save_avatar(request: Request) -> dict[str, str]:
                     "pin": pin,
                     "image_data": payload.get("side_image_data"),
                     "title": f"Avatar Seite {member_name(state, member_id)}",
-                    "photo_type": "Avatar Ganzkoerper Seite",
-                    "note": "Privates Kalibrierfoto fuer den Avatar.",
+                    "photo_type": "Avatar Ganzkörper Seite",
+                    "note": "Privates Kalibrierfoto für den Avatar.",
                 },
             )
             photo_ids["side_photo_id"] = photo["id"]
@@ -4763,7 +4763,7 @@ async def api_save_avatar(request: Request) -> dict[str, str]:
         raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
 
     save_state(state)
-    return {"message": f"Avatar gespeichert: Koerperbau {profile['body_label']}. Kalibrierfotos bleiben privat."}
+    return {"message": f"Avatar gespeichert: Körperbau {profile['body_label']}. Kalibrierfotos bleiben privat."}
 
 
 @app.post("/api/photos/upload")
