@@ -119,6 +119,13 @@ NAV_ITEMS = (
     ("/integrationen", "Integrationen"),
 )
 
+NAV_GROUPS = (
+    ("Planung", (("/", "Dashboard"), ("/fragebogen", "Fragebogen"), ("/fitnessplan", "Fitnessplan"))),
+    ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
+    ("Community", (("/freunde", "Freunde"), ("/gruppen", "Gruppen"), ("/challenges", "Challenges"))),
+    ("Tracking", (("/sport", "Sport"), ("/nahrung", "Nahrung"), ("/fotos", "Fotos"), ("/integrationen", "Integrationen"))),
+)
+
 
 def h(value: object) -> str:
     return html.escape(str(value), quote=True)
@@ -326,8 +333,18 @@ def level_meter(label: str, xp: int, area: str) -> str:
 
 def render_layout(active_path: str, title: str, body: str) -> str:
     nav = "\n".join(
-        f'<a class="{"is-active" if path == active_path else ""}" href="{path}">{label}</a>'
-        for path, label in NAV_ITEMS
+        f"""
+        <section class="nav-group">
+          <h2>{h(group_label)}</h2>
+          <div class="nav-links">
+            {"".join(
+                f'<a class="{"is-active" if path == active_path else ""}" href="{path}">{label}</a>'
+                for path, label in items
+            )}
+          </div>
+        </section>
+        """
+        for group_label, items in NAV_GROUPS
     )
     return f"""
     <!doctype html>
@@ -362,6 +379,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           body {{
             margin: 0;
             min-height: 100vh;
+            overflow-x: hidden;
             background:
               linear-gradient(120deg, rgb(37 99 235 / 13%), transparent 26rem),
               linear-gradient(245deg, rgb(22 138 95 / 14%), transparent 28rem),
@@ -383,29 +401,37 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             font: inherit;
           }}
 
-          .topbar {{
+          .app-shell {{
+            display: grid;
+            grid-template-columns: minmax(13.75rem, 15rem) minmax(0, 1fr);
+            min-height: 100vh;
+          }}
+
+          .sidebar {{
             position: sticky;
             top: 0;
-            z-index: 5;
-            display: grid;
-            grid-template-columns: auto 1fr auto;
+            z-index: 6;
+            display: flex;
+            height: 100vh;
+            min-width: 0;
+            flex-direction: column;
             gap: 1rem;
-            align-items: center;
-            padding: 1rem clamp(1rem, 3vw, 2.5rem);
-            border-bottom: 1px solid var(--line);
-            background: rgb(255 255 255 / 88%);
+            overflow-y: auto;
+            border-right: 1px solid var(--line);
+            padding: 1rem;
+            background: rgb(255 255 255 / 90%);
             backdrop-filter: blur(18px);
             box-shadow: 0 0.4rem 1.6rem rgb(23 32 51 / 8%);
           }}
 
-          .topbar::before {{
+          .sidebar::before {{
             position: absolute;
             top: 0;
-            right: 0;
             left: 0;
-            height: 0.28rem;
+            width: 0.32rem;
+            height: 100%;
             content: "";
-            background: linear-gradient(90deg, var(--blue), var(--green), var(--gold), var(--red), var(--violet));
+            background: linear-gradient(180deg, var(--blue), var(--green), var(--gold), var(--red), var(--violet));
           }}
 
           .brand {{
@@ -427,32 +453,55 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             box-shadow: 0 0.7rem 1.4rem rgb(23 32 51 / 20%);
           }}
 
-          .nav {{
-            display: flex;
-            gap: 0.45rem;
-            justify-content: center;
-            overflow-x: auto;
-            padding: 0.2rem;
+          .side-nav {{
+            display: grid;
+            gap: 0.95rem;
+            min-width: 0;
           }}
 
-          .nav a {{
-            flex: 0 0 auto;
+          .nav-group {{
+            display: grid;
+            gap: 0.4rem;
+            min-width: 0;
+          }}
+
+          .nav-group h2 {{
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.75rem;
+            font-weight: 900;
+            letter-spacing: 0;
+            text-transform: uppercase;
+          }}
+
+          .nav-links {{
+            display: grid;
+            gap: 0.35rem;
+            min-width: 0;
+          }}
+
+          .nav-links a {{
+            display: flex;
+            min-height: 2.45rem;
+            min-width: 0;
+            align-items: center;
             border-radius: 0.45rem;
-            padding: 0.7rem 0.9rem;
+            padding: 0.62rem 0.75rem;
             background: rgb(255 255 255 / 62%);
             color: var(--muted);
             font-weight: 700;
+            overflow-wrap: anywhere;
             box-shadow: inset 0 0 0 1px rgb(216 224 234 / 75%);
             transition: color 150ms ease, background 150ms ease, transform 150ms ease, box-shadow 150ms ease;
           }}
 
-          .nav a:hover {{
+          .nav-links a:hover {{
             color: var(--ink);
-            transform: translateY(-1px);
+            transform: translateX(2px);
             box-shadow: inset 0 0 0 1px rgb(37 99 235 / 32%), 0 0.45rem 1rem rgb(23 32 51 / 8%);
           }}
 
-          .nav a.is-active {{
+          .nav-links a.is-active {{
             background: linear-gradient(135deg, var(--ink), #31436a);
             color: #fff;
             box-shadow: 0 0.65rem 1.4rem rgb(23 32 51 / 18%);
@@ -466,6 +515,12 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             display: grid;
             gap: 0.45rem;
             justify-items: stretch;
+            margin-top: auto;
+          }}
+
+          .sidebar .button,
+          .sidebar .update-button {{
+            width: 100%;
           }}
 
           .button,
@@ -519,10 +574,15 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             opacity: 0.7;
           }}
 
+          .content-shell {{
+            min-width: 0;
+          }}
+
           .page {{
-            width: min(1220px, calc(100vw - 2rem));
+            width: min(100%, 1220px);
             margin: 0 auto;
-            padding: 1.5rem 0 3.25rem;
+            box-sizing: border-box;
+            padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 3.25rem;
           }}
 
           .page-heading {{
@@ -1213,14 +1273,15 @@ def render_layout(active_path: str, title: str, body: str) -> str:
 
           .site-footer {{
             display: flex;
-            width: min(1220px, calc(100vw - 2rem));
+            width: min(100%, 1220px);
             margin: 0 auto 2rem;
+            box-sizing: border-box;
             flex-wrap: wrap;
             gap: 0.75rem;
             align-items: center;
             justify-content: space-between;
             border-top: 1px solid rgb(216 224 234 / 75%);
-            padding-top: 1rem;
+            padding: 1rem clamp(1rem, 3vw, 2.5rem) 0;
             color: var(--muted);
             font-size: 0.9rem;
           }}
@@ -1240,14 +1301,30 @@ def render_layout(active_path: str, title: str, body: str) -> str:
           }}
 
           @media (max-width: 840px) {{
-            .topbar,
+            .app-shell {{
+              grid-template-columns: 1fr;
+            }}
+
+            .sidebar {{
+              position: relative;
+              height: auto;
+              border-right: 0;
+              border-bottom: 1px solid var(--line);
+            }}
+
+            .sidebar::before {{
+              width: 100%;
+              height: 0.28rem;
+              background: linear-gradient(90deg, var(--blue), var(--green), var(--gold), var(--red), var(--violet));
+            }}
+
             .page-heading {{
               grid-template-columns: 1fr;
               align-items: start;
             }}
 
-            .nav {{
-              justify-content: start;
+            .side-nav {{
+              grid-template-columns: repeat(2, minmax(0, 1fr));
             }}
 
             .quick-actions {{
@@ -1268,32 +1345,42 @@ def render_layout(active_path: str, title: str, body: str) -> str:
               grid-template-columns: 1fr;
             }}
           }}
+
+          @media (max-width: 560px) {{
+            .side-nav {{
+              grid-template-columns: 1fr;
+            }}
+          }}
         </style>
       </head>
       <body>
-        <header class="topbar">
-          <a class="brand" href="/" aria-label="Bea Dashboard">
-            <span class="brand-mark">B</span>
-            <span>ea</span>
-          </a>
-          <nav class="nav" aria-label="Hauptnavigation">
-            {nav}
-          </nav>
-          <div class="topbar-actions">
-            <form class="update-form" id="update-form">
-              <button class="update-button" id="update-button" type="submit">GitHub Update</button>
-            </form>
-            <button class="button disco" id="disco-start" type="button">Disco Start</button>
-            <button class="button disco-stop" id="disco-stop" type="button">Disco Ende</button>
+        <div class="app-shell">
+          <aside class="sidebar">
+            <a class="brand" href="/" aria-label="Bea Dashboard">
+              <span class="brand-mark">B</span>
+              <span>ea</span>
+            </a>
+            <nav class="side-nav" aria-label="Hauptnavigation">
+              {nav}
+            </nav>
+            <div class="topbar-actions">
+              <form class="update-form" id="update-form">
+                <button class="update-button" id="update-button" type="submit">GitHub Update</button>
+              </form>
+              <button class="button disco" id="disco-start" type="button">Disco Start</button>
+              <button class="button disco-stop" id="disco-stop" type="button">Disco Ende</button>
+            </div>
+          </aside>
+          <div class="content-shell">
+            <main class="page">
+              {body}
+            </main>
+            <footer class="site-footer">
+              <span>Bea Fitness Community</span>
+              <a href="/impressum">Impressum</a>
+            </footer>
           </div>
-        </header>
-        <main class="page">
-          {body}
-        </main>
-        <footer class="site-footer">
-          <span>Bea Fitness Community</span>
-          <a href="/impressum">Impressum</a>
-        </footer>
+        </div>
         <p class="update-status" id="update-status" role="status" aria-live="polite"></p>
         <script>
           const statusBox = document.querySelector("#update-status");
