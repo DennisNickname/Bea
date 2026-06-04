@@ -1,6 +1,16 @@
 # Bea
 
-Kleines FastAPI-Grundgeruest fuer Bea.
+FastAPI-App fuer gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, Sport- und Nahrungseintraegen.
+
+## Bereiche
+
+- `Dashboard`: Rangliste, Team-XP, aktive Challenges und Motivation
+- `Freunde`: Mitgliedervergleich, Motivation senden und Uebungen zuweisen
+- `Challenges`: Gemeinsame Fortschritte eintragen und XP-Boni sammeln
+- `Sport`: Ausdauer- und Krafttraining getrennt erfassen
+- `Nahrung`: Mahlzeiten, Protein, Kalorien und Wasser tracken
+
+Die App speichert Live-Daten lokal in `data/bea_state.json`. Diese Datei wird nicht in Git committed.
 
 ## Lokal starten
 
@@ -36,6 +46,12 @@ Manuell starten, falls kein Systemd verfuegbar ist:
 ```
 
 Der Server laeuft auf Port `8010`.
+
+Optional kann ein anderer Speicherort gesetzt werden:
+
+```bash
+BEA_STATE_PATH=/home/pi/bea-data/state.json ./scripts/run.sh
+```
 
 ## GitHub Update
 
