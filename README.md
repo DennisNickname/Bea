@@ -93,13 +93,12 @@ Die Wettervorhersage im Fitnessplan nutzt Open-Meteo und benoetigt keinen API-Ke
 
 ## GitHub Update
 
-Oben rechts in der App gibt es einen Button `GitHub Update`.
+In der linken Seitenleiste gibt es den Button `GitHub Update`.
 
 Der Button fuehrt auf dem Server aus:
 
 ```bash
 git pull --ff-only
-sudo systemctl restart bea.service
 ```
 
-Das Installationsskript erlaubt dem Dienst gezielt diesen Neustart ohne Passwort.
+Wenn Bea als systemd-Dienst laeuft, beendet sich der Prozess danach selbst. systemd startet ihn wegen `Restart=always` neu. Das ist stabiler, als den Dienst aus seinem eigenen Prozess heraus per `systemctl restart` neu zu starten.

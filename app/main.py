@@ -136,25 +136,40 @@ def _combined_output(result: subprocess.CompletedProcess[str]) -> str:
     return output.strip() or "Kein Output."
 
 
-def _restart_service_soon() -> None:
-    def restart() -> None:
+def _running_under_systemd() -> bool:
+    return any(os.getenv(name) for name in ("INVOCATION_ID", "JOURNAL_STREAM", "SYSTEMD_EXEC_PID"))
+
+
+def _terminate_self_soon() -> None:
+    def terminate() -> None:
         time.sleep(1.5)
+        os.kill(os.getpid(), signal.SIGTERM)
 
-        restart_command = os.getenv("BEA_RESTART_COMMAND")
-        if restart_command:
-            command = shlex.split(restart_command)
-        else:
-            systemctl = shutil.which("systemctl")
-            sudo = shutil.which("sudo")
+    threading.Thread(target=terminate, daemon=True).start()
 
-            if systemctl and sudo:
-                command = [sudo, "systemctl", "restart", SERVICE_NAME]
-            elif systemctl:
-                command = [systemctl, "restart", SERVICE_NAME]
-            else:
-                os.kill(os.getpid(), signal.SIGTERM)
-                return
 
+def _systemctl_restart_command() -> list[str] | None:
+    systemctl = shutil.which("systemctl")
+    if not systemctl:
+        return None
+
+    sudo = shutil.which("sudo")
+    if sudo:
+        return [sudo, "-n", systemctl, "restart", SERVICE_NAME]
+    return [systemctl, "restart", SERVICE_NAME]
+
+
+def _restart_service_soon() -> str:
+    strategy = os.getenv("BEA_RESTART_STRATEGY", "auto").strip().lower()
+    if strategy in ("off", "disabled", "none"):
+        return "Update geladen. Automatischer Neustart ist deaktiviert."
+
+    if strategy in ("self", "self-terminate", "terminate") or (strategy == "auto" and _running_under_systemd()):
+        _terminate_self_soon()
+        return "Update geladen. Dienstprozess wird beendet und von systemd neu gestartet."
+
+    def restart_command_soon(command: list[str]) -> None:
+        time.sleep(1.5)
         subprocess.Popen(
             command,
             cwd=PROJECT_ROOT,
@@ -163,7 +178,17 @@ def _restart_service_soon() -> None:
             start_new_session=True,
         )
 
-    threading.Thread(target=restart, daemon=True).start()
+    restart_command = os.getenv("BEA_RESTART_COMMAND")
+    if restart_command:
+        command = shlex.split(restart_command)
+    else:
+        command = _systemctl_restart_command()
+
+    if command:
+        threading.Thread(target=restart_command_soon, args=(command,), daemon=True).start()
+        return "Update geladen. Dienstneustart wurde angestossen."
+
+    return "Update geladen. Kein automatischer Neustartmechanismus gefunden."
 
 
 def area_class(area: str) -> str:
@@ -1662,7 +1687,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             try {{
               const data = await postJson("/update", {{}});
               showStatus(data.message || "Update geladen. Dienst wird neu gestartet.");
-              window.setTimeout(() => window.location.reload(), 4500);
+              window.setTimeout(() => window.location.reload(), 8000);
             }} catch (error) {{
               showStatus(error.message || "Update fehlgeschlagen.");
               updateButton.disabled = false;
@@ -4659,5 +4684,5 @@ def update_from_github() -> dict[str, str]:
             detail={"message": "GitHub Update fehlgeschlagen.", "output": output},
         )
 
-    _restart_service_soon()
-    return {"message": "Update geladen. Dienst wird neu gestartet.", "output": output}
+    message = _restart_service_soon()
+    return {"message": message, "output": output}

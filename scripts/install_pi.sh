@@ -41,6 +41,7 @@ Type=simple
 WorkingDirectory=$project_dir
 ExecStart=$project_dir/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8010
 Environment=BEA_SERVICE_NAME=$service_name
+Environment=BEA_RESTART_STRATEGY=self-terminate
 EnvironmentFile=-$env_file
 Restart=always
 RestartSec=3
