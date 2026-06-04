@@ -10,6 +10,7 @@ from uuid import uuid4
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATE_PATH = Path(os.getenv("BEA_STATE_PATH", PROJECT_ROOT / "data" / "bea_state.json"))
+CHECKIN_INTERVAL_DAYS = 90
 
 AREAS = ("endurance", "strength", "nutrition", "team")
 
@@ -715,6 +716,7 @@ def exercise_item(
     avoid: str,
     alternative: str,
     rest: str = "60-90 s",
+    progression: str = "",
 ) -> dict:
     return {
         "name": name,
@@ -725,7 +727,48 @@ def exercise_item(
         "cues": cues,
         "avoid": avoid,
         "alternative": alternative,
+        "progression": progression,
     }
+
+
+def strength_progression_rule(profile: dict) -> str:
+    experience = profile.get("experience", "beginner")
+    recovery_pressure = (
+        float(profile.get("sleep_hours") or 7.0) < 6.5
+        or profile.get("sleep_quality") in ("poor", "irregular")
+        or profile.get("stress_level") in ("high", "very_high")
+    )
+    if recovery_pressure:
+        return "Nur steigern, wenn Technik, Schlaf und Schmerzfreiheit stimmen; sonst Gewicht halten oder 10 % leichter trainieren."
+    if experience == "beginner":
+        return "Doppelprogression: erst alle Sätze am oberen Wiederholungsziel sauber schaffen, dann nächstes Mal 1-2 kg je Hantel oder 2,5-5 kg an Maschinen erhöhen."
+    if experience == "advanced":
+        return "Wenn alle Arbeitssätze mit 1-2 Wiederholungen Reserve gelingen, nächste Woche 2,5-5 % mehr Last; jede 4. Woche bewusst leichter."
+    return "Wenn alle Sätze im Zielbereich sauber gelingen, nächste Einheit 2,5-5 % mehr Last oder einen zusätzlichen sauberen Satz ergänzen."
+
+
+def plan_progression_guidance(profile: dict, checkin_number: int) -> list[dict]:
+    recovery_days = clamp(int(profile.get("recovery_days_per_week") or 2), 1, 4)
+    adjustment = GOAL_ADJUSTMENTS.get(profile.get("goal", "maintain"), 0)
+    calorie_direction = "leicht erhöhen" if adjustment > 0 else "leicht senken" if adjustment < 0 else "stabil halten"
+    return [
+        {
+            "title": "Kraft progressiv steigern",
+            "details": strength_progression_rule(profile),
+        },
+        {
+            "title": "Ausdauer dosiert ausbauen",
+            "details": "Alle 1-2 Wochen entweder 5 Minuten Zone 2 ergänzen oder einen Intervallblock hinzufügen, nicht beides gleichzeitig.",
+        },
+        {
+            "title": "Deload und Regeneration",
+            "details": f"Nach 3 harten Wochen folgt 1 leichtere Woche. Plane mindestens {recovery_days} Regenerationstage ein und steigere nicht bei Schmerzen.",
+        },
+        {
+            "title": "Ernährung nach Check-in anpassen",
+            "details": f"Nach Check-in {checkin_number} Kalorien {calorie_direction}; Gewicht, Hunger, Energie und Trainingsleistung entscheiden über die nächste Anpassung.",
+        },
+    ]
 
 
 def strength_exercises(profile: dict, session_index: int, equipment: str) -> list[dict]:
@@ -734,6 +777,7 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
     experience = profile.get("experience", "beginner")
     sets = "2-3" if experience == "beginner" else "3-4" if experience == "intermediate" else "4"
     reps = "8-10" if profile.get("goal") in ("gain", "strength") else "8-12"
+    progression = strength_progression_rule(profile)
 
     if profile["training_location"] == "gym":
         squat_name = "Beinpresse kontrolliert" if "knee" in injuries else "Goblet Squat oder Beinpresse"
@@ -760,6 +804,7 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
             ["Füße fest, Gewicht über Mittelfuß", "Knie folgen den Zehen", "Brustkorb ruhig, Bauch fest"],
             "Nicht in den unteren Rücken fallen und keine schmerzhaften Kniepositionen erzwingen.",
             "Bei Beschwerden: kleineres Bewegungsausmaß oder nur Sitz-zu-Stand.",
+            progression=progression,
         ),
         exercise_item(
             row_name,
@@ -769,6 +814,7 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
             ["Schulterblätter nach hinten unten ziehen", "Nacken lang lassen", "Zug aus dem Ellenbogen führen"],
             "Nicht mit Schwung reissen und nicht ins Hohlkreuz ausweichen.",
             "Bei Rückenstress: Brust abstützen oder Band-Rudern im Sitzen.",
+            progression=progression,
         ),
         exercise_item(
             push_name,
@@ -778,6 +824,7 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
             ["Handgelenke neutral", "Ellenbogen leicht schräg am Körper", "Langsam ablassen, kraftvoll hochdrücken"],
             "Keine stechenden Schulterwinkel, kein Durchhängen im unteren Rücken.",
             "Bei Schulterthema: Bewegungsradius kleiner und neutraler Griff.",
+            progression=progression,
         ),
         exercise_item(
             hinge_name,
@@ -787,6 +834,7 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
             ["Hüfte nach hinten schieben", "Rücken neutral", "Gewicht nah am Körper halten"],
             "Nicht aus dem Rücken heben und nicht in Schmerz hineinziehen.",
             "Bei Rückenhistorie: Glute Bridge oder Hip Thrust statt freiem Heben.",
+            progression=progression,
         ),
         exercise_item(
             "Dead Bug" if "core" in focus or session_index % 2 == 0 else "Pallof Press",
@@ -797,6 +845,7 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
             "Nicht ins Hohlkreuz kippen und nicht hektisch arbeiten.",
             "Bei Nackenstress: Kopf ablegen und Bewegung kleiner machen.",
             "45-60 s",
+            "Erst Kontrolle und Atemrhythmus verbessern, dann Wiederholungen oder Haltezeit leicht erhöhen.",
         ),
     ]
 
@@ -811,6 +860,7 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
                 "Nicht ins Hohlkreuz ziehen und nicht mit dem Nacken arbeiten.",
                 "Bei Schulterreiz: Band leichter wählen oder Bewegung kleiner.",
                 "45-60 s",
+                "Erst saubere Wiederholungen bis 15 schaffen, dann Band stärker oder langsameres Tempo wählen.",
             )
         )
     if "legs_glutes" in focus and "hip" not in injuries:
@@ -824,6 +874,7 @@ def strength_exercises(profile: dict, session_index: int, equipment: str) -> lis
                 "Nicht aus dem unteren Rücken überstrecken.",
                 "Bei Hüftreiz: Bewegungsradius verkleinern.",
                 "45-60 s",
+                progression,
             )
         )
 
@@ -1125,10 +1176,66 @@ def meal_templates(profile: dict, calories: int, macros: dict) -> list[dict]:
     return templates
 
 
+def add_days(date_key: str, days: int) -> str:
+    return (date.fromisoformat(date_key) + timedelta(days=days)).isoformat()
+
+
+def next_questionnaire_date(answered_at: str) -> str:
+    return add_days(answered_at, CHECKIN_INTERVAL_DAYS)
+
+
+def days_until(date_key: str) -> int:
+    return (date.fromisoformat(date_key) - date.today()).days
+
+
+def questionnaire_status(state: dict, member_id: str) -> dict:
+    plans = state.get("generated_plans", {})
+    profile = state.get("profiles", {}).get(member_id, {})
+    plan = plans.get(member_id)
+    if not plan:
+        return {
+            "member_id": member_id,
+            "state": "onboarding",
+            "is_due": True,
+            "label": "Anmeldung offen",
+            "message": "Beim ersten Anmelden wird der Fragebogen ausgefüllt und der Startplan erstellt.",
+            "button_label": "Onboarding starten",
+            "last_completed_at": "",
+            "next_due_at": today(),
+            "days_until_due": 0,
+        }
+
+    last_completed_at = str(profile.get("last_questionnaire_at") or plan.get("created_at") or today())
+    next_due_at = str(profile.get("next_questionnaire_at") or plan.get("next_checkin_at") or next_questionnaire_date(last_completed_at))
+    remaining = days_until(next_due_at)
+    is_due = remaining <= 0
+    return {
+        "member_id": member_id,
+        "state": "due" if is_due else "scheduled",
+        "is_due": is_due,
+        "label": "3-Monats-Check-in fällig" if is_due else "Plan aktuell",
+        "message": (
+            "Bitte Fortschritt, Alltag und Ziele neu beantworten. Danach werden Training und Ernährung angepasst."
+            if is_due
+            else f"Nächster automatischer Check-in in {remaining} Tagen."
+        ),
+        "button_label": "Check-in beantworten" if is_due else "Plan ansehen",
+        "last_completed_at": last_completed_at,
+        "next_due_at": next_due_at,
+        "days_until_due": remaining,
+    }
+
+
 def create_personal_plan(state: dict, payload: dict) -> dict:
     member_id = str(payload.get("member_id") or "")
     if member_id not in members_by_id(state):
         raise ValueError("Mitglied wurde nicht gefunden.")
+
+    answered_at = today()
+    existing_profile = state.setdefault("profiles", {}).get(member_id, {})
+    previous_plan = state.setdefault("generated_plans", {}).get(member_id)
+    checkin_count = int(existing_profile.get("checkin_count") or 0) + 1
+    is_onboarding = not previous_plan
 
     target_weight_kg = as_optional_float(payload, "target_weight_kg")
     daily_steps = as_optional_int(payload, "daily_steps")
@@ -1178,7 +1285,13 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
         "character_origin": str(payload.get("character_origin") or "").strip(),
         "adventure_role": str(payload.get("adventure_role") or "guardian"),
         "motivation_style": str(payload.get("motivation_style") or "story"),
-        "created_at": today(),
+        "created_at": existing_profile.get("created_at") or answered_at,
+        "updated_at": answered_at,
+        "onboarded_at": existing_profile.get("onboarded_at") or answered_at,
+        "last_questionnaire_at": answered_at,
+        "next_questionnaire_at": next_questionnaire_date(answered_at),
+        "checkin_count": checkin_count,
+        "questionnaire_type": "onboarding" if is_onboarding else "quarterly_checkin",
     }
 
     if not 13 <= profile["age"] <= 90:
@@ -1241,12 +1354,18 @@ def create_personal_plan(state: dict, payload: dict) -> dict:
     }
     plan = {
         "member_id": member_id,
-        "created_at": today(),
+        "created_at": answered_at,
+        "plan_version": checkin_count,
+        "plan_reason": "Anmeldung" if is_onboarding else "3-Monats-Check-in",
+        "previous_plan_created_at": previous_plan.get("created_at") if previous_plan else "",
+        "last_questionnaire_at": answered_at,
+        "next_checkin_at": profile["next_questionnaire_at"],
         "calories": calories,
         "macros": macros,
         "training": training,
         "regeneration": regeneration,
         "nutrition": meal_templates(profile, target_calories, macros),
+        "progression": plan_progression_guidance(profile, checkin_count),
         "training_focus": {
             "label": TRAINING_FOCUS_LABELS[profile["training_focus"]],
             "areas": [BODY_FOCUS_LABELS[area] for area in profile["focus_areas"]],

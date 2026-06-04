@@ -83,6 +83,7 @@ from app.state import level_for_xp
 from app.state import load_state
 from app.state import meal_ideas
 from app.state import member_name
+from app.state import questionnaire_status
 from app.state import rpg_character
 from app.state import rpg_completion_key
 from app.state import save_state
@@ -122,7 +123,7 @@ NAV_ITEMS = (
 )
 
 NAV_GROUPS = (
-    ("Planung", (("/", "Dashboard"), ("/fragebogen", "Fragebogen"), ("/fitnessplan", "Fitnessplan"))),
+    ("Planung", (("/", "Dashboard"), ("/fitnessplan", "Fitnessplan"), ("/fragebogen", "Check-in"))),
     ("Abenteuer", (("/abenteuer", "Abenteuer"), ("/avatar", "Avatar"), ("/fortschritt", "Fortschritt"))),
     ("Community", (("/freunde", "Freunde"), ("/gruppen", "Gruppen"), ("/challenges", "Challenges"))),
     ("Tracking", (("/sport", "Sport"), ("/nahrung", "Nahrung"), ("/fotos", "Fotos"), ("/integrationen", "Integrationen"))),
@@ -2447,6 +2448,9 @@ def render_exercise_list(exercises: list[dict]) -> str:
     items = []
     for exercise in exercises:
         cues = "".join(f"<li>{h(cue)}</li>" for cue in exercise.get("cues", []))
+        progression = ""
+        if exercise.get("progression"):
+            progression = f'<p class="subtle" style="margin-top: 0.35rem;"><strong>Progression:</strong> {h(exercise["progression"])}</p>'
         items.append(
             f"""
             <div class="exercise-item">
@@ -2457,6 +2461,7 @@ def render_exercise_list(exercises: list[dict]) -> str:
               <span class="meta">Pause: {h(exercise.get("rest", "60-90 s"))}</span>
               <p class="subtle">{h(exercise.get("explanation", ""))}</p>
               <ul class="cue-list">{cues}</ul>
+              {progression}
               <p class="subtle" style="margin-top: 0.45rem;"><strong>Vermeiden:</strong> {h(exercise.get("avoid", ""))}</p>
               <p class="subtle" style="margin-top: 0.35rem;"><strong>Alternative:</strong> {h(exercise.get("alternative", ""))}</p>
             </div>
@@ -2526,6 +2531,9 @@ def render_generated_plan(state: dict, plan: dict) -> str:
     target_label = " - ".join(target_parts) if target_parts else "offenes Etappenziel"
     calorie_delta = int(goal_tracking.get("calorie_delta", int(calories["target"]) - int(calories["maintenance"])))
     calorie_delta_label = f"{calorie_delta:+}"
+    plan_reason = plan.get("plan_reason", "Plananpassung")
+    plan_version = plan.get("plan_version", 1)
+    next_checkin_at = plan.get("next_checkin_at", "")
     adventure = plan.get("adventure", {})
     lifestyle = plan.get("lifestyle", {})
     training_focus = plan.get("training_focus", {})
@@ -2540,6 +2548,10 @@ def render_generated_plan(state: dict, plan: dict) -> str:
     injury_cards = render_plan_info_cards(
         training_focus.get("injury_considerations", []),
         "Keine Verletzungshistorie angegeben. Technik bleibt trotzdem wichtiger als Gewicht.",
+    )
+    progression_cards = render_plan_info_cards(
+        plan.get("progression", []),
+        "Progression entsteht mit dem nächsten Check-in.",
     )
     regeneration = "".join(
         f"""
@@ -2560,7 +2572,7 @@ def render_generated_plan(state: dict, plan: dict) -> str:
         <div class="row">
           <div>
             <h2>{h(member_name(state, plan["member_id"]))}: Trainings- und Ernährungsplan</h2>
-            <p class="subtle">Erstellt am {h(plan["created_at"])} - Ziel: {h(calories["goal_label"])} - Aktivität: {h(calories["activity_label"])}</p>
+            <p class="subtle">Version {h(plan_version)} - {h(plan_reason)} am {h(plan["created_at"])} - Ziel: {h(calories["goal_label"])} - Aktivität: {h(calories["activity_label"])}</p>
           </div>
           <span class="tag area-nutrition">{h(calories["target"])} kcal/Tag</span>
         </div>
@@ -2581,6 +2593,10 @@ def render_generated_plan(state: dict, plan: dict) -> str:
           <article class="stat-card">
             <span>Kohlenhydrate / Fett</span>
             <strong>{h(macros["carbs_g"])} g / {h(macros["fat_g"])} g</strong>
+          </article>
+          <article class="stat-card">
+            <span>Nächster Check-in</span>
+            <strong>{h(next_checkin_at or "offen")}</strong>
           </article>
         </div>
 
@@ -2651,8 +2667,8 @@ def render_generated_plan(state: dict, plan: dict) -> str:
             <div class="list">{checkpoints or '<article class="card"><p class="subtle">Nach dem nächsten Fragebogen entstehen Check-ins.</p></article>'}</div>
           </div>
           <div>
-            <h2>Regeneration</h2>
-            <div class="list">{regeneration or '<article class="card"><p class="subtle">Regeneration wird beim nächsten Plan automatisch eingeplant.</p></article>'}</div>
+            <h2>Progression</h2>
+            <div class="list">{progression_cards}</div>
           </div>
         </section>
 
@@ -2662,8 +2678,15 @@ def render_generated_plan(state: dict, plan: dict) -> str:
             <div class="list">{training}</div>
           </div>
           <div>
+            <h2>Regeneration</h2>
+            <div class="list">{regeneration or '<article class="card"><p class="subtle">Regeneration wird beim nächsten Plan automatisch eingeplant.</p></article>'}</div>
+          </div>
+        </section>
+
+        <section class="grid" style="margin-top: 1rem;">
+          <div>
             <h2>Ernährungsplan</h2>
-            <div class="list">{nutrition}</div>
+            <div class="grid two">{nutrition}</div>
           </div>
         </section>
 
@@ -2693,6 +2716,55 @@ def render_plan_collection(state: dict) -> str:
     return "".join(ordered)
 
 
+def questionnaire_link(member_id: str) -> str:
+    return f"/fragebogen?member_id={urllib.parse.quote(member_id)}"
+
+
+def render_questionnaire_status_cards(state: dict, only_due: bool = False) -> str:
+    cards = []
+    for member in state["members"]:
+        status = questionnaire_status(state, member["id"])
+        if only_due and not status["is_due"]:
+            continue
+        area = "area-nutrition" if status["is_due"] else "area-team"
+        action_href = questionnaire_link(member["id"]) if status["is_due"] else "/fitnessplan"
+        cards.append(
+            f"""
+            <article class="card {area}">
+              <div class="row">
+                <div>
+                  <span class="tag {area}">{h(status["label"])}</span>
+                  <h3 style="margin-top: 0.65rem;">{h(member["name"])}</h3>
+                </div>
+                <span class="meta">nächster Termin: {h(status["next_due_at"])}</span>
+              </div>
+              <p class="subtle" style="margin-top: 0.75rem;">{h(status["message"])}</p>
+              <a class="button blue" href="{h(action_href)}" style="margin-top: 0.85rem;">{h(status["button_label"])}</a>
+            </article>
+            """
+        )
+    if not cards:
+        return ""
+    return "".join(cards)
+
+
+def render_dashboard_checkin_prompt(state: dict) -> str:
+    cards = render_questionnaire_status_cards(state, only_due=True)
+    if not cards:
+        return ""
+    return f"""
+      <section class="panel" style="margin-bottom: 1rem;">
+        <div class="row">
+          <div>
+            <h2>Anmeldung & 3-Monats-Check-in</h2>
+            <p class="subtle">Der Fragebogen erscheint beim ersten Anmelden und danach alle 90 Tage, damit Trainingsplan und Ernährungsplan neu angepasst werden.</p>
+          </div>
+        </div>
+        <div class="grid two" style="margin-top: 1rem;">{cards}</div>
+      </section>
+    """
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard() -> str:
     state = load_state()
@@ -2700,19 +2772,7 @@ def dashboard() -> str:
     totals = team_totals(state)
     level_cards = "".join(level_meter(AREA_LABELS[area], totals[area], area) for area in AREAS)
     challenges = "".join(render_challenge_card(state, challenge) for challenge in state["challenges"][:3])
-    plan_hint = ""
-    if not state.get("generated_plans"):
-        plan_hint = """
-          <section class="panel" style="margin-bottom: 1rem;">
-            <div class="row">
-              <div>
-                <h2>Starte mit dem Fragebogen</h2>
-                <p class="subtle">Danach erstellt Bea automatisch deinen Kalorienbedarf, Trainingsplan und Ernährungsplan.</p>
-              </div>
-              <a class="button blue" href="/fragebogen">Fragebogen starten</a>
-            </div>
-          </section>
-        """
+    plan_hint = render_dashboard_checkin_prompt(state)
     motivations = "".join(
         f"""
         <article class="card">
@@ -3107,27 +3167,56 @@ def progress_page(member_id: str = "bea") -> str:
 
 
 @app.get("/fragebogen", response_class=HTMLResponse)
-def questionnaire_page() -> str:
+def questionnaire_page(member_id: str = "") -> str:
     state = load_state()
+    member_ids = {member["id"] for member in state["members"]}
+    due_member_ids = [member["id"] for member in state["members"] if questionnaire_status(state, member["id"])["is_due"]]
+    selected_member_id = member_id if member_id in member_ids else due_member_ids[0] if due_member_ids else "bea"
+    if selected_member_id not in member_ids:
+        selected_member_id = state["members"][0]["id"]
+    profile = state.get("profiles", {}).get(selected_member_id, {})
+    status = questionnaire_status(state, selected_member_id)
+    status_cards = render_questionnaire_status_cards(state)
+    form_title = "Anmeldung" if status["state"] == "onboarding" else "3-Monats-Check-in" if status["is_due"] else "Plan aktualisieren"
+    submit_label = "Startplan erstellen" if status["state"] == "onboarding" else "Check-in speichern und Plan anpassen"
+
+    def profile_value(key: str, default: object = "") -> object:
+        value = profile.get(key)
+        return default if value in (None, "") else value
+
+    def profile_text(key: str) -> str:
+        return str(profile.get(key) or "")
+
     sex_options = {"female": "weiblich", "male": "männlich", "neutral": "neutral / Durchschnitt"}
     experience_options = {
         "beginner": "Einsteiger",
         "intermediate": "Fortgeschritten",
         "advanced": "Sehr erfahren",
     }
-    target_date_default = (date.today() + timedelta(days=90)).isoformat()
+    target_date_default = str(profile_value("target_date", (date.today() + timedelta(days=90)).isoformat()))
+    target_weight_value = profile_value("target_weight_kg", "")
     body = f"""
       <section class="page-heading">
         <div>
-          <p class="eyebrow">Onboarding</p>
-          <h1>Fragebogen</h1>
+          <p class="eyebrow">Onboarding & Quartals-Check-in</p>
+          <h1>{h(form_title)}</h1>
         </div>
-        <p class="subtle">Aus deinen Antworten entstehen Zielpfad, Charakterprofil, Kalorienziel, Training, Regeneration und Ernährungsplan.</p>
+        <p class="subtle">Der Fragebogen erscheint beim ersten Anmelden und danach alle 90 Tage. Aus den Antworten werden Trainingsplan, Ernährungsplan und Progression neu berechnet.</p>
+      </section>
+
+      <section class="panel" style="margin-bottom: 1rem;">
+        <div class="row">
+          <div>
+            <h2>Check-in Status</h2>
+            <p class="subtle">Fällige Mitglieder beantworten den Check-in; alle anderen behalten ihren aktuellen Plan bis zum nächsten Termin.</p>
+          </div>
+        </div>
+        <div class="grid two" style="margin-top: 1rem;">{status_cards}</div>
       </section>
 
       <section class="grid two">
         <div class="panel">
-          <h2>Startprofil</h2>
+          <h2>{h(form_title)} für {h(member_name(state, selected_member_id))}</h2>
           <form class="form-grid" data-api-form data-endpoint="/api/questionnaire">
             <div class="form-section-title">
               <h3>Person & Ziel</h3>
@@ -3135,43 +3224,43 @@ def questionnaire_page() -> str:
             </div>
             <label>
               Mitglied
-              <select name="member_id">{render_member_options(state, "bea")}</select>
+              <select name="member_id">{render_member_options(state, selected_member_id)}</select>
             </label>
             <label>
               Ziel
-              <select name="goal">{render_options(GOAL_LABELS, "maintain")}</select>
+              <select name="goal">{render_options(GOAL_LABELS, str(profile_value("goal", "maintain")))}</select>
             </label>
             <label>
               Alter
-              <input name="age" type="number" min="13" max="90" value="30">
+              <input name="age" type="number" min="13" max="90" value="{h(profile_value("age", 30))}">
             </label>
             <label>
               Formel
-              <select name="sex">{render_options(sex_options, "neutral")}</select>
+              <select name="sex">{render_options(sex_options, str(profile_value("sex", "neutral")))}</select>
             </label>
             <label>
               Körpergröße in cm
-              <input name="height_cm" type="number" min="120" max="230" value="170">
+              <input name="height_cm" type="number" min="120" max="230" value="{h(profile_value("height_cm", 170))}">
             </label>
             <label>
               Gewicht in kg
-              <input name="weight_kg" type="number" min="35" max="250" step="0.1" value="70">
+              <input name="weight_kg" type="number" min="35" max="250" step="0.1" value="{h(profile_value("weight_kg", 70))}">
             </label>
             <label class="full">
               Hauptziel als Satz
-              <textarea name="primary_goal_text" placeholder="z.B. Ich will in 12 Wochen fitter, leichter und konsequenter trainieren."></textarea>
+              <textarea name="primary_goal_text" placeholder="z.B. Ich will in 12 Wochen fitter, leichter und konsequenter trainieren.">{h(profile_text("primary_goal_text"))}</textarea>
             </label>
             <label>
               Zielmessung
-              <select name="goal_metric">{render_options(GOAL_METRIC_LABELS, "habit")}</select>
+              <select name="goal_metric">{render_options(GOAL_METRIC_LABELS, str(profile_value("goal_metric", "habit")))}</select>
             </label>
             <label>
               Trackingrhythmus
-              <select name="tracking_frequency">{render_options(TRACKING_FREQUENCY_LABELS, "weekly")}</select>
+              <select name="tracking_frequency">{render_options(TRACKING_FREQUENCY_LABELS, str(profile_value("tracking_frequency", "weekly")))}</select>
             </label>
             <label>
               Zielgewicht in kg
-              <input name="target_weight_kg" type="number" min="35" max="250" step="0.1" placeholder="optional">
+              <input name="target_weight_kg" type="number" min="35" max="250" step="0.1" value="{h(target_weight_value)}" placeholder="optional">
             </label>
             <label>
               Zieldatum
@@ -3184,23 +3273,23 @@ def questionnaire_page() -> str:
             </div>
             <label>
               Aktivitätslevel
-              <select name="activity">{render_options(ACTIVITY_LABELS, "moderate")}</select>
+              <select name="activity">{render_options(ACTIVITY_LABELS, str(profile_value("activity", "moderate")))}</select>
             </label>
             <label>
               Arbeitsalltag
-              <select name="work_style">{render_options(WORK_STYLE_LABELS, "mixed")}</select>
+              <select name="work_style">{render_options(WORK_STYLE_LABELS, str(profile_value("work_style", "mixed")))}</select>
             </label>
             <label>
               Arbeitsrhythmus
-              <input name="work_schedule" placeholder="z.B. 9-17 Uhr, Schicht, viele Termine">
+              <input name="work_schedule" value="{h(profile_text("work_schedule"))}" placeholder="z.B. 9-17 Uhr, Schicht, viele Termine">
             </label>
             <label>
               Schritte pro Tag
-              <input name="daily_steps" type="number" min="0" max="40000" value="6000">
+              <input name="daily_steps" type="number" min="0" max="40000" value="{h(profile_value("daily_steps", 6000))}">
             </label>
             <label class="full">
               Hobbies & Interessen
-              <textarea name="hobbies" placeholder="z.B. Wandern, Tanzen, Gaming, Kochen, Garten, Teamsport"></textarea>
+              <textarea name="hobbies" placeholder="z.B. Wandern, Tanzen, Gaming, Kochen, Garten, Teamsport">{h(profile_text("hobbies"))}</textarea>
             </label>
 
             <div class="form-section-title">
@@ -3209,64 +3298,64 @@ def questionnaire_page() -> str:
             </div>
             <label>
               Trainingstage pro Woche
-              <input name="workouts_per_week" type="number" min="2" max="6" value="4">
+              <input name="workouts_per_week" type="number" min="2" max="6" value="{h(profile_value("workouts_per_week", 4))}">
             </label>
             <label>
               Trainingsort
-              <select name="training_location">{render_options(TRAINING_LABELS, "mixed")}</select>
+              <select name="training_location">{render_options(TRAINING_LABELS, str(profile_value("training_location", "mixed")))}</select>
             </label>
             <label>
               Ausdauer
-              <select name="endurance_preference">{render_options(ENDURANCE_LABELS, "mixed")}</select>
+              <select name="endurance_preference">{render_options(ENDURANCE_LABELS, str(profile_value("endurance_preference", "mixed")))}</select>
             </label>
             <label>
               Trainingserfahrung
-              <select name="experience">{render_options(experience_options, "beginner")}</select>
+              <select name="experience">{render_options(experience_options, str(profile_value("experience", "beginner")))}</select>
             </label>
             <label>
               Trainingsfokus
-              <select name="training_focus">{render_options(TRAINING_FOCUS_LABELS, "balanced")}</select>
+              <select name="training_focus">{render_options(TRAINING_FOCUS_LABELS, str(profile_value("training_focus", "balanced")))}</select>
             </label>
             <div class="full">
               <label>Körperbereiche, die du besonders trainieren möchtest</label>
               <div class="choice-grid" style="margin-top: 0.45rem;">
-                {render_checkbox_options(BODY_FOCUS_LABELS, "focus_areas", ("full_body", "core"))}
+                {render_checkbox_options(BODY_FOCUS_LABELS, "focus_areas", tuple(profile.get("focus_areas") or ("full_body", "core")))}
               </div>
               <p class="subtle" style="margin-top: 0.45rem;">Wenn du nichts änderst, nutzt Bea diese Auswahl plus Zielvorschläge.</p>
             </div>
             <div class="full">
               <label>Vergangene Verletzungen oder sensible Bereiche</label>
               <div class="choice-grid" style="margin-top: 0.45rem;">
-                {render_checkbox_options(INJURY_AREA_LABELS, "injury_areas", ("none",))}
+                {render_checkbox_options(INJURY_AREA_LABELS, "injury_areas", tuple(profile.get("injury_areas") or ("none",)))}
               </div>
             </div>
             <label class="full">
               Verletzungsnotizen
-              <textarea name="injury_notes" placeholder="z.B. rechtes Knie nach Laufbelastung, Schulter beim Überkopfdrücken, Bandscheibenvorfall 2021"></textarea>
+              <textarea name="injury_notes" placeholder="z.B. rechtes Knie nach Laufbelastung, Schulter beim Überkopfdrücken, Bandscheibenvorfall 2021">{h(profile_text("injury_notes"))}</textarea>
             </label>
             <label>
               Regenerationsstil
-              <select name="recovery_style">{render_options(RECOVERY_LABELS, "balanced")}</select>
+              <select name="recovery_style">{render_options(RECOVERY_LABELS, str(profile_value("recovery_style", "balanced")))}</select>
             </label>
             <label>
               Schlafstunden
-              <input name="sleep_hours" type="number" min="3" max="12" step="0.5" value="7">
+              <input name="sleep_hours" type="number" min="3" max="12" step="0.5" value="{h(profile_value("sleep_hours", 7))}">
             </label>
             <label>
               Schlafqualität
-              <select name="sleep_quality">{render_options(SLEEP_QUALITY_LABELS, "okay")}</select>
+              <select name="sleep_quality">{render_options(SLEEP_QUALITY_LABELS, str(profile_value("sleep_quality", "okay")))}</select>
             </label>
             <label>
               Stresslevel
-              <select name="stress_level">{render_options(STRESS_LABELS, "medium")}</select>
+              <select name="stress_level">{render_options(STRESS_LABELS, str(profile_value("stress_level", "medium")))}</select>
             </label>
             <label>
               Regenerationstage pro Woche
-              <input name="recovery_days_per_week" type="number" min="1" max="4" value="2">
+              <input name="recovery_days_per_week" type="number" min="1" max="4" value="{h(profile_value("recovery_days_per_week", 2))}">
             </label>
             <label>
               Mobility-Minuten
-              <input name="mobility_minutes" type="number" min="0" max="60" value="12">
+              <input name="mobility_minutes" type="number" min="0" max="60" value="{h(profile_value("mobility_minutes", 12))}">
             </label>
 
             <div class="form-section-title">
@@ -3275,15 +3364,15 @@ def questionnaire_page() -> str:
             </div>
             <label>
               Mahlzeiten pro Tag
-              <input name="meals_per_day" type="number" min="2" max="6" value="3">
+              <input name="meals_per_day" type="number" min="2" max="6" value="{h(profile_value("meals_per_day", 3))}">
             </label>
             <label class="full">
               Ernährungsform
-              <select name="diet_style">{render_options(DIET_LABELS, "mixed")}</select>
+              <select name="diet_style">{render_options(DIET_LABELS, str(profile_value("diet_style", "mixed")))}</select>
             </label>
             <label class="full">
               Unverträglichkeiten, Ausschlüsse oder Notizen
-              <textarea name="restrictions" placeholder="z.B. laktosefrei, kein Fisch, wenig Zeit morgens"></textarea>
+              <textarea name="restrictions" placeholder="z.B. laktosefrei, kein Fisch, wenig Zeit morgens">{h(profile_text("restrictions"))}</textarea>
             </label>
 
             <div class="form-section-title">
@@ -3292,21 +3381,21 @@ def questionnaire_page() -> str:
             </div>
             <label>
               Charaktername
-              <input name="character_name" placeholder="optional, sonst Mitgliedsname">
+              <input name="character_name" value="{h(profile_text("character_name"))}" placeholder="optional, sonst Mitgliedsname">
             </label>
             <label>
               Rolle
-              <select name="adventure_role">{render_options(ADVENTURE_ROLE_LABELS, "guardian")}</select>
+              <select name="adventure_role">{render_options(ADVENTURE_ROLE_LABELS, str(profile_value("adventure_role", "guardian")))}</select>
             </label>
             <label>
               Motivation
-              <select name="motivation_style">{render_options(MOTIVATION_STYLE_LABELS, "story")}</select>
+              <select name="motivation_style">{render_options(MOTIVATION_STYLE_LABELS, str(profile_value("motivation_style", "story")))}</select>
             </label>
             <label class="full">
               Herkunft & Erklärung
-              <textarea name="character_origin" placeholder="z.B. Büro-Heldin mit Wanderlust, die ihren Schlafrhythmus zur Superkraft macht."></textarea>
+              <textarea name="character_origin" placeholder="z.B. Büro-Heldin mit Wanderlust, die ihren Schlafrhythmus zur Superkraft macht.">{h(profile_text("character_origin"))}</textarea>
             </label>
-            <button class="button blue full" type="submit">Plan erstellen</button>
+            <button class="button blue full" type="submit">{h(submit_label)}</button>
           </form>
         </div>
 
@@ -4493,11 +4582,11 @@ def save_action(action, payload: dict, message: str) -> dict[str, str]:
 async def api_questionnaire(request: Request) -> dict[str, str]:
     state = load_state()
     try:
-        create_personal_plan(state, await read_json_payload(request))
+        plan = create_personal_plan(state, await read_json_payload(request))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
     save_state(state)
-    return {"message": "Plan erstellt."}
+    return {"message": f"{plan.get('plan_reason', 'Check-in')} gespeichert. Trainingsplan und Ernährungsplan wurden angepasst."}
 
 
 @app.post("/api/sport")
