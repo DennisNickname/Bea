@@ -10,6 +10,7 @@ import signal
 import subprocess
 import threading
 import time
+import urllib.parse
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -35,19 +36,25 @@ from app.state import AREA_LABELS
 from app.state import AREAS
 from app.state import DIET_LABELS
 from app.state import ENDURANCE_LABELS
+from app.state import FOOD_CATEGORIES
 from app.state import GOAL_LABELS
+from app.state import MEAL_LABELS
 from app.state import TRAINING_LABELS
 from app.state import add_external_sport_entry
+from app.state import add_food_item
 from app.state import add_assignment
 from app.state import add_challenge_progress
 from app.state import add_motivation
 from app.state import add_nutrition_entry
 from app.state import add_sport_entry
+from app.state import add_youtube_link
 from app.state import complete_assignment
 from app.state import create_personal_plan
+from app.state import food_items
 from app.state import leaderboard
 from app.state import level_for_xp
 from app.state import load_state
+from app.state import meal_ideas
 from app.state import member_name
 from app.state import save_state
 from app.state import strava_consume_pending
@@ -146,6 +153,73 @@ def render_options(options: dict[str, str], selected: str = "") -> str:
         f'<option value="{h(value)}" {"selected" if value == selected else ""}>{h(label)}</option>'
         for value, label in options.items()
     )
+
+
+def render_food_options(state: dict) -> str:
+    return '<option value="">Manuell eintragen</option>' + "\n".join(
+        f'<option value="{h(item["id"])}">{h(item["name"])} - {h(item["calories"])} kcal / 100g</option>'
+        for item in food_items(state)
+    )
+
+
+def render_meal_idea_options(state: dict) -> str:
+    return '<option value="">Kein Gericht</option>' + "\n".join(
+        f'<option value="{h(item["id"])}">{h(MEAL_LABELS[item["meal_type"]])}: {h(item["title"])} - {h(item["calories"])} kcal</option>'
+        for item in meal_ideas(state)
+    )
+
+
+def youtube_embed_url(url: str) -> str:
+    parsed = urllib.parse.urlparse(str(url or ""))
+    host = parsed.netloc.lower().replace("www.", "")
+    video_id = ""
+    if host == "youtu.be":
+        video_id = parsed.path.strip("/").split("/")[0]
+    elif host in ("youtube.com", "m.youtube.com"):
+        if parsed.path == "/watch":
+            video_id = urllib.parse.parse_qs(parsed.query).get("v", [""])[0]
+        elif parsed.path.startswith("/shorts/"):
+            video_id = parsed.path.split("/")[2]
+        elif parsed.path.startswith("/embed/"):
+            video_id = parsed.path.split("/")[2]
+    if not video_id:
+        return ""
+    return f"https://www.youtube-nocookie.com/embed/{h(video_id)}"
+
+
+def render_video_card(title: str, url: str, note: str = "") -> str:
+    embed = youtube_embed_url(url)
+    if not embed:
+        return ""
+    return f"""
+      <article class="card">
+        <div class="video-frame">
+          <iframe src="{embed}" title="{h(title)}" loading="lazy" allowfullscreen></iframe>
+        </div>
+        <h3>{h(title)}</h3>
+        <p class="subtle">{h(note)}</p>
+      </article>
+    """
+
+
+def render_youtube_links(state: dict, context: str) -> str:
+    cards = []
+    for link in state.get("youtube_links", []):
+        if link.get("context") == context:
+            cards.append(render_video_card(link["title"], link["youtube_url"], link.get("note", "")))
+
+    if context == "training":
+        for entry in state.get("sport_entries", []):
+            if entry.get("youtube_url"):
+                cards.append(render_video_card(entry["title"], entry["youtube_url"], f'{member_name(state, entry["member_id"])} - {entry["created_at"]}'))
+    else:
+        for entry in state.get("nutrition_entries", []):
+            if entry.get("youtube_url"):
+                cards.append(render_video_card(entry["meal"], entry["youtube_url"], f'{member_name(state, entry["member_id"])} - {entry["created_at"]}'))
+
+    if not cards:
+        return '<article class="card"><p class="subtle">Noch keine YouTube-Videos angehaengt.</p></article>'
+    return "".join(cards[:6])
 
 
 def progress_bar(progress: int, label: str = "") -> str:
@@ -672,6 +746,19 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             border-radius: 0.5rem;
             object-fit: cover;
             background: #e7ecea;
+          }}
+
+          .video-frame {{
+            aspect-ratio: 16 / 9;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background: #17212b;
+          }}
+
+          .video-frame iframe {{
+            width: 100%;
+            height: 100%;
+            border: 0;
           }}
 
           .update-status {{
@@ -1498,6 +1585,7 @@ def sport_page() -> str:
               <td>{h(entry["amount"])}</td>
               <td>{h(entry["duration"])} min</td>
               <td>{h(entry["xp"])} XP</td>
+              <td>{'<a class="tag area-team" href="' + h(entry.get("youtube_url", "")) + '" target="_blank" rel="noopener">Video</a>' if entry.get("youtube_url") else ''}</td>
             </tr>
             """
         )
@@ -1540,6 +1628,10 @@ def sport_page() -> str:
               Dauer in Minuten
               <input name="duration" type="number" min="1" value="30">
             </label>
+            <label class="full">
+              YouTube-Link, optional
+              <input name="youtube_url" placeholder="https://www.youtube.com/watch?v=...">
+            </label>
             <button class="button blue full" type="submit">Ausdauer speichern</button>
           </form>
         </div>
@@ -1573,8 +1665,42 @@ def sport_page() -> str:
               Dauer in Minuten
               <input name="duration" type="number" min="1" value="45">
             </label>
+            <label class="full">
+              YouTube-Link, optional
+              <input name="youtube_url" placeholder="https://www.youtube.com/watch?v=...">
+            </label>
             <button class="button red full" type="submit">Kraft speichern</button>
           </form>
+        </div>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>YouTube Training anhaengen</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/youtube">
+            <input type="hidden" name="context" value="training">
+            <label>
+              Mitglied
+              <select name="member_id">{render_member_options(state, "bea")}</select>
+            </label>
+            <label>
+              Titel
+              <input name="title" placeholder="Technik Kniebeuge">
+            </label>
+            <label class="full">
+              YouTube-Link
+              <input name="youtube_url" placeholder="https://www.youtube.com/watch?v=...">
+            </label>
+            <label class="full">
+              Notiz
+              <textarea name="note" placeholder="Wofuer ist das Video hilfreich?"></textarea>
+            </label>
+            <button class="button blue full" type="submit">Trainingsvideo speichern</button>
+          </form>
+        </div>
+        <div class="panel">
+          <h2>Trainingsvideos</h2>
+          <div class="grid">{render_youtube_links(state, "training")}</div>
         </div>
       </section>
 
@@ -1590,6 +1716,7 @@ def sport_page() -> str:
               <th>Menge</th>
               <th>Dauer</th>
               <th>XP</th>
+              <th>Video</th>
             </tr>
           </thead>
           <tbody>{"".join(rows)}</tbody>
@@ -1609,17 +1736,49 @@ def nutrition_page() -> str:
             <tr>
               <td>{h(entry["created_at"])}</td>
               <td>{h(member_name(state, entry["member_id"]))}</td>
+              <td>{h(MEAL_LABELS.get(entry.get("meal_type", "snack"), "Snack"))}</td>
               <td>{h(entry["meal"])}</td>
+              <td>{h(entry.get("source", "Manuell"))}</td>
               <td>{h(entry["protein"])} g</td>
+              <td>{h(entry.get("carbs", 0))} g</td>
+              <td>{h(entry.get("fat", 0))} g</td>
               <td>{h(entry["calories"])} kcal</td>
               <td>{h(entry["water"])} l</td>
               <td>{h(entry["xp"])} XP</td>
+              <td>{'<a class="tag area-team" href="' + h(entry.get("youtube_url", "")) + '" target="_blank" rel="noopener">Video</a>' if entry.get("youtube_url") else ''}</td>
             </tr>
             """
         )
 
     protein_total = sum(int(entry["protein"]) for entry in state["nutrition_entries"])
     water_total = sum(float(entry["water"]) for entry in state["nutrition_entries"])
+    idea_cards = "".join(
+        f"""
+        <article class="card">
+          <div class="row">
+            <span class="tag area-nutrition">{h(MEAL_LABELS[item["meal_type"]])}</span>
+            <strong>{h(item["calories"])} kcal</strong>
+          </div>
+          <h3>{h(item["title"])}</h3>
+          <p class="subtle">{h(item["description"])}</p>
+          <p class="subtle">{h(item["protein"])} g Protein - {h(item["carbs"])} g KH - {h(item["fat"])} g Fett</p>
+        </article>
+        """
+        for item in meal_ideas(state)[:6]
+    )
+    catalog_rows = "".join(
+        f"""
+        <tr>
+          <td>{h(item["name"])}</td>
+          <td>{h(FOOD_CATEGORIES.get(item["category"], "Sonstiges"))}</td>
+          <td>{h(item["calories"])}</td>
+          <td>{h(item["protein"])} g</td>
+          <td>{h(item["carbs"])} g</td>
+          <td>{h(item["fat"])} g</td>
+        </tr>
+        """
+        for item in food_items(state)[:18]
+    )
 
     body = f"""
       <section class="page-heading">
@@ -1646,7 +1805,29 @@ def nutrition_page() -> str:
 
       <section class="grid two" style="margin-top: 1rem;">
         <div class="panel">
-          <h2>Mahlzeit eintragen</h2>
+          <h2>Gericht auswaehlen</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/nutrition">
+            <label>
+              Mitglied
+              <select name="member_id">{render_member_options(state, "bea")}</select>
+            </label>
+            <label>
+              Gericht
+              <select name="meal_idea_id">{render_meal_idea_options(state)}</select>
+            </label>
+            <label>
+              Wasser in l
+              <input name="water" type="number" min="0" step="0.1" value="0.5">
+            </label>
+            <label>
+              YouTube-Link, optional
+              <input name="youtube_url" placeholder="https://www.youtube.com/watch?v=...">
+            </label>
+            <button class="button full" type="submit">Gericht speichern</button>
+          </form>
+        </div>
+        <div class="panel">
+          <h2>Lebensmittel eintragen</h2>
           <form class="form-grid" data-api-form data-endpoint="/api/nutrition">
             <label>
               Mitglied
@@ -1654,6 +1835,43 @@ def nutrition_page() -> str:
             </label>
             <label>
               Mahlzeit
+              <select name="meal_type">{render_options(MEAL_LABELS, "breakfast")}</select>
+            </label>
+            <label class="full">
+              Lebensmittel
+              <select name="food_id">{render_food_options(state)}</select>
+            </label>
+            <label>
+              Menge in g/ml
+              <input name="grams" type="number" min="1" value="100">
+            </label>
+            <label>
+              Wasser in l
+              <input name="water" type="number" min="0" step="0.1" value="0.5">
+            </label>
+            <label class="full">
+              YouTube-Link, optional
+              <input name="youtube_url" placeholder="https://www.youtube.com/watch?v=...">
+            </label>
+            <button class="button blue full" type="submit">Lebensmittel speichern</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Manuell eintragen</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/nutrition">
+            <label>
+              Mitglied
+              <select name="member_id">{render_member_options(state, "bea")}</select>
+            </label>
+            <label>
+              Mahlzeit
+              <select name="meal_type">{render_options(MEAL_LABELS, "snack")}</select>
+            </label>
+            <label class="full">
+              Name
               <input name="meal" placeholder="Quark Bowl">
             </label>
             <label>
@@ -1661,22 +1879,118 @@ def nutrition_page() -> str:
               <input name="protein" type="number" min="0" value="30">
             </label>
             <label>
+              Kohlenhydrate in g
+              <input name="carbs" type="number" min="0" value="45">
+            </label>
+            <label>
+              Fett in g
+              <input name="fat" type="number" min="0" value="12">
+            </label>
+            <label>
               Kalorien
               <input name="calories" type="number" min="0" value="550">
             </label>
-            <label class="full">
+            <label>
               Wasser in l
               <input name="water" type="number" min="0" step="0.1" value="0.5">
             </label>
-            <button class="button full" type="submit">Nahrung speichern</button>
+            <label class="full">
+              YouTube-Link, optional
+              <input name="youtube_url" placeholder="https://www.youtube.com/watch?v=...">
+            </label>
+            <button class="button full" type="submit">Manuell speichern</button>
           </form>
         </div>
+        <div class="panel">
+          <h2>Lebensmittel zur Datenbank</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/foods">
+            <label class="full">
+              Name
+              <input name="name" placeholder="Hummus">
+            </label>
+            <label>
+              Kategorie
+              <select name="category">{render_options(FOOD_CATEGORIES, "other")}</select>
+            </label>
+            <label>
+              kcal / 100g
+              <input name="calories" type="number" min="0" value="200">
+            </label>
+            <label>
+              Protein / 100g
+              <input name="protein" type="number" min="0" step="0.1" value="8">
+            </label>
+            <label>
+              Kohlenhydrate / 100g
+              <input name="carbs" type="number" min="0" step="0.1" value="14">
+            </label>
+            <label>
+              Fett / 100g
+              <input name="fat" type="number" min="0" step="0.1" value="10">
+            </label>
+            <button class="button secondary full" type="submit">Lebensmittel speichern</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Gerichte zur Auswahl</h2>
+          <div class="grid two">{idea_cards}</div>
+        </div>
+        <div class="panel">
+          <h2>YouTube Mahlzeit anhaengen</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/youtube">
+            <input type="hidden" name="context" value="meal">
+            <label>
+              Mitglied
+              <select name="member_id">{render_member_options(state, "bea")}</select>
+            </label>
+            <label>
+              Titel
+              <input name="title" placeholder="Meal Prep Bowl">
+            </label>
+            <label class="full">
+              YouTube-Link
+              <input name="youtube_url" placeholder="https://www.youtube.com/watch?v=...">
+            </label>
+            <label class="full">
+              Notiz
+              <textarea name="note" placeholder="Warum passt dieses Gericht?"></textarea>
+            </label>
+            <button class="button full" type="submit">Mahlzeitenvideo speichern</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
         <div class="panel">
           <h2>Nahrungs-Level</h2>
           <div class="grid two">
             {"".join(level_meter(member["name"], int(member["xp"].get("nutrition", 0)), "nutrition") for member in leaderboard(state))}
           </div>
         </div>
+        <div class="panel">
+          <h2>Mahlzeitenvideos</h2>
+          <div class="grid">{render_youtube_links(state, "meal")}</div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Lebensmittel-Datenbank</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Lebensmittel</th>
+              <th>Kategorie</th>
+              <th>kcal / 100g</th>
+              <th>Protein</th>
+              <th>KH</th>
+              <th>Fett</th>
+            </tr>
+          </thead>
+          <tbody>{catalog_rows}</tbody>
+        </table>
       </section>
 
       <section class="panel" style="margin-top: 1rem;">
@@ -1686,11 +2000,16 @@ def nutrition_page() -> str:
             <tr>
               <th>Datum</th>
               <th>Mitglied</th>
+              <th>Typ</th>
               <th>Mahlzeit</th>
+              <th>Quelle</th>
               <th>Protein</th>
+              <th>KH</th>
+              <th>Fett</th>
               <th>Kalorien</th>
               <th>Wasser</th>
               <th>XP</th>
+              <th>Video</th>
             </tr>
           </thead>
           <tbody>{"".join(rows)}</tbody>
@@ -2110,6 +2429,16 @@ async def api_add_sport(request: Request) -> dict[str, str]:
 @app.post("/api/nutrition")
 async def api_add_nutrition(request: Request) -> dict[str, str]:
     return save_action(add_nutrition_entry, await read_json_payload(request), "Nahrung gespeichert.")
+
+
+@app.post("/api/foods")
+async def api_add_food(request: Request) -> dict[str, str]:
+    return save_action(add_food_item, await read_json_payload(request), "Lebensmittel gespeichert.")
+
+
+@app.post("/api/youtube")
+async def api_add_youtube(request: Request) -> dict[str, str]:
+    return save_action(add_youtube_link, await read_json_payload(request), "YouTube-Video gespeichert.")
 
 
 @app.post("/api/assignments")

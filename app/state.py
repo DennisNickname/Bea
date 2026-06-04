@@ -66,6 +66,67 @@ DIET_LABELS = {
     "high_protein": "Proteinbetont",
 }
 
+MEAL_LABELS = {
+    "breakfast": "Fruehstueck",
+    "lunch": "Mittagessen",
+    "dinner": "Abendessen",
+    "snack": "Snack",
+}
+
+FOOD_CATEGORIES = {
+    "protein": "Protein",
+    "carbs": "Kohlenhydrate",
+    "fat": "Fette",
+    "fruit": "Obst",
+    "vegetable": "Gemuese",
+    "dairy": "Milchprodukte",
+    "drink": "Getraenke",
+    "other": "Sonstiges",
+}
+
+DEFAULT_FOOD_ITEMS = [
+    {"id": "oats", "name": "Haferflocken", "category": "carbs", "calories": 372, "protein": 13.5, "carbs": 58.7, "fat": 7.0},
+    {"id": "rice", "name": "Reis gekocht", "category": "carbs", "calories": 130, "protein": 2.7, "carbs": 28.0, "fat": 0.3},
+    {"id": "potatoes", "name": "Kartoffeln", "category": "carbs", "calories": 77, "protein": 2.0, "carbs": 17.0, "fat": 0.1},
+    {"id": "pasta", "name": "Vollkornnudeln gekocht", "category": "carbs", "calories": 124, "protein": 5.0, "carbs": 25.0, "fat": 0.8},
+    {"id": "bread", "name": "Vollkornbrot", "category": "carbs", "calories": 214, "protein": 8.5, "carbs": 39.0, "fat": 2.0},
+    {"id": "banana", "name": "Banane", "category": "fruit", "calories": 89, "protein": 1.1, "carbs": 22.8, "fat": 0.3},
+    {"id": "apple", "name": "Apfel", "category": "fruit", "calories": 52, "protein": 0.3, "carbs": 14.0, "fat": 0.2},
+    {"id": "berries", "name": "Beerenmix", "category": "fruit", "calories": 43, "protein": 0.8, "carbs": 7.5, "fat": 0.5},
+    {"id": "broccoli", "name": "Brokkoli", "category": "vegetable", "calories": 34, "protein": 2.8, "carbs": 6.6, "fat": 0.4},
+    {"id": "spinach", "name": "Spinat", "category": "vegetable", "calories": 23, "protein": 2.9, "carbs": 3.6, "fat": 0.4},
+    {"id": "tomato", "name": "Tomate", "category": "vegetable", "calories": 18, "protein": 0.9, "carbs": 3.9, "fat": 0.2},
+    {"id": "chicken", "name": "Haehnchenbrust", "category": "protein", "calories": 165, "protein": 31.0, "carbs": 0.0, "fat": 3.6},
+    {"id": "salmon", "name": "Lachs", "category": "protein", "calories": 208, "protein": 20.0, "carbs": 0.0, "fat": 13.0},
+    {"id": "tuna", "name": "Thunfisch", "category": "protein", "calories": 116, "protein": 26.0, "carbs": 0.0, "fat": 1.0},
+    {"id": "egg", "name": "Ei", "category": "protein", "calories": 155, "protein": 13.0, "carbs": 1.1, "fat": 11.0},
+    {"id": "tofu", "name": "Tofu", "category": "protein", "calories": 144, "protein": 15.7, "carbs": 3.9, "fat": 8.0},
+    {"id": "lentils", "name": "Linsen gekocht", "category": "protein", "calories": 116, "protein": 9.0, "carbs": 20.0, "fat": 0.4},
+    {"id": "kidney_beans", "name": "Kidneybohnen", "category": "protein", "calories": 127, "protein": 8.7, "carbs": 22.8, "fat": 0.5},
+    {"id": "skyr", "name": "Skyr", "category": "dairy", "calories": 63, "protein": 11.0, "carbs": 4.0, "fat": 0.2},
+    {"id": "quark", "name": "Magerquark", "category": "dairy", "calories": 67, "protein": 12.0, "carbs": 4.0, "fat": 0.2},
+    {"id": "greek_yogurt", "name": "Griechischer Joghurt", "category": "dairy", "calories": 97, "protein": 9.0, "carbs": 3.8, "fat": 5.0},
+    {"id": "milk", "name": "Milch 1,5%", "category": "dairy", "calories": 47, "protein": 3.4, "carbs": 4.9, "fat": 1.5},
+    {"id": "almonds", "name": "Mandeln", "category": "fat", "calories": 579, "protein": 21.0, "carbs": 22.0, "fat": 50.0},
+    {"id": "peanut_butter", "name": "Erdnussbutter", "category": "fat", "calories": 588, "protein": 25.0, "carbs": 20.0, "fat": 50.0},
+    {"id": "olive_oil", "name": "Olivenoel", "category": "fat", "calories": 884, "protein": 0.0, "carbs": 0.0, "fat": 100.0},
+    {"id": "avocado", "name": "Avocado", "category": "fat", "calories": 160, "protein": 2.0, "carbs": 9.0, "fat": 15.0},
+    {"id": "protein_powder", "name": "Proteinpulver", "category": "protein", "calories": 390, "protein": 78.0, "carbs": 8.0, "fat": 6.0},
+    {"id": "water", "name": "Wasser", "category": "drink", "calories": 0, "protein": 0.0, "carbs": 0.0, "fat": 0.0},
+]
+
+DEFAULT_MEAL_IDEAS = [
+    {"id": "protein_oats", "meal_type": "breakfast", "title": "Protein Oats", "description": "Haferflocken, Skyr, Beeren und Proteinpulver.", "calories": 560, "protein": 48, "carbs": 62, "fat": 11, "youtube_url": ""},
+    {"id": "quark_bowl", "meal_type": "breakfast", "title": "Quark Bowl", "description": "Magerquark mit Banane, Beeren und Mandeln.", "calories": 480, "protein": 42, "carbs": 48, "fat": 13, "youtube_url": ""},
+    {"id": "egg_bread", "meal_type": "breakfast", "title": "Ei auf Vollkornbrot", "description": "Eier, Vollkornbrot, Tomate und Spinat.", "calories": 520, "protein": 30, "carbs": 45, "fat": 22, "youtube_url": ""},
+    {"id": "chicken_rice", "meal_type": "lunch", "title": "Chicken Rice Bowl", "description": "Haehnchen, Reis, Brokkoli und Olivenoel.", "calories": 720, "protein": 55, "carbs": 82, "fat": 18, "youtube_url": ""},
+    {"id": "lentil_pasta", "meal_type": "lunch", "title": "Linsen-Pasta", "description": "Vollkornnudeln mit Linsen, Tomaten und Spinat.", "calories": 690, "protein": 34, "carbs": 105, "fat": 12, "youtube_url": ""},
+    {"id": "salmon_potatoes", "meal_type": "dinner", "title": "Lachs mit Kartoffeln", "description": "Lachs, Kartoffeln und Gemuese.", "calories": 680, "protein": 42, "carbs": 58, "fat": 28, "youtube_url": ""},
+    {"id": "tofu_bowl", "meal_type": "dinner", "title": "Tofu Bowl", "description": "Tofu, Reis, Brokkoli, Avocado und Tomate.", "calories": 650, "protein": 32, "carbs": 72, "fat": 24, "youtube_url": ""},
+    {"id": "skyr_snack", "meal_type": "snack", "title": "Skyr Snack", "description": "Skyr mit Beeren und etwas Erdnussbutter.", "calories": 310, "protein": 32, "carbs": 24, "fat": 10, "youtube_url": ""},
+    {"id": "shake_banana", "meal_type": "snack", "title": "Proteinshake Banane", "description": "Proteinpulver, Milch und Banane.", "calories": 360, "protein": 38, "carbs": 42, "fat": 6, "youtube_url": ""},
+]
+
 DEFAULT_STATE = {
     "members": [
         {
@@ -204,6 +265,9 @@ DEFAULT_STATE = {
     "photos": [],
     "profiles": {},
     "generated_plans": {},
+    "food_items": DEFAULT_FOOD_ITEMS,
+    "meal_ideas": DEFAULT_MEAL_IDEAS,
+    "youtube_links": [],
 }
 
 
@@ -502,6 +566,69 @@ def award_xp(state: dict, member_id: str, area: str, xp: int) -> None:
     member["xp"][area] = int(member["xp"].get(area, 0)) + max(0, int(xp))
 
 
+def food_items(state: dict) -> list[dict]:
+    return sorted(state.setdefault("food_items", copy.deepcopy(DEFAULT_FOOD_ITEMS)), key=lambda item: item["name"])
+
+
+def meal_ideas(state: dict) -> list[dict]:
+    return state.setdefault("meal_ideas", copy.deepcopy(DEFAULT_MEAL_IDEAS))
+
+
+def food_by_id(state: dict, food_id: str) -> dict | None:
+    for food in food_items(state):
+        if food["id"] == food_id:
+            return food
+    return None
+
+
+def meal_idea_by_id(state: dict, idea_id: str) -> dict | None:
+    for idea in meal_ideas(state):
+        if idea["id"] == idea_id:
+            return idea
+    return None
+
+
+def add_food_item(state: dict, payload: dict) -> dict:
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        raise ValueError("Bitte einen Namen fuer das Lebensmittel eintragen.")
+
+    category = str(payload.get("category") or "other")
+    if category not in FOOD_CATEGORIES:
+        raise ValueError("Kategorie wurde nicht gefunden.")
+
+    item = {
+        "id": new_id("food"),
+        "name": name,
+        "category": category,
+        "calories": max(0, as_int(payload, "calories", 0)),
+        "protein": max(0.0, as_float(payload, "protein", 0.0)),
+        "carbs": max(0.0, as_float(payload, "carbs", 0.0)),
+        "fat": max(0.0, as_float(payload, "fat", 0.0)),
+    }
+    state.setdefault("food_items", []).append(item)
+    return item
+
+
+def scaled_food_nutrition(food: dict, grams: float) -> dict[str, float]:
+    factor = grams / 100
+    return {
+        "calories": round(float(food["calories"]) * factor),
+        "protein": round(float(food["protein"]) * factor, 1),
+        "carbs": round(float(food["carbs"]) * factor, 1),
+        "fat": round(float(food["fat"]) * factor, 1),
+    }
+
+
+def normalize_youtube_url(url: str) -> str:
+    clean = str(url or "").strip()
+    if not clean:
+        return ""
+    if "youtube.com/watch" not in clean and "youtu.be/" not in clean and "youtube.com/shorts/" not in clean:
+        raise ValueError("Bitte einen YouTube-Link eintragen.")
+    return clean
+
+
 def add_sport_entry(state: dict, payload: dict) -> dict:
     sport_type = payload.get("sport_type")
     if sport_type not in ("endurance", "strength"):
@@ -527,6 +654,7 @@ def add_sport_entry(state: dict, payload: dict) -> dict:
         "duration": duration,
         "effort": effort,
         "xp": xp,
+        "youtube_url": normalize_youtube_url(str(payload.get("youtube_url") or "")),
         "created_at": today(),
     }
     state["sport_entries"].insert(0, entry)
@@ -556,27 +684,95 @@ def add_nutrition_entry(state: dict, payload: dict) -> dict:
     if member_id not in members_by_id(state):
         raise ValueError("Mitglied wurde nicht gefunden.")
 
+    meal_type = str(payload.get("meal_type") or "snack")
+    if meal_type not in MEAL_LABELS:
+        raise ValueError("Mahlzeit wurde nicht gefunden.")
+
     meal = str(payload.get("meal") or "").strip()
+    grams = max(1.0, as_float(payload, "grams", 100.0))
+    food = food_by_id(state, str(payload.get("food_id") or ""))
+    idea = meal_idea_by_id(state, str(payload.get("meal_idea_id") or ""))
+
+    carbs = max(0.0, as_float(payload, "carbs", 0.0)) if payload.get("carbs") else 0.0
+    fat = max(0.0, as_float(payload, "fat", 0.0)) if payload.get("fat") else 0.0
+
+    if idea:
+        meal_type = idea["meal_type"]
+        meal = idea["title"]
+        protein = int(idea["protein"])
+        calories = int(idea["calories"])
+        carbs = float(idea["carbs"])
+        fat = float(idea["fat"])
+        youtube_url = normalize_youtube_url(str(payload.get("youtube_url") or idea.get("youtube_url") or ""))
+    elif food:
+        nutrition = scaled_food_nutrition(food, grams)
+        meal = meal or food["name"]
+        protein = int(round(nutrition["protein"]))
+        calories = int(nutrition["calories"])
+        carbs = float(nutrition["carbs"])
+        fat = float(nutrition["fat"])
+        youtube_url = normalize_youtube_url(str(payload.get("youtube_url") or ""))
+    else:
+        protein = max(0, int(payload.get("protein") or 0))
+        calories = max(0, int(payload.get("calories") or 0))
+        youtube_url = normalize_youtube_url(str(payload.get("youtube_url") or ""))
+
     if not meal:
         raise ValueError("Bitte eine Mahlzeit eintragen.")
 
-    protein = max(0, int(payload.get("protein") or 0))
-    calories = max(0, int(payload.get("calories") or 0))
     water = max(0.0, float(payload.get("water") or 0))
     xp = min(90, 15 + protein + int(water * 10))
     entry = {
         "id": new_id("meal"),
         "member_id": member_id,
+        "meal_type": meal_type,
         "meal": meal,
         "protein": protein,
         "calories": calories,
+        "carbs": round(carbs, 1),
+        "fat": round(fat, 1),
         "water": water,
         "xp": xp,
+        "source": "Gericht" if idea else "Lebensmittel" if food else "Manuell",
+        "food_id": food["id"] if food else "",
+        "meal_idea_id": idea["id"] if idea else "",
+        "grams": round(grams, 1) if food else 0,
+        "youtube_url": youtube_url,
         "created_at": today(),
     }
     state["nutrition_entries"].insert(0, entry)
     award_xp(state, member_id, "nutrition", xp)
     return entry
+
+
+def add_youtube_link(state: dict, payload: dict) -> dict:
+    context = str(payload.get("context") or "")
+    if context not in ("training", "meal"):
+        raise ValueError("Video-Bereich wurde nicht gefunden.")
+
+    member_id = str(payload.get("member_id") or "")
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    title = str(payload.get("title") or "").strip()
+    url = normalize_youtube_url(str(payload.get("youtube_url") or ""))
+    if not title:
+        raise ValueError("Bitte einen Titel fuer das Video eintragen.")
+    if not url:
+        raise ValueError("Bitte einen YouTube-Link eintragen.")
+
+    link = {
+        "id": new_id("yt"),
+        "member_id": member_id,
+        "context": context,
+        "title": title,
+        "youtube_url": url,
+        "note": str(payload.get("note") or "").strip(),
+        "created_at": today(),
+    }
+    state.setdefault("youtube_links", []).insert(0, link)
+    award_xp(state, member_id, "team", 5)
+    return link
 
 
 def add_assignment(state: dict, payload: dict) -> dict:

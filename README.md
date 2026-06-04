@@ -9,8 +9,8 @@ FastAPI-App fuer gemeinsames Fitness-Tracking mit Freunden, Challenges, Leveln, 
 - `Freunde`: Mitgliedervergleich, Motivation senden und Uebungen zuweisen
 - `Challenges`: Gemeinsame Fortschritte eintragen und XP-Boni sammeln
 - `Fitnessplan`: Wettervorhersage fuer Outdoor- oder Studio-Entscheidungen
-- `Sport`: Ausdauer- und Krafttraining getrennt erfassen
-- `Nahrung`: Mahlzeiten, Protein, Kalorien und Wasser tracken
+- `Sport`: Ausdauer- und Krafttraining getrennt erfassen und YouTube-Trainingsvideos anhaengen
+- `Nahrung`: Lebensmittel-Datenbank, Gerichtauswahl, Mahlzeiten, Makros, Wasser und YouTube-Mahlzeitenvideos tracken
 - `Fotos`: Private Vergleichsfotos mit PIN-Schutz und optionaler Community-Freigabe
 - `Integrationen`: Strava verbinden und externe Ausdauereinheiten importieren
 
