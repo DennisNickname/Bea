@@ -751,6 +751,16 @@ DEFAULT_STATE = {
             "created_at": "2026-06-04",
         },
     ],
+    "group_comments": [
+        {
+            "id": "comment-1",
+            "group_id": "early-birds",
+            "member_id": "mara",
+            "message": "Morgenrunde ist erledigt. Wer kommt morgen mit?",
+            "likes": ["bea"],
+            "created_at": "2026-06-04",
+        }
+    ],
     "challenges": [
         {
             "id": "team-100",
@@ -2757,6 +2767,25 @@ def groups_for_member(state: dict, member_id: str) -> list[dict]:
     return [group for group in groups(state) if member_id in group.setdefault("members", [])]
 
 
+def group_member_ranking(state: dict, group_id: str) -> list[dict]:
+    group = group_by_id(state, group_id)
+    if not group:
+        raise ValueError("Gruppe wurde nicht gefunden.")
+
+    members = members_by_id(state)
+    ranking = [members[member_id] for member_id in group.setdefault("members", []) if member_id in members]
+    return sorted(ranking, key=total_xp, reverse=True)
+
+
+def group_comments(state: dict, group_id: str) -> list[dict]:
+    comments = [
+        comment
+        for comment in state.setdefault("group_comments", [])
+        if comment.get("group_id") == group_id
+    ]
+    return sorted(comments, key=lambda item: item.get("created_at", ""), reverse=True)
+
+
 def create_group(state: dict, payload: dict) -> dict:
     creator = str(payload.get("created_by") or "")
     if creator not in members_by_id(state):
@@ -2783,6 +2812,55 @@ def create_group(state: dict, payload: dict) -> dict:
     groups(state).insert(0, group)
     award_xp(state, creator, "team", 20)
     return group
+
+
+def add_group_comment(state: dict, payload: dict) -> dict:
+    member_id = str(payload.get("member_id") or "")
+    group_id = str(payload.get("group_id") or "")
+    group = group_by_id(state, group_id)
+    if not group:
+        raise ValueError("Gruppe wurde nicht gefunden.")
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+    if member_id not in group.setdefault("members", []):
+        raise ValueError("Du musst der Gruppe beitreten, bevor du kommentierst.")
+
+    message = str(payload.get("message") or "").strip()
+    if len(message) < 2:
+        raise ValueError("Bitte einen Kommentar eintragen.")
+
+    comment = {
+        "id": new_id("comment"),
+        "group_id": group_id,
+        "member_id": member_id,
+        "message": message,
+        "likes": [],
+        "created_at": today(),
+    }
+    state.setdefault("group_comments", []).insert(0, comment)
+    award_xp(state, member_id, "team", 4)
+    return comment
+
+
+def like_group_comment(state: dict, member_id: str, comment_id: str) -> dict:
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+
+    for comment in state.setdefault("group_comments", []):
+        if comment.get("id") != comment_id:
+            continue
+        group = group_by_id(state, str(comment.get("group_id") or ""))
+        if not group:
+            raise ValueError("Gruppe wurde nicht gefunden.")
+        if member_id not in group.setdefault("members", []):
+            raise ValueError("Du musst der Gruppe beitreten, bevor du Kommentare likest.")
+        likes = comment.setdefault("likes", [])
+        if member_id not in likes:
+            likes.append(member_id)
+            if comment.get("member_id") != member_id:
+                award_xp(state, str(comment.get("member_id") or ""), "team", 2)
+        return comment
+    raise ValueError("Kommentar wurde nicht gefunden.")
 
 
 def join_group(state: dict, payload: dict) -> dict:

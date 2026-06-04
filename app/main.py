@@ -66,6 +66,7 @@ from app.state import add_food_item
 from app.state import add_hydration_entry
 from app.state import add_assignment
 from app.state import add_challenge_progress
+from app.state import add_group_comment
 from app.state import add_mindset_entry
 from app.state import add_motivation
 from app.state import add_nutrition_entry
@@ -83,6 +84,9 @@ from app.state import AVATAR_CLOTHING_STYLES
 from app.state import AVATAR_HAIR_STYLES
 from app.state import food_items
 from app.state import group_name
+from app.state import group_by_id
+from app.state import group_comments
+from app.state import group_member_ranking
 from app.state import groups
 from app.state import groups_for_member
 from app.state import health_journey_status
@@ -107,6 +111,7 @@ from app.state import rpg_completion_key
 from app.state import save_state
 from app.state import save_avatar_profile
 from app.state import set_member_password
+from app.state import like_group_comment
 from app.state import strava_consume_pending
 from app.state import strava_get_connection
 from app.state import strava_set_connection
@@ -1932,6 +1937,7 @@ def render_group_card(state: dict, group: dict) -> str:
           {member_tags or '<span class="meta">Noch keine Mitglieder</span>'}
         </div>
         <p class="subtle" style="margin-top: 0.75rem;">{h(len(member_ids))} Mitglieder - {h(challenge_count)} Challenges</p>
+        <a class="button secondary" href="/gruppen/{h(group["id"])}" style="margin-top: 0.85rem;">Gruppe öffnen</a>
         <form class="form-grid" data-api-form data-endpoint="/api/groups/join" style="margin-top: 0.85rem;">
           <input type="hidden" name="group_id" value="{h(group["id"])}">
           <label>
@@ -1942,6 +1948,86 @@ def render_group_card(state: dict, group: dict) -> str:
         </form>
       </article>
     """
+
+
+def render_group_member_list(state: dict, group: dict) -> str:
+    member_ids = group.setdefault("members", [])
+    members = members_by_id(state)
+    if not member_ids:
+        return '<article class="card"><p class="subtle">Noch keine Mitglieder in dieser Gruppe.</p></article>'
+    return "".join(
+        f"""
+        <article class="card area-team">
+          <div class="row">
+            <div>
+              <h3>{h(members[member_id]["name"])}</h3>
+              <p class="subtle">{h(members[member_id].get("focus", "Fitness"))} - Serie {h(members[member_id].get("streak", 0))} Tage</p>
+            </div>
+            <span class="tag area-team">{h(total_xp(members[member_id]))} XP</span>
+          </div>
+        </article>
+        """
+        for member_id in member_ids
+        if member_id in members
+    )
+
+
+def render_group_ranking(state: dict, group_id: str) -> str:
+    rows = []
+    for index, member in enumerate(group_member_ranking(state, group_id), start=1):
+        total = total_xp(member)
+        level = level_for_xp(total)
+        rows.append(
+            f"""
+            <div class="member-rank">
+              <span class="rank-number">{index}</span>
+              <div>
+                <strong>{h(member["name"])}</strong>
+                <p class="subtle">{h(member.get("focus", "Fitness"))} - Serie {h(member.get("streak", 0))} Tage</p>
+              </div>
+              <div>
+                <strong>Level {h(level["level"])}</strong>
+                <p class="subtle">{h(total)} XP</p>
+              </div>
+            </div>
+            """
+        )
+    return "".join(rows) or '<article class="card"><p class="subtle">Noch kein Ranking möglich.</p></article>'
+
+
+def render_group_comment_card(state: dict, comment: dict, viewer_member_id: str) -> str:
+    likes = comment.setdefault("likes", [])
+    liked = viewer_member_id in likes
+    like_action = (
+        '<span class="tag area-team">Geliked</span>'
+        if liked
+        else f"""
+        <form data-api-form data-endpoint="/api/groups/comments/like">
+          <input type="hidden" name="comment_id" value="{h(comment["id"])}">
+          <button class="button secondary" type="submit">Liken</button>
+        </form>
+        """
+    )
+    return f"""
+      <article class="card area-team">
+        <div class="row">
+          <div>
+            <h3>{h(member_name(state, comment.get("member_id", "")))}</h3>
+            <p class="subtle">{h(comment.get("created_at", ""))}</p>
+          </div>
+          <span class="tag area-team">{h(len(likes))} Likes</span>
+        </div>
+        <p style="margin-top: 0.75rem;">{h(comment.get("message", ""))}</p>
+        <div class="row" style="justify-content: flex-start; margin-top: 0.85rem;">{like_action}</div>
+      </article>
+    """
+
+
+def render_group_comments(state: dict, group_id: str, viewer_member_id: str) -> str:
+    comments = group_comments(state, group_id)
+    if not comments:
+        return '<article class="card"><p class="subtle">Noch keine Kommentare. Starte den Austausch in dieser Gruppe.</p></article>'
+    return "".join(render_group_comment_card(state, comment, viewer_member_id) for comment in comments)
 
 
 def render_challenge_card(state: dict, challenge: dict, with_form: bool = False) -> str:
@@ -4472,6 +4558,155 @@ def groups_page() -> str:
     return render_layout("/gruppen", "Gruppen", body)
 
 
+@app.get("/gruppen/{group_id}", response_class=HTMLResponse)
+def group_detail_page(request: Request, group_id: str) -> str:
+    state = load_state()
+    group = group_by_id(state, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail={"message": "Gruppe wurde nicht gefunden."})
+
+    viewer_member_id = dashboard_member_id(state, request)
+    viewer_is_member = viewer_member_id in group.setdefault("members", [])
+    group_challenges = [challenge for challenge in state.setdefault("challenges", []) if challenge.get("group_id") == group_id]
+    challenge_cards = "".join(render_challenge_card(state, challenge, True) for challenge in group_challenges)
+    if not challenge_cards:
+        challenge_cards = '<article class="card"><p class="subtle">Noch keine Challenge in dieser Gruppe. Erstelle die erste gemeinsame Aufgabe.</p></article>'
+
+    join_panel = ""
+    if not viewer_is_member:
+        join_panel = f"""
+          <section class="panel" style="margin-bottom: 1rem;">
+            <div class="row">
+              <div>
+                <h2>Gruppe beitreten</h2>
+                <p class="subtle">Tritt der Gruppe bei, um Challenges zu erstellen, Fortschritt einzutragen und zu kommentieren.</p>
+              </div>
+              <form data-api-form data-endpoint="/api/groups/join">
+                <input type="hidden" name="group_id" value="{h(group_id)}">
+                <input type="hidden" name="member_id" value="{h(viewer_member_id)}">
+                <button class="button blue" type="submit">Beitreten</button>
+              </form>
+            </div>
+          </section>
+        """
+
+    interaction_panel = (
+        f"""
+        <div class="panel">
+          <h2>Challenge in dieser Gruppe erstellen</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/challenges/create">
+            <input type="hidden" name="group_id" value="{h(group_id)}">
+            <label>
+              Erstellt von
+              <select name="created_by">{render_member_options_for_ids(state, group.setdefault("members", []), viewer_member_id)}</select>
+            </label>
+            <label>
+              Bereich
+              <select name="category">{render_options(AREA_LABELS, "team")}</select>
+            </label>
+            <label>
+              Zielwert
+              <input name="goal" type="number" min="1" value="10">
+            </label>
+            <label>
+              Einheit
+              <input name="unit" placeholder="Minuten, Tage, Einheiten" value="Punkte">
+            </label>
+            <label>
+              Bonus XP
+              <input name="xp" type="number" min="10" max="1000" value="100">
+            </label>
+            <label class="full">
+              Titel
+              <input name="title" placeholder="7 Tage drangeblieben">
+            </label>
+            <label class="full">
+              Beschreibung
+              <textarea name="description" placeholder="Was zählt und wie sammelt die Gruppe Fortschritt?"></textarea>
+            </label>
+            <button class="button blue full" type="submit">Gruppen-Challenge erstellen</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Austausch</h2>
+          <form class="form-grid" data-api-form data-endpoint="/api/groups/comments">
+            <input type="hidden" name="group_id" value="{h(group_id)}">
+            <label class="full">
+              Kommentar
+              <textarea name="message" placeholder="Was lief gut? Wer braucht Motivation?"></textarea>
+            </label>
+            <button class="button full" type="submit">Kommentieren</button>
+          </form>
+        </div>
+        """
+        if viewer_is_member
+        else """
+        <div class="panel">
+          <h2>Gruppenaktionen</h2>
+          <p class="subtle">Nach dem Beitritt kannst du Challenges erstellen und kommentieren.</p>
+        </div>
+        """
+    )
+
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Gruppe</p>
+          <h1>{h(group["name"])}</h1>
+        </div>
+        <a class="button secondary" href="/gruppen">Alle Gruppen</a>
+      </section>
+
+      {join_panel}
+
+      <section class="grid four">
+        <article class="stat-card">
+          <span>Fokus</span>
+          <strong>{h(group.get("focus", "Team"))}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Mitglieder</span>
+          <strong>{h(len(group.setdefault("members", [])))}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Challenges</span>
+          <strong>{h(len(group_challenges))}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Kommentare</span>
+          <strong>{h(len(group_comments(state, group_id)))}</strong>
+        </article>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        <div class="panel">
+          <h2>Mitglieder</h2>
+          <div class="list" style="margin-top: 1rem;">{render_group_member_list(state, group)}</div>
+        </div>
+        <div class="panel">
+          <h2>Gruppenranking</h2>
+          <div class="list" style="margin-top: 1rem;">{render_group_ranking(state, group_id)}</div>
+        </div>
+      </section>
+
+      <section class="grid two" style="margin-top: 1rem;">
+        {interaction_panel}
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Gruppen-Challenges</h2>
+        <div class="grid two" style="margin-top: 1rem;">{challenge_cards}</div>
+      </section>
+
+      <section class="panel" style="margin-top: 1rem;">
+        <h2>Kommentare</h2>
+        <div class="list" style="margin-top: 1rem;">{render_group_comments(state, group_id, viewer_member_id)}</div>
+      </section>
+    """
+    return render_layout("/gruppen", group["name"], body)
+
+
 @app.get("/challenges", response_class=HTMLResponse)
 def challenges_page() -> str:
     state = load_state()
@@ -5859,6 +6094,37 @@ async def api_join_group(request: Request) -> dict[str, str]:
         raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
     save_state(state)
     return {"message": f"{member_name(state, payload.get('member_id', ''))} ist jetzt in {group['name']}."}
+
+
+@app.post("/api/groups/comments")
+async def api_add_group_comment(request: Request) -> dict[str, str]:
+    payload = await read_json_payload(request)
+    state = load_state()
+    member_id = current_member_id(request)
+    if not member_id:
+        raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor kommentiert wird."})
+    payload["member_id"] = member_id
+    try:
+        add_group_comment(state, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    return {"message": "Kommentar gespeichert."}
+
+
+@app.post("/api/groups/comments/like")
+async def api_like_group_comment(request: Request) -> dict[str, str]:
+    payload = await read_json_payload(request)
+    state = load_state()
+    member_id = current_member_id(request)
+    if not member_id:
+        raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor geliked wird."})
+    try:
+        comment = like_group_comment(state, member_id, str(payload.get("comment_id") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+    save_state(state)
+    return {"message": f"Kommentar geliked. Jetzt {len(comment.get('likes', []))} Likes."}
 
 
 @app.post("/api/challenges/create")
