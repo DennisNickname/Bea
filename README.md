@@ -27,10 +27,25 @@ cd bea
 bash scripts/install_pi.sh
 ```
 
-Starten:
+Das Skript installiert die Abhaengigkeiten, richtet `bea.service` ein und startet den Dienst auf Port `8010`.
+
+Manuell starten, falls kein Systemd verfuegbar ist:
 
 ```bash
 ./scripts/run.sh
 ```
 
 Der Server laeuft auf Port `8010`.
+
+## GitHub Update
+
+Oben rechts in der App gibt es einen Button `GitHub Update`.
+
+Der Button fuehrt auf dem Server aus:
+
+```bash
+git pull --ff-only
+sudo systemctl restart bea.service
+```
+
+Das Installationsskript erlaubt dem Dienst gezielt diesen Neustart ohne Passwort.

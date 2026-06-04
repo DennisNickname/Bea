@@ -9,4 +9,5 @@ if [ ! -d ".venv" ]; then
 fi
 
 . .venv/bin/activate
+export BEA_SERVICE_NAME="${BEA_SERVICE_NAME:-bea.service}"
 exec uvicorn app.main:app --host 0.0.0.0 --port 8010
