@@ -1,17 +1,21 @@
 # Bea Sicherheit
 
-Bea enthält Gesundheits-, Foto- und Gruppendaten. Der sichere Standard ist:
-kein direkter Internetzugriff auf FastAPI, sondern privates WLAN, VPN oder ein
-gehärteter HTTPS-Reverse-Proxy.
+Bea enthält Gesundheits-, Foto- und Gruppendaten. In der Entwicklungsphase läuft
+die App standardmäßig ohne Login (`BEA_AUTH_REQUIRED=0`), damit UI und Funktionen
+schnell getestet werden können. Der sichere Produktivstandard ist:
+`BEA_AUTH_REQUIRED=1`, kein direkter Internetzugriff auf FastAPI, sondern privates
+WLAN, VPN oder ein gehärteter HTTPS-Reverse-Proxy.
 
 ## Aktive Schutzmaßnahmen
 
-- Anmeldung mit Benutzername oder E-Mail und starkem Passwort.
+- Anmeldung mit Benutzername oder E-Mail und starkem Passwort, sobald
+  `BEA_AUTH_REQUIRED=1` gesetzt ist.
 - Passwörter werden als Salt + PBKDF2-Hash gespeichert.
 - Session-Cookies sind `HttpOnly` und `SameSite=Strict`; per `BEA_SECURE_COOKIE=1`
   zusätzlich nur über HTTPS.
 - Login, Registrierung und Passwort-Reset haben serverseitige Rate-Limits.
-- Seiten, APIs, Fotos und GitHub-Update sind ohne Anmeldung gesperrt.
+- Seiten, APIs, Fotos und GitHub-Update sind bei aktiviertem Login ohne
+  Anmeldung gesperrt.
 - Standardmäßig sind nur private Netze, VPN/link-local und `localhost` erlaubt.
 - State- und Foto-Backup wird vor dem GitHub-Update als ZIP abgelegt.
 - Sicherheitsheader und Origin-Prüfung schützen gegen einfache XSS-/Clickjacking-/
@@ -30,6 +34,7 @@ Netz sind.
 
 Empfohlen für echte Gruppen mit sensiblen Daten:
 
+- Login erzwingen: `BEA_AUTH_REQUIRED=1`.
 - FastAPI nur lokal binden: `BEA_HOST=127.0.0.1`.
 - nginx/Caddy davor mit HTTPS.
 - Zugriff von außen nur über VPN oder bewusst gehärteten Reverse Proxy.

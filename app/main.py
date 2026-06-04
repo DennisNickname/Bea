@@ -233,6 +233,28 @@ def current_member_id(request: Request) -> str:
     return str(session.get("member_id", "")) if session else ""
 
 
+def auth_required() -> bool:
+    return os.getenv("BEA_AUTH_REQUIRED", "0").lower() not in ("0", "false", "no", "off")
+
+
+def development_member_id(state: dict) -> str:
+    member_ids = {member["id"] for member in state.get("members", [])}
+    configured = os.getenv("BEA_DEV_MEMBER_ID", "").strip()
+    if configured in member_ids:
+        return configured
+    return "bea" if "bea" in member_ids else state["members"][0]["id"]
+
+
+def active_member_id(state: dict, request: Request) -> str:
+    member_ids = {member["id"] for member in state.get("members", [])}
+    session_member = current_member_id(request)
+    if session_member in member_ids:
+        return session_member
+    if not auth_required():
+        return development_member_id(state)
+    return ""
+
+
 def cookie_secure(request: Request) -> bool:
     return request.url.scheme == "https" or os.getenv("BEA_SECURE_COOKIE", "").lower() in ("1", "true", "yes")
 
@@ -586,6 +608,8 @@ async def require_authenticated_member(request: Request, call_next):
         }
         if path in public_paths:
             response = await call_next(request)
+        elif not auth_required():
+            response = await call_next(request)
         elif current_session(request):
             response = await call_next(request)
         elif path.startswith("/api") or path == "/update":
@@ -762,6 +786,17 @@ def render_layout(active_path: str, title: str, body: str) -> str:
         </section>
         """
         for group_label, items in NAV_GROUPS
+    )
+    auth_action = (
+        """
+              <form method="post" action="/logout">
+                <button class="button secondary" type="submit">Abmelden</button>
+              </form>
+        """
+        if auth_required()
+        else """
+              <p class="meta" style="margin: 0; text-align: center;">Entwicklungsmodus ohne Login</p>
+        """
     )
     return f"""
     <!doctype html>
@@ -1798,9 +1833,7 @@ def render_layout(active_path: str, title: str, body: str) -> str:
               </form>
               <button class="button disco" id="disco-start" type="button">Disco Start</button>
               <button class="button disco-stop" id="disco-stop" type="button">Disco Ende</button>
-              <form method="post" action="/logout">
-                <button class="button secondary" type="submit">Abmelden</button>
-              </form>
+              {auth_action}
             </div>
           </aside>
           <div class="content-shell">
@@ -3309,11 +3342,7 @@ def render_dashboard_checkin_prompt(state: dict) -> str:
 
 
 def dashboard_member_id(state: dict, request: Request) -> str:
-    member_ids = {member["id"] for member in state["members"]}
-    session_member = current_member_id(request)
-    if session_member in member_ids:
-        return session_member
-    return "bea" if "bea" in member_ids else state["members"][0]["id"]
+    return active_member_id(state, request) or development_member_id(state)
 
 
 def render_start_avatar_panel(state: dict, member_id: str, rpg: dict) -> str:
@@ -6903,7 +6932,8 @@ async def api_add_sport(request: Request) -> dict[str, str]:
 @app.post("/api/mindset")
 async def api_add_mindset(request: Request) -> dict[str, str]:
     payload = await read_json_payload(request)
-    member_id = current_member_id(request)
+    state = load_state()
+    member_id = active_member_id(state, request)
     if not member_id:
         raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor Mindset-Übungen gespeichert werden."})
     payload["member_id"] = member_id
@@ -6918,7 +6948,8 @@ async def api_add_nutrition(request: Request) -> dict[str, str]:
 @app.post("/api/hydration")
 async def api_add_hydration(request: Request) -> dict[str, str]:
     payload = await read_json_payload(request)
-    member_id = current_member_id(request)
+    state = load_state()
+    member_id = active_member_id(state, request)
     if not member_id:
         raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor Flüssigkeit gespeichert wird."})
     payload["member_id"] = member_id
@@ -6934,7 +6965,7 @@ async def api_add_weight(request: Request) -> dict[str, str]:
 async def api_redeem_reward(request: Request) -> dict[str, str]:
     payload = await read_json_payload(request)
     state = load_state()
-    member_id = current_member_id(request)
+    member_id = active_member_id(state, request)
     if not member_id:
         raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor Belohnungen eingelöst werden."})
     try:
@@ -7004,7 +7035,7 @@ async def api_join_group(request: Request) -> dict[str, str]:
 async def api_add_group_comment(request: Request) -> dict[str, str]:
     payload = await read_json_payload(request)
     state = load_state()
-    member_id = current_member_id(request)
+    member_id = active_member_id(state, request)
     if not member_id:
         raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor kommentiert wird."})
     payload["member_id"] = member_id
@@ -7020,7 +7051,7 @@ async def api_add_group_comment(request: Request) -> dict[str, str]:
 async def api_like_group_comment(request: Request) -> dict[str, str]:
     payload = await read_json_payload(request)
     state = load_state()
-    member_id = current_member_id(request)
+    member_id = active_member_id(state, request)
     if not member_id:
         raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor geliked wird."})
     try:
@@ -7077,7 +7108,7 @@ async def api_complete_rpg_quest(request: Request) -> dict[str, str]:
 @app.post("/api/rpg/chest/open")
 async def api_open_rpg_chest(request: Request) -> dict[str, str]:
     state = load_state()
-    member_id = current_member_id(request)
+    member_id = active_member_id(state, request)
     if not member_id:
         raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor die Tageskiste geöffnet wird."})
     try:
@@ -7094,7 +7125,7 @@ async def api_open_rpg_chest(request: Request) -> dict[str, str]:
 async def api_complete_journey_lesson(request: Request) -> dict[str, str]:
     payload = await read_json_payload(request)
     state = load_state()
-    member_id = current_member_id(request)
+    member_id = active_member_id(state, request)
     if not member_id:
         raise HTTPException(status_code=401, detail={"message": "Bitte anmelden, bevor eine Lektion abgeschlossen wird."})
     try:

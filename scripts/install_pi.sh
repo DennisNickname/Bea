@@ -29,6 +29,9 @@ BEA_HOST=0.0.0.0
 BEA_PORT=8010
 
 # Sicherheit
+BEA_AUTH_REQUIRED=0
+# Optionaler Entwicklungsnutzer ohne Login
+# BEA_DEV_MEMBER_ID=bea
 # BEA_PRIVATE_NETWORK_ONLY=1
 # BEA_SECURE_COOKIE=1
 # BEA_TRUST_PROXY_HEADERS=1
@@ -55,6 +58,7 @@ Environment=BEA_SERVICE_NAME=$service_name
 Environment=BEA_RESTART_STRATEGY=self-terminate
 Environment=BEA_HOST=0.0.0.0
 Environment=BEA_PORT=8010
+Environment=BEA_AUTH_REQUIRED=0
 EnvironmentFile=-$env_file
 Restart=always
 RestartSec=3

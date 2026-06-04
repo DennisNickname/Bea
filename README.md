@@ -29,11 +29,13 @@ Ernährungsplan, Regeneration und progressive Steigerungen neu berechnet.
 
 ## Datensicherheit
 
-Bea ist passwortgeschützt. Bei der Erstanmeldung werden Name, angezeigter Spitzname/Benutzername, Geburtstag,
-E-Mail-Adresse und ein sicheres Passwort abgefragt. Auf der Login-Seite werden keine Mitglieder mehr aufgelistet;
-die Anmeldung läuft über Benutzername oder E-Mail-Adresse. Passwörter werden nicht im Klartext gespeichert, sondern
-als Salt + PBKDF2-Hash in der lokalen State-Datei abgelegt. Ohne gültige Anmeldung werden Seiten, APIs, Fotos und
-der GitHub-Update-Endpunkt blockiert.
+Bea läuft in der Entwicklungsphase standardmäßig ohne Login. Dafür ist `BEA_AUTH_REQUIRED=0` gesetzt und Bea nutzt
+`BEA_DEV_MEMBER_ID` oder den Testnutzer `bea` als aktiven Teilnehmer. Für den produktiven Betrieb setzt du
+`BEA_AUTH_REQUIRED=1`; dann ist Bea passwortgeschützt. Bei der Erstanmeldung werden Name, angezeigter
+Spitzname/Benutzername, Geburtstag, E-Mail-Adresse und ein sicheres Passwort abgefragt. Auf der Login-Seite werden
+keine Mitglieder mehr aufgelistet; die Anmeldung läuft über Benutzername oder E-Mail-Adresse. Passwörter werden nicht
+im Klartext gespeichert, sondern als Salt + PBKDF2-Hash in der lokalen State-Datei abgelegt. Bei aktiviertem Login
+werden Seiten, APIs, Fotos und der GitHub-Update-Endpunkt ohne gültige Anmeldung blockiert.
 
 Zusätzlich setzt Bea Sicherheitsheader, prüft bei schreibenden Anfragen die Herkunft und begrenzt Login-,
 Registrierungs- und Passwort-Reset-Versuche serverseitig. Vor einem GitHub-Update wird automatisch ein ZIP-Backup von
