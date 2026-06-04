@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import base64
 import copy
+import hashlib
+import hmac
 import json
 import os
 from datetime import date
@@ -11,6 +14,7 @@ from uuid import uuid4
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATE_PATH = Path(os.getenv("BEA_STATE_PATH", PROJECT_ROOT / "data" / "bea_state.json"))
 CHECKIN_INTERVAL_DAYS = 90
+PASSWORD_ITERATIONS = 240_000
 
 AREAS = ("endurance", "strength", "nutrition", "team")
 
@@ -501,6 +505,9 @@ DEFAULT_STATE = {
     "rpg": {},
     "avatars": {},
     "weight_entries": [],
+    "auth": {
+        "passwords": {},
+    },
 }
 
 
@@ -546,6 +553,65 @@ def update_settings(state: dict, payload: dict) -> dict:
     settings["latitude"] = round(latitude, 6)
     settings["longitude"] = round(longitude, 6)
     return settings
+
+
+def auth_passwords(state: dict) -> dict:
+    return state.setdefault("auth", {}).setdefault("passwords", {})
+
+
+def password_is_configured(state: dict, member_id: str) -> bool:
+    record = auth_passwords(state).get(member_id, {})
+    return bool(record.get("hash") and record.get("salt"))
+
+
+def validate_password_strength(password: str) -> None:
+    if len(password) < 12:
+        raise ValueError("Passwort muss mindestens 12 Zeichen lang sein.")
+    if len(password) > 128:
+        raise ValueError("Passwort darf maximal 128 Zeichen lang sein.")
+    if password.strip() != password:
+        raise ValueError("Passwort darf nicht mit Leerzeichen beginnen oder enden.")
+    checks = (
+        any(char.islower() for char in password),
+        any(char.isupper() for char in password),
+        any(char.isdigit() for char in password),
+        any(not char.isalnum() for char in password),
+    )
+    if sum(checks) < 3:
+        raise ValueError("Passwort braucht mindestens 3 Arten: klein, groß, Zahl oder Sonderzeichen.")
+
+
+def password_hash(password: str, salt: bytes, iterations: int) -> str:
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return base64.b64encode(digest).decode("ascii")
+
+
+def set_member_password(state: dict, member_id: str, password: str) -> None:
+    if member_id not in members_by_id(state):
+        raise ValueError("Mitglied wurde nicht gefunden.")
+    validate_password_strength(password)
+    salt = os.urandom(16)
+    auth_passwords(state)[member_id] = {
+        "algorithm": "pbkdf2_sha256",
+        "iterations": PASSWORD_ITERATIONS,
+        "salt": base64.b64encode(salt).decode("ascii"),
+        "hash": password_hash(password, salt, PASSWORD_ITERATIONS),
+        "updated_at": today(),
+    }
+
+
+def verify_member_password(state: dict, member_id: str, password: str) -> bool:
+    record = auth_passwords(state).get(member_id)
+    if not record:
+        return False
+    try:
+        salt = base64.b64decode(str(record["salt"]))
+        iterations = int(record.get("iterations") or PASSWORD_ITERATIONS)
+        expected = str(record["hash"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    actual = password_hash(password, salt, iterations)
+    return hmac.compare_digest(actual, expected)
 
 
 def as_int(payload: dict, key: str, default: int = 0) -> int:

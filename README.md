@@ -21,6 +21,28 @@ Der Check-in berechnet den Kalorienbedarf mit einer Mifflin-St-Jeor-Schätzung, 
 Er erscheint beim ersten Anmelden und danach alle 90 Tage auf dem Dashboard. Nach jeder Antwort werden Trainingsplan,
 Ernährungsplan, Regeneration und progressive Steigerungen neu berechnet.
 
+## Datensicherheit
+
+Bea ist passwortgeschützt. Jedes Mitglied erstellt beim ersten Anmelden ein eigenes Passwort. Passwörter werden nicht
+im Klartext gespeichert, sondern als Salt + PBKDF2-Hash in der lokalen State-Datei abgelegt. Ohne gültige Anmeldung
+werden Seiten, APIs, Fotos und der GitHub-Update-Endpunkt blockiert.
+
+Für echte Nutzung sollte der Raspberry Pi nicht offen aus dem Internet erreichbar sein. Nutzt ein privates WLAN, VPN
+oder einen Reverse Proxy mit HTTPS. Wenn HTTPS davor geschaltet ist, in `/etc/default/bea` zusätzlich setzen:
+
+```bash
+BEA_SECURE_COOKIE=1
+```
+
+Dann werden Session-Cookies nur noch über HTTPS übertragen.
+
+Standardmäßig akzeptiert Bea nur Zugriffe aus privaten Netzen wie `192.168.x.x`, `10.x.x.x`, VPN oder `localhost`.
+Nur wenn die App bewusst hinter einem sicheren Reverse Proxy betrieben wird, kann diese Sperre deaktiviert werden:
+
+```bash
+BEA_PRIVATE_NETWORK_ONLY=0
+```
+
 ## Lokal starten
 
 ```powershell

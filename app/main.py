@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import ipaddress
 import json
 import os
 import secrets
@@ -19,6 +20,7 @@ from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi import Request
 from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
 
 from app.integrations import exchange_strava_code
@@ -83,11 +85,13 @@ from app.state import level_for_xp
 from app.state import load_state
 from app.state import meal_ideas
 from app.state import member_name
+from app.state import password_is_configured
 from app.state import questionnaire_status
 from app.state import rpg_character
 from app.state import rpg_completion_key
 from app.state import save_state
 from app.state import save_avatar_profile
+from app.state import set_member_password
 from app.state import strava_consume_pending
 from app.state import strava_get_connection
 from app.state import strava_set_connection
@@ -97,6 +101,7 @@ from app.state import strava_update_connection
 from app.state import team_totals
 from app.state import total_xp
 from app.state import update_settings
+from app.state import verify_member_password
 from app.state import weight_change_for_member
 from app.state import weight_entries_for_member
 from app.weather import fetch_forecast
@@ -105,6 +110,9 @@ app = FastAPI(title="Bea")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SERVICE_NAME = os.getenv("BEA_SERVICE_NAME", "bea.service")
+SESSION_COOKIE = "bea_session"
+SESSION_TTL_SECONDS = int(os.getenv("BEA_SESSION_TTL_SECONDS", str(12 * 60 * 60)))
+SESSIONS: dict[str, dict] = {}
 
 NAV_ITEMS = (
     ("/", "Dashboard"),
@@ -132,6 +140,83 @@ NAV_GROUPS = (
 
 def h(value: object) -> str:
     return html.escape(str(value), quote=True)
+
+
+def parse_form_body(body: bytes) -> dict[str, str]:
+    parsed = urllib.parse.parse_qs(body.decode("utf-8"), keep_blank_values=True)
+    return {key: values[-1] if values else "" for key, values in parsed.items()}
+
+
+def safe_next_url(value: str) -> str:
+    target = value if value.startswith("/") and not value.startswith("//") else "/"
+    return target if not target.startswith(("/login", "/api/login")) else "/"
+
+
+def create_session(member_id: str) -> str:
+    token = secrets.token_urlsafe(32)
+    SESSIONS[token] = {
+        "member_id": member_id,
+        "expires_at": time.time() + SESSION_TTL_SECONDS,
+    }
+    return token
+
+
+def current_session(request: Request) -> dict | None:
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
+        return None
+    session = SESSIONS.get(token)
+    if not session:
+        return None
+    if float(session.get("expires_at", 0)) < time.time():
+        SESSIONS.pop(token, None)
+        return None
+    return session
+
+
+def current_member_id(request: Request) -> str:
+    session = current_session(request)
+    return str(session.get("member_id", "")) if session else ""
+
+
+def cookie_secure(request: Request) -> bool:
+    return request.url.scheme == "https" or os.getenv("BEA_SECURE_COOKIE", "").lower() in ("1", "true", "yes")
+
+
+def set_session_cookie(response: RedirectResponse, request: Request, token: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=SESSION_TTL_SECONDS,
+        httponly=True,
+        secure=cookie_secure(request),
+        samesite="strict",
+    )
+
+
+def clear_session_cookie(response: RedirectResponse, request: Request) -> None:
+    response.delete_cookie(SESSION_COOKIE, secure=cookie_secure(request), samesite="strict")
+
+
+def login_redirect_for(request: Request) -> RedirectResponse:
+    target = request.url.path
+    if request.url.query:
+        target = f"{target}?{request.url.query}"
+    return RedirectResponse(f"/login?next={urllib.parse.quote(target)}", status_code=303)
+
+
+def private_network_only() -> bool:
+    return os.getenv("BEA_PRIVATE_NETWORK_ONLY", "1").lower() not in ("0", "false", "no", "off")
+
+
+def request_from_private_network(request: Request) -> bool:
+    if not request.client:
+        return True
+    try:
+        address = ipaddress.ip_address(request.client.host)
+    except ValueError:
+        return False
+    return address.is_private or address.is_loopback or address.is_link_local
 
 
 def _combined_output(result: subprocess.CompletedProcess[str]) -> str:
@@ -209,6 +294,31 @@ def training_type_area(training_type: str) -> str:
         "Ausdauer": "endurance",
         "Regeneration": "team",
     }.get(training_type, "team")
+
+
+@app.middleware("http")
+async def require_authenticated_member(request: Request, call_next):
+    path = request.url.path
+    if private_network_only() and not request_from_private_network(request):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": {"message": "Bea ist nur im privaten Netzwerk oder per VPN erreichbar."}},
+        )
+
+    public_paths = {"/login", "/api/login", "/logout", "/favicon.ico"}
+    if path in public_paths:
+        return await call_next(request)
+
+    if current_session(request):
+        return await call_next(request)
+
+    if path.startswith("/api") or path == "/update":
+        return JSONResponse(
+            status_code=401,
+            content={"detail": {"message": "Bitte anmelden, bevor Daten gelesen oder geändert werden."}},
+        )
+
+    return login_redirect_for(request)
 
 
 def render_member_options(state: dict, selected: str = "") -> str:
@@ -1397,6 +1507,9 @@ def render_layout(active_path: str, title: str, body: str) -> str:
               </form>
               <button class="button disco" id="disco-start" type="button">Disco Start</button>
               <button class="button disco-stop" id="disco-stop" type="button">Disco Ende</button>
+              <form method="post" action="/logout">
+                <button class="button secondary" type="submit">Abmelden</button>
+              </form>
             </div>
           </aside>
           <div class="content-shell">
@@ -2763,6 +2876,162 @@ def render_dashboard_checkin_prompt(state: dict) -> str:
         <div class="grid two" style="margin-top: 1rem;">{cards}</div>
       </section>
     """
+
+
+def render_login_page(error: str = "", next_url: str = "/") -> str:
+    state = load_state()
+    member_options = "\n".join(
+        f'<option value="{h(member["id"])}">{h(member["name"])}{" - Passwort erstellen" if not password_is_configured(state, member["id"]) else ""}</option>'
+        for member in state["members"]
+    )
+    error_html = f'<p class="login-error" role="alert">{h(error)}</p>' if error else ""
+    return f"""
+      <!doctype html>
+      <html lang="de">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Bea Anmeldung</title>
+          <style>
+            :root {{
+              color-scheme: light;
+              --ink: #172033;
+              --muted: #64748b;
+              --line: #d8e1ef;
+              --blue: #2563eb;
+              --green: #16a34a;
+              --gold: #f59e0b;
+              --paper: #f8fbff;
+            }}
+            * {{ box-sizing: border-box; }}
+            body {{
+              margin: 0;
+              min-height: 100vh;
+              display: grid;
+              place-items: center;
+              font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+              background:
+                radial-gradient(circle at top left, rgb(37 99 235 / 18%), transparent 34rem),
+                radial-gradient(circle at bottom right, rgb(22 163 74 / 16%), transparent 30rem),
+                var(--paper);
+              color: var(--ink);
+              padding: 1rem;
+            }}
+            main {{
+              width: min(100%, 440px);
+              background: white;
+              border: 1px solid var(--line);
+              border-radius: 8px;
+              box-shadow: 0 24px 70px rgb(23 32 51 / 14%);
+              padding: 1.25rem;
+            }}
+            .brand {{ display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1rem; font-weight: 900; font-size: 1.3rem; }}
+            .brand-mark {{ display: grid; place-items: center; width: 38px; height: 38px; border-radius: 8px; background: #0f172a; color: white; }}
+            h1 {{ margin: 0; font-size: 1.55rem; }}
+            p {{ color: var(--muted); line-height: 1.55; }}
+            form {{ display: grid; gap: 0.85rem; margin-top: 1rem; }}
+            label {{ display: grid; gap: 0.35rem; color: var(--ink); font-weight: 750; }}
+            input, select {{
+              width: 100%;
+              min-height: 44px;
+              border: 1px solid var(--line);
+              border-radius: 8px;
+              padding: 0.65rem 0.75rem;
+              font: inherit;
+            }}
+            button {{
+              min-height: 46px;
+              border: 0;
+              border-radius: 8px;
+              background: linear-gradient(135deg, var(--blue), var(--green));
+              color: white;
+              font-weight: 900;
+              cursor: pointer;
+            }}
+            .hint {{
+              border-left: 4px solid var(--gold);
+              background: #fff7ed;
+              padding: 0.75rem;
+              border-radius: 8px;
+              color: #7c2d12;
+              margin-top: 1rem;
+            }}
+            .login-error {{
+              border-left: 4px solid #dc2626;
+              background: #fef2f2;
+              color: #991b1b;
+              padding: 0.75rem;
+              border-radius: 8px;
+            }}
+          </style>
+        </head>
+        <body>
+          <main>
+            <div class="brand"><span class="brand-mark">B</span><span>ea</span></div>
+            <h1>Anmelden</h1>
+            <p>Wähle dein Mitglied aus. Beim ersten Anmelden erstellst du ein persönliches Passwort; danach bleiben Daten und Fotos hinter deiner Anmeldung geschützt.</p>
+            {error_html}
+            <form method="post" action="/api/login">
+              <input type="hidden" name="next" value="{h(safe_next_url(next_url))}">
+              <label>
+                Mitglied
+                <select name="member_id">{member_options}</select>
+              </label>
+              <label>
+                Passwort
+                <input name="password" type="password" autocomplete="current-password" required minlength="12">
+              </label>
+              <label>
+                Passwort bestätigen, nur beim ersten Anmelden
+                <input name="password_confirm" type="password" autocomplete="new-password" minlength="12">
+              </label>
+              <button type="submit">Sicher anmelden</button>
+            </form>
+            <p class="hint">Sicheres Passwort: mindestens 12 Zeichen und mehrere Arten von Zeichen. Passwörter werden nur als Salt + Hash gespeichert.</p>
+          </main>
+        </body>
+      </html>
+    """
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(next: str = "/") -> str:
+    return render_login_page(next_url=next)
+
+
+@app.post("/api/login")
+async def api_login(request: Request):
+    payload = parse_form_body(await request.body())
+    state = load_state()
+    member_id = str(payload.get("member_id") or "")
+    password = str(payload.get("password") or "")
+    password_confirm = str(payload.get("password_confirm") or "")
+    next_url = safe_next_url(str(payload.get("next") or "/"))
+
+    try:
+        if not password_is_configured(state, member_id):
+            if password != password_confirm:
+                raise ValueError("Bitte Passwort beim ersten Anmelden identisch bestätigen.")
+            set_member_password(state, member_id, password)
+            save_state(state)
+        elif not verify_member_password(state, member_id, password):
+            raise ValueError("Mitglied oder Passwort stimmt nicht.")
+    except ValueError as exc:
+        return HTMLResponse(render_login_page(str(exc), next_url), status_code=400)
+
+    response = RedirectResponse(next_url, status_code=303)
+    set_session_cookie(response, request, create_session(member_id))
+    return response
+
+
+@app.post("/logout")
+async def logout(request: Request):
+    token = request.cookies.get(SESSION_COOKIE)
+    if token:
+        SESSIONS.pop(token, None)
+    response = RedirectResponse("/login", status_code=303)
+    clear_session_cookie(response, request)
+    return response
 
 
 @app.get("/", response_class=HTMLResponse)

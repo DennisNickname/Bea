@@ -23,6 +23,10 @@ if [ -n "$systemctl_path" ] && [ -n "$sudo_path" ]; then
 # BEA_STATE_PATH=$project_dir/data/bea_state.json
 # BEA_PHOTO_PATH=$project_dir/data/photos
 
+# Sicherheit
+# BEA_PRIVATE_NETWORK_ONLY=1
+# BEA_SECURE_COOKIE=1
+
 # Strava OAuth App Credentials
 # STRAVA_CLIENT_ID=
 # STRAVA_CLIENT_SECRET=
