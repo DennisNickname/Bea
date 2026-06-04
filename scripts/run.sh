@@ -3,9 +3,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+project_dir="$(pwd)"
 host="${BEA_HOST:-0.0.0.0}"
 port="${BEA_PORT:-8010}"
 service_name="${BEA_SERVICE_NAME:-bea.service}"
+restart_marker="${BEA_RESTART_MARKER:-$project_dir/.bea-restart-requested}"
 
 if [ ! -d ".venv" ]; then
   echo "Virtuelle Umgebung fehlt. Bitte zuerst ausführen: bash scripts/install_pi.sh"
@@ -14,6 +16,9 @@ fi
 
 . .venv/bin/activate
 export BEA_SERVICE_NAME="$service_name"
+export BEA_RESTART_STRATEGY="${BEA_RESTART_STRATEGY:-self-terminate}"
+export BEA_RUN_SUPERVISOR=1
+export BEA_RESTART_MARKER="$restart_marker"
 
 set +e
 python -c 'import errno, socket, sys
@@ -49,4 +54,20 @@ elif [ "$port_status" -ne 0 ]; then
   echo "Port $port konnte nicht geprüft werden. Starte trotzdem."
 fi
 
-exec uvicorn app.main:app --host "$host" --port "$port"
+rm -f "$restart_marker"
+
+while true; do
+  set +e
+  uvicorn app.main:app --host "$host" --port "$port"
+  status=$?
+  set -e
+
+  if [ -f "$restart_marker" ]; then
+    rm -f "$restart_marker"
+    echo "Update-Neustart angefordert. Bea startet neu..."
+    sleep 1
+    exec "$project_dir/scripts/run.sh"
+  fi
+
+  exit "$status"
+done

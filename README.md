@@ -127,8 +127,8 @@ bash scripts/install_pi.sh
 ```
 
 Das Skript installiert die Abhängigkeiten, richtet `bea.service` ein und startet den Dienst auf Port `8010`.
-
-Wenn danach Änderungen per Git geladen wurden, den laufenden Dienst neu starten:
+Nach Änderungen an der Dienstvorlage kann das Skript erneut ausgeführt werden; vorhandene Daten bleiben erhalten.
+Alternativ reicht danach ein Dienstneustart:
 
 ```bash
 sudo systemctl restart bea.service
@@ -202,4 +202,15 @@ Der Button führt auf dem Server aus:
 git pull --ff-only
 ```
 
-Wenn Bea als systemd-Dienst läuft, beendet sich der Prozess danach selbst. systemd startet ihn wegen `Restart=always` neu. Das ist stabiler, als den Dienst aus seinem eigenen Prozess heraus per `systemctl restart` neu zu starten.
+Nach einem erfolgreichen Pull fordert Bea automatisch einen Neustart an. Läuft Bea über `./scripts/run.sh`, startet
+das Skript den Server direkt wieder neu. Läuft Bea als systemd-Dienst, beendet sich der Prozess und wird von systemd
+oder dem `run.sh`-Supervisor neu gestartet.
+
+Wichtig nach dem Update, das diese Neustartlogik einführt: Auf dem Raspberry Pi einmal ausführen, damit die neue
+systemd-Unit `scripts/run.sh` als Supervisor nutzt:
+
+```bash
+cd ~/bea
+git pull
+bash scripts/install_pi.sh
+```

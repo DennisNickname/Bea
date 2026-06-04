@@ -153,6 +153,7 @@ app = FastAPI(title="Bea")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SERVICE_NAME = os.getenv("BEA_SERVICE_NAME", "bea.service")
+RESTART_MARKER_PATH = Path(os.getenv("BEA_RESTART_MARKER", PROJECT_ROOT / ".bea-restart-requested"))
 SESSION_COOKIE = "bea_session"
 SESSION_TTL_SECONDS = int(os.getenv("BEA_SESSION_TTL_SECONDS", str(12 * 60 * 60)))
 SESSIONS: dict[str, dict] = {}
@@ -462,6 +463,29 @@ def _running_under_systemd() -> bool:
     return any(os.getenv(name) for name in ("INVOCATION_ID", "JOURNAL_STREAM", "SYSTEMD_EXEC_PID"))
 
 
+def _running_under_run_supervisor() -> bool:
+    return os.getenv("BEA_RUN_SUPERVISOR", "").lower() in ("1", "true", "yes", "on")
+
+
+def _write_restart_marker() -> Path | None:
+    if not _running_under_run_supervisor():
+        return None
+
+    RESTART_MARKER_PATH.parent.mkdir(parents=True, exist_ok=True)
+    RESTART_MARKER_PATH.write_text(
+        json.dumps(
+            {
+                "pid": os.getpid(),
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "reason": "github-update",
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return RESTART_MARKER_PATH
+
+
 def _terminate_self_soon() -> None:
     def terminate() -> None:
         time.sleep(1.5)
@@ -486,9 +510,19 @@ def _restart_service_soon() -> str:
     if strategy in ("off", "disabled", "none"):
         return "Update geladen. Automatischer Neustart ist deaktiviert."
 
-    if strategy in ("self", "self-terminate", "terminate") or (strategy == "auto" and _running_under_systemd()):
+    wants_self_restart = strategy in ("self", "self-terminate", "terminate")
+    if wants_self_restart or (strategy == "auto" and _running_under_systemd()):
+        marker_path = _write_restart_marker()
+        if marker_path or _running_under_systemd():
+            _terminate_self_soon()
+            if marker_path:
+                return "Update geladen. Bea wird beendet und von scripts/run.sh automatisch neu gestartet."
+            return "Update geladen. Dienstprozess wird beendet und von systemd neu gestartet."
+
+    if strategy == "auto" and _running_under_run_supervisor():
+        _write_restart_marker()
         _terminate_self_soon()
-        return "Update geladen. Dienstprozess wird beendet und von systemd neu gestartet."
+        return "Update geladen. Bea wird beendet und von scripts/run.sh automatisch neu gestartet."
 
     def restart_command_soon(command: list[str]) -> None:
         time.sleep(1.5)

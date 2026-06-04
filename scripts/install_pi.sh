@@ -53,7 +53,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$project_dir
-ExecStart=$project_dir/.venv/bin/uvicorn app.main:app --host \${BEA_HOST} --port \${BEA_PORT}
+ExecStart=$project_dir/scripts/run.sh
 Environment=BEA_SERVICE_NAME=$service_name
 Environment=BEA_RESTART_STRATEGY=self-terminate
 Environment=BEA_HOST=0.0.0.0
