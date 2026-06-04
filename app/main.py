@@ -970,6 +970,29 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             pointer-events: none;
           }}
 
+          .site-footer {{
+            display: flex;
+            width: min(1220px, calc(100vw - 2rem));
+            margin: 0 auto 2rem;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid rgb(216 224 234 / 75%);
+            padding-top: 1rem;
+            color: var(--muted);
+            font-size: 0.9rem;
+          }}
+
+          .site-footer a {{
+            color: var(--ink);
+            font-weight: 850;
+          }}
+
+          .site-footer a:hover {{
+            color: var(--blue);
+          }}
+
           .update-status.is-visible {{
             opacity: 1;
             transform: translateY(0);
@@ -1025,6 +1048,10 @@ def render_layout(active_path: str, title: str, body: str) -> str:
         <main class="page">
           {body}
         </main>
+        <footer class="site-footer">
+          <span>Bea Fitness Community</span>
+          <a href="/impressum">Impressum</a>
+        </footer>
         <p class="update-status" id="update-status" role="status" aria-live="polite"></p>
         <script>
           const statusBox = document.querySelector("#update-status");
@@ -2592,6 +2619,72 @@ def integrations_page(request: Request) -> str:
       </section>
     """
     return render_layout("/integrationen", "Integrationen", body)
+
+
+@app.get("/impressum", response_class=HTMLResponse)
+def imprint_page() -> str:
+    body = """
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Rechtliches</p>
+          <h1>Impressum</h1>
+        </div>
+        <p class="subtle">Fiktives Muster fuer dieses Projekt.</p>
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <h2>Angaben gemaess Paragraf 5 DDG</h2>
+          <div class="list">
+            <article class="card">
+              <h3>Betreiber</h3>
+              <p>
+                Bea Fitness Community<br>
+                vertreten durch Bea Beispiel<br>
+                Trainingsweg 10<br>
+                10115 Berlin<br>
+                Deutschland
+              </p>
+            </article>
+            <article class="card">
+              <h3>Kontakt</h3>
+              <p>
+                Telefon: +49 30 12345678<br>
+                E-Mail: impressum@bea-fitness.example
+              </p>
+            </article>
+            <article class="card">
+              <h3>Verantwortlich fuer Inhalte</h3>
+              <p>
+                Bea Beispiel<br>
+                Trainingsweg 10<br>
+                10115 Berlin
+              </p>
+              <p class="subtle">Verantwortlich nach Paragraf 18 Abs. 2 MStV.</p>
+            </article>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Hinweise</h2>
+          <div class="list">
+            <article class="card area-nutrition">
+              <h3>Fiktives Muster</h3>
+              <p class="subtle">Dieses Impressum ist frei erfunden und dient nur als Platzhalter. Vor einer echten Veroeffentlichung muessen Name, Anschrift, Kontakt, Verantwortliche und weitere Pflichtangaben durch echte Daten ersetzt und rechtlich geprueft werden.</p>
+            </article>
+            <article class="card area-endurance">
+              <h3>Umsatzsteuer</h3>
+              <p class="subtle">Keine Umsatzsteuer-ID hinterlegt, da dieses Projekt aktuell als privates Musterprojekt gefuehrt wird.</p>
+            </article>
+            <article class="card area-team">
+              <h3>Streitbeilegung</h3>
+              <p class="subtle">Wir sind weder verpflichtet noch bereit, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.</p>
+            </article>
+          </div>
+        </article>
+      </section>
+    """
+    return render_layout("/impressum", "Impressum", body)
 
 
 async def read_json_payload(request: Request) -> dict:
