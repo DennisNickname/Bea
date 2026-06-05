@@ -32,9 +32,7 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST_CODE = 42;
     private static final String PREFS_NAME = "bea_android";
     private static final String PREF_SERVER_URL = "server_url";
-    private static final String DEFAULT_SERVER_URL = BuildConfig.ALLOW_CLEARTEXT_SERVER
-        ? "http://raspidiss.local:8010"
-        : "https://raspidiss.local";
+    private static final String DEFAULT_SERVER_URL = BuildConfig.DEFAULT_SERVER_URL;
 
     private LinearLayout browserLayout;
     private ScrollView setupView;
@@ -133,7 +131,7 @@ public class MainActivity extends Activity {
         content.addView(connectButton, matchWrap());
 
         LinearLayout legalLinks = new LinearLayout(this);
-        legalLinks.setOrientation(LinearLayout.HORIZONTAL);
+        legalLinks.setOrientation(LinearLayout.VERTICAL);
         legalLinks.setGravity(Gravity.CENTER);
         content.addView(legalLinks, matchWrap());
 
@@ -141,13 +139,19 @@ public class MainActivity extends Activity {
         privacyButton.setText("Datenschutz");
         privacyButton.setAllCaps(false);
         privacyButton.setOnClickListener(view -> openServerPage(serverInput, "/datenschutz"));
-        legalLinks.addView(privacyButton, smallButtonParams());
+        legalLinks.addView(privacyButton, matchWrap());
 
         Button healthButton = new Button(this);
         healthButton.setText("Gesundheit");
         healthButton.setAllCaps(false);
         healthButton.setOnClickListener(view -> openServerPage(serverInput, "/gesundheitshinweis"));
-        legalLinks.addView(healthButton, smallButtonParams());
+        legalLinks.addView(healthButton, matchWrap());
+
+        Button deleteAccountButton = new Button(this);
+        deleteAccountButton.setText("Konto löschen");
+        deleteAccountButton.setAllCaps(false);
+        deleteAccountButton.setOnClickListener(view -> openServerPage(serverInput, "/konto-loeschung"));
+        legalLinks.addView(deleteAccountButton, matchWrap());
 
         return scrollView;
     }

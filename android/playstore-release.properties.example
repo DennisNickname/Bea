@@ -1,0 +1,2 @@
+BEA_RELEASE_SERVER_URL=https://bea.example.de
+BEA_DEBUG_SERVER_URL=http://raspidiss.local:8010

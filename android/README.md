@@ -28,15 +28,23 @@ cd android
 gradle assembleDebug
 ```
 
+Optional kann die Debug-Serveradresse überschrieben werden:
+
+```bash
+cd android
+gradle assembleDebug -PBEA_DEBUG_SERVER_URL=http://raspidiss.local:8010
+```
+
 Für eine Store- oder Release-Version:
 
 ```bash
 cd android
-gradle bundleRelease
+gradle bundleRelease -PBEA_RELEASE_SERVER_URL=https://bea.example.de
 ```
 
-Der Release-Build erwartet eine Bea-Instanz hinter HTTPS, VPN oder Reverse Proxy mit gültigem Zertifikat.
-Der Play-Store-Aufgabenplan liegt unter `../docs/playstore-aufgabenplan.md`; offene Restpunkte stehen in `../ToDofuerBea.md`.
+Der Release-Build erwartet eine Bea-Instanz hinter HTTPS, VPN oder Reverse Proxy mit gültigem Zertifikat. Ohne `BEA_RELEASE_SERVER_URL` bricht der Release-Build bewusst ab, damit keine lokale Raspberry-Pi-Adresse versehentlich in eine Store-Version gelangt.
+
+Ein Beispiel für die nötigen Gradle-Properties liegt in `playstore-release.properties.example`. Der Play-Store-Aufgabenplan liegt unter `../docs/playstore-aufgabenplan.md`; vorbereitete Store-Unterlagen stehen in `../playstore/`; offene Restpunkte stehen in `../ToDofuerBea.md`.
 
 Das Debug-APK liegt danach unter:
 

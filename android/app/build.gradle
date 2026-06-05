@@ -2,6 +2,13 @@ plugins {
     id "com.android.application"
 }
 
+def buildConfigString(String value) {
+    return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+}
+
+def debugServerUrl = providers.gradleProperty("BEA_DEBUG_SERVER_URL").orElse("http://raspidiss.local:8010").get()
+def releaseServerUrl = providers.gradleProperty("BEA_RELEASE_SERVER_URL").orElse("https://bea.example.de").get()
+
 android {
     namespace "de.bea.fitness"
     compileSdk 35
@@ -22,11 +29,23 @@ android {
         debug {
             manifestPlaceholders = [usesCleartextTraffic: "true"]
             buildConfigField "boolean", "ALLOW_CLEARTEXT_SERVER", "true"
+            buildConfigField "String", "DEFAULT_SERVER_URL", buildConfigString(debugServerUrl)
         }
         release {
             manifestPlaceholders = [usesCleartextTraffic: "false"]
             buildConfigField "boolean", "ALLOW_CLEARTEXT_SERVER", "false"
+            buildConfigField "String", "DEFAULT_SERVER_URL", buildConfigString(releaseServerUrl)
             minifyEnabled false
+        }
+    }
+}
+
+tasks.matching { task ->
+    task.name == "assembleRelease" || task.name == "bundleRelease"
+}.configureEach {
+    doFirst {
+        if (!providers.gradleProperty("BEA_RELEASE_SERVER_URL").isPresent()) {
+            throw new GradleException("Für Release-Builds muss BEA_RELEASE_SERVER_URL auf die öffentliche HTTPS-Adresse der Bea-Instanz gesetzt sein.")
         }
     }
 }
