@@ -36,6 +36,7 @@ gradle bundleRelease
 ```
 
 Der Release-Build erwartet eine Bea-Instanz hinter HTTPS, VPN oder Reverse Proxy mit gültigem Zertifikat.
+Der Play-Store-Aufgabenplan liegt unter `../docs/playstore-aufgabenplan.md`; offene Restpunkte stehen in `../ToDofuerBea.md`.
 
 Das Debug-APK liegt danach unter:
 
