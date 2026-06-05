@@ -80,6 +80,8 @@ from app.state import add_nutrition_entry
 from app.state import add_sport_entry
 from app.state import add_youtube_link
 from app.state import append_auth_mail_outbox
+from app.state import account_deletion_request_by_id
+from app.state import account_deletion_requests
 from app.state import achievement_statuses
 from app.state import boss_phase
 from app.state import challenge_bonus_xp
@@ -95,6 +97,7 @@ from app.state import create_personal_plan
 from app.state import create_password_reset_code
 from app.state import current_story_chapter
 from app.state import daily_chest_status
+from app.state import delete_member_account_data
 from app.state import ensure_rpg_state
 from app.state import avatar_profile_for_member
 from app.state import AVATAR_CLOTHING_STYLES
@@ -7056,7 +7059,7 @@ def account_deletion_page(notice: str = "", error: str = "", identifier: str = "
         <article class="panel">
           <h2>Was danach passiert</h2>
           <p class="subtle">Die Anfrage wird in der Bea-State-Datei unter <code>account_deletion_requests</code> gespeichert. Der Betreiber muss sie prüfen, die Identität bestätigen und die Daten löschen oder anonymisieren.</p>
-          <p class="subtle">Die vollständige automatische Löschfunktion ist als Play-Store-Restaufgabe in <code>ToDofuerBea.md</code> dokumentiert.</p>
+          <p class="subtle">Betreiber können offene Anfragen unter <a href="/admin/datenloeschung">Admin Datenlöschung</a> bearbeiten.</p>
         </article>
       </section>
     """
@@ -7093,6 +7096,102 @@ async def api_account_deletion_request(request: Request):
     save_state(state)
     notice = "Löschanfrage wurde gespeichert. Der Betreiber muss sie prüfen und abschließen."
     return RedirectResponse(f"/konto-loeschung?notice={urllib.parse.quote(notice)}", status_code=303)
+
+
+def render_account_deletion_admin_card(state: dict, request_item: dict) -> str:
+    request_id = str(request_item.get("id") or "")
+    identifier = str(request_item.get("identifier") or "")
+    email = str(request_item.get("email") or "")
+    status = str(request_item.get("status") or "requested")
+    member = member_by_login(state, identifier) or members_by_id(state).get(identifier)
+    member_hint = f'{member.get("name")} ({member.get("id")})' if member else "Kein aktives Konto gefunden"
+    details = str(request_item.get("details") or "Keine Zusatzangabe.")
+    summary = request_item.get("summary") if isinstance(request_item.get("summary"), dict) else {}
+    summary_text = ""
+    if summary:
+        summary_text = (
+            f"<p class=\"subtle\">Entfernt: {h(summary.get('removed_entries', 0))} Einträge, "
+            f"{h(summary.get('removed_private_records', 0))} private Datensätze, "
+            f"{h(summary.get('removed_photo_records', 0))} Fotodatensätze.</p>"
+        )
+    action = ""
+    if status != "completed":
+        action = f"""
+          <form method="post" action="/api/account-deletion/complete" style="margin-top: 0.8rem;">
+            <input type="hidden" name="request_id" value="{h(request_id)}">
+            <button type="submit">Löschung abschließen</button>
+          </form>
+        """
+    return f"""
+      <article class="card {"area-team" if status == "completed" else "area-strength"}">
+        <div class="card-head">
+          <span class="tag">{h(status)}</span>
+          <span class="tag">{h(request_item.get("requested_at", ""))}</span>
+        </div>
+        <h3>{h(identifier)}</h3>
+        <p class="subtle">{h(email)}</p>
+        <p class="subtle">Konto: {h(member_hint)}</p>
+        <p class="subtle">{h(details)}</p>
+        {summary_text}
+        {action}
+      </article>
+    """
+
+
+@app.get("/admin/datenloeschung", response_class=HTMLResponse)
+def account_deletion_admin_page(notice: str = "", error: str = "") -> str:
+    state = load_state()
+    requests = sorted(account_deletion_requests(state), key=lambda item: item.get("requested_at", ""), reverse=True)
+    request_cards = "".join(render_account_deletion_admin_card(state, item) for item in requests)
+    if not request_cards:
+        request_cards = '<article class="card"><p class="subtle">Noch keine Löschanfragen vorhanden.</p></article>'
+    notice_html = f'<article class="card area-team"><p class="subtle">{h(notice)}</p></article>' if notice else ""
+    error_html = f'<article class="card area-strength"><p class="subtle">{h(error)}</p></article>' if error else ""
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Admin</p>
+          <h1>Datenlöschung</h1>
+        </div>
+        <p class="subtle">Löschanfragen prüfen und personenbezogene Daten entfernen.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Anfragen</h2>
+        {notice_html}
+        {error_html}
+        <div class="grid two">{request_cards}</div>
+      </section>
+    """
+    return render_layout("/konto-loeschung", "Datenlöschung", body)
+
+
+@app.post("/api/account-deletion/complete")
+async def api_complete_account_deletion(request: Request):
+    payload = parse_form_body(await request.body())
+    request_id = str(payload.get("request_id") or "")
+    state = load_state()
+    request_item = account_deletion_request_by_id(state, request_id)
+    if not request_item:
+        error = "Löschanfrage wurde nicht gefunden."
+        return RedirectResponse(f"/admin/datenloeschung?error={urllib.parse.quote(error)}", status_code=303)
+    if request_item.get("status") == "completed":
+        notice = "Diese Löschanfrage war bereits abgeschlossen."
+        return RedirectResponse(f"/admin/datenloeschung?notice={urllib.parse.quote(notice)}", status_code=303)
+
+    try:
+        summary = delete_member_account_data(
+            state,
+            str(request_item.get("identifier") or ""),
+            request_id=request_id,
+            actor="admin",
+        )
+    except ValueError as exc:
+        return RedirectResponse(f"/admin/datenloeschung?error={urllib.parse.quote(str(exc))}", status_code=303)
+
+    save_state(state)
+    notice = f"Konto {summary['display_name']} wurde gelöscht/anonymisiert."
+    return RedirectResponse(f"/admin/datenloeschung?notice={urllib.parse.quote(notice)}", status_code=303)
 
 
 async def read_json_payload(request: Request) -> dict:

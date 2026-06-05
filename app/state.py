@@ -15,12 +15,15 @@ from uuid import uuid4
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATE_PATH = Path(os.getenv("BEA_STATE_PATH", PROJECT_ROOT / "data" / "bea_state.json"))
+PHOTO_STORAGE_ROOT = Path(os.getenv("BEA_PHOTO_PATH", PROJECT_ROOT / "data" / "photos"))
 CHECKIN_INTERVAL_DAYS = 90
 PASSWORD_ITERATIONS = 240_000
 PASSWORD_RESET_TTL_SECONDS = 15 * 60
 USERNAME_ALLOWED_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789._-")
 CHALLENGE_BONUS_XP_HARD_CAP = 250
 CHALLENGE_PROGRESS_XP_HARD_CAP = 80
+DELETED_MEMBER_ID = "deleted-member"
+DELETED_MEMBER_LABEL = "Gelöschter Nutzer"
 
 AREAS = ("endurance", "strength", "nutrition", "mindset", "team")
 
@@ -2259,7 +2262,212 @@ def members_by_id(state: dict) -> dict[str, dict]:
 
 
 def member_name(state: dict, member_id: str) -> str:
+    if member_id == DELETED_MEMBER_ID:
+        return DELETED_MEMBER_LABEL
     return members_by_id(state).get(member_id, {}).get("name", "Unbekannt")
+
+
+def account_deletion_requests(state: dict) -> list[dict]:
+    return state.setdefault("account_deletion_requests", [])
+
+
+def account_deletion_request_by_id(state: dict, request_id: str) -> dict | None:
+    for request in account_deletion_requests(state):
+        if request.get("id") == request_id:
+            return request
+    return None
+
+
+def _member_for_deletion_identifier(state: dict, identifier: str) -> dict | None:
+    cleaned = str(identifier or "").strip()
+    if not cleaned:
+        return None
+    member = members_by_id(state).get(cleaned)
+    if member:
+        return member
+    return member_by_login(state, cleaned)
+
+
+def _filter_out_member_id(items: list[dict], member_id: str, *keys: str) -> tuple[list[dict], int]:
+    kept = [item for item in items if all(item.get(key) != member_id for key in keys)]
+    return kept, len(items) - len(kept)
+
+
+def _remove_member_id_from_mapping(mapping: dict, member_id: str) -> int:
+    existed = member_id in mapping
+    mapping.pop(member_id, None)
+    return 1 if existed else 0
+
+
+def _remove_member_photos(state: dict, member_id: str) -> dict[str, int]:
+    removed_records = 0
+    removed_files = 0
+    kept_photos = []
+    for photo in state.setdefault("photos", []):
+        if photo.get("member_id") != member_id:
+            kept_photos.append(photo)
+            continue
+
+        removed_records += 1
+        relative_file = str(photo.get("file") or "")
+        if relative_file:
+            photo_file = (PHOTO_STORAGE_ROOT / relative_file).resolve()
+            try:
+                if photo_file.is_relative_to(PHOTO_STORAGE_ROOT.resolve()):
+                    photo_file.unlink(missing_ok=True)
+                    removed_files += 1
+            except OSError:
+                pass
+
+    state["photos"] = kept_photos
+    return {"photo_records": removed_records, "photo_files": removed_files}
+
+
+def delete_member_account_data(state: dict, identifier: str, request_id: str = "", actor: str = "system") -> dict:
+    member = _member_for_deletion_identifier(state, identifier)
+    if not member:
+        raise ValueError("Konto wurde nicht gefunden.")
+
+    member_id = str(member["id"])
+    account = account_for_member(state, member_id)
+    email = _email_key(account.get("email"))
+    summary: dict[str, int | str] = {
+        "member_id": member_id,
+        "display_name": str(member.get("name") or member_id),
+        "removed_members": 0,
+        "removed_entries": 0,
+        "removed_auth_records": 0,
+        "removed_private_records": 0,
+        "anonymized_references": 0,
+        "removed_photo_records": 0,
+        "removed_photo_files": 0,
+    }
+
+    before_members = len(state.setdefault("members", []))
+    state["members"] = [item for item in state.setdefault("members", []) if item.get("id") != member_id]
+    summary["removed_members"] = before_members - len(state["members"])
+
+    for list_key in (
+        "sport_entries",
+        "nutrition_entries",
+        "hydration_entries",
+        "mindset_entries",
+        "weight_entries",
+        "earned_rewards",
+        "youtube_links",
+    ):
+        items, removed = _filter_out_member_id(state.setdefault(list_key, []), member_id, "member_id")
+        state[list_key] = items
+        summary["removed_entries"] = int(summary["removed_entries"]) + removed
+
+    for list_key in ("assignments", "motivations"):
+        items, removed = _filter_out_member_id(state.setdefault(list_key, []), member_id, "from_member", "to_member")
+        state[list_key] = items
+        summary["removed_entries"] = int(summary["removed_entries"]) + removed
+
+    comments, removed_comments = _filter_out_member_id(state.setdefault("group_comments", []), member_id, "member_id")
+    for comment in comments:
+        likes = comment.setdefault("likes", [])
+        if member_id in likes:
+            comment["likes"] = [item for item in likes if item != member_id]
+            summary["anonymized_references"] = int(summary["anonymized_references"]) + 1
+    state["group_comments"] = comments
+    summary["removed_entries"] = int(summary["removed_entries"]) + removed_comments
+
+    for group in groups(state):
+        members = group.setdefault("members", [])
+        if member_id in members:
+            group["members"] = [item for item in members if item != member_id]
+            summary["anonymized_references"] = int(summary["anonymized_references"]) + 1
+        if group.get("created_by") == member_id:
+            group["created_by"] = DELETED_MEMBER_ID
+            summary["anonymized_references"] = int(summary["anonymized_references"]) + 1
+
+    for challenge in state.setdefault("challenges", []):
+        participants = challenge.setdefault("participants", {})
+        summary["anonymized_references"] = int(summary["anonymized_references"]) + _remove_member_id_from_mapping(participants, member_id)
+        completed = challenge.setdefault("completed", [])
+        if member_id in completed:
+            challenge["completed"] = [item for item in completed if item != member_id]
+            summary["anonymized_references"] = int(summary["anonymized_references"]) + 1
+        if challenge.get("created_by") == member_id:
+            challenge["created_by"] = DELETED_MEMBER_ID
+            summary["anonymized_references"] = int(summary["anonymized_references"]) + 1
+
+    for mapping_key in ("profiles", "generated_plans", "avatars", "health_journey", "photo_access"):
+        summary["removed_private_records"] = int(summary["removed_private_records"]) + _remove_member_id_from_mapping(state.setdefault(mapping_key, {}), member_id)
+
+    rpg = state.setdefault("rpg", {})
+    summary["removed_private_records"] = int(summary["removed_private_records"]) + _remove_member_id_from_mapping(rpg.setdefault("members", {}), member_id)
+    completed_quests = rpg.setdefault("completed_quests", {})
+    removed_quest_keys = [
+        key
+        for key, value in completed_quests.items()
+        if f":{member_id}:" in str(key) or (isinstance(value, dict) and value.get("member_id") == member_id)
+    ]
+    for key in removed_quest_keys:
+        completed_quests.pop(key, None)
+    summary["removed_private_records"] = int(summary["removed_private_records"]) + len(removed_quest_keys)
+    battle_log, removed_battle = _filter_out_member_id(rpg.setdefault("battle_log", []), member_id, "member_id")
+    rpg["battle_log"] = battle_log
+    summary["removed_private_records"] = int(summary["removed_private_records"]) + removed_battle
+
+    strava = state.setdefault("integrations", {}).setdefault("strava", {})
+    for mapping_key in ("connections", "last_sync"):
+        summary["removed_private_records"] = int(summary["removed_private_records"]) + _remove_member_id_from_mapping(strava.setdefault(mapping_key, {}), member_id)
+    pending = strava.setdefault("pending", {})
+    removed_pending = [key for key, value in pending.items() if value.get("member_id") == member_id]
+    for key in removed_pending:
+        pending.pop(key, None)
+    summary["removed_private_records"] = int(summary["removed_private_records"]) + len(removed_pending)
+
+    auth = state.setdefault("auth", {})
+    summary["removed_auth_records"] = int(summary["removed_auth_records"]) + _remove_member_id_from_mapping(auth.setdefault("passwords", {}), member_id)
+    summary["removed_auth_records"] = int(summary["removed_auth_records"]) + _remove_member_id_from_mapping(auth.setdefault("users", {}), member_id)
+    reset_codes = auth.setdefault("password_reset_codes", {})
+    reset_keys = [key for key, value in reset_codes.items() if value.get("member_id") == member_id or (email and key == email)]
+    for key in reset_keys:
+        reset_codes.pop(key, None)
+    summary["removed_auth_records"] = int(summary["removed_auth_records"]) + len(reset_keys)
+    if email:
+        outbox = auth.setdefault("mail_outbox", [])
+        kept_outbox = [item for item in outbox if _email_key(item.get("email")) != email]
+        summary["removed_auth_records"] = int(summary["removed_auth_records"]) + len(outbox) - len(kept_outbox)
+        auth["mail_outbox"] = kept_outbox
+
+    photo_summary = _remove_member_photos(state, member_id)
+    summary["removed_photo_records"] = photo_summary["photo_records"]
+    summary["removed_photo_files"] = photo_summary["photo_files"]
+
+    now = today()
+    matching_requests = [
+        request
+        for request in account_deletion_requests(state)
+        if request.get("id") == request_id
+        or request.get("identifier") == identifier
+        or request.get("identifier") == member_id
+        or (email and _email_key(request.get("email")) == email)
+    ]
+    for request in matching_requests:
+        request["status"] = "completed"
+        request["completed_at"] = now
+        request["completed_by"] = actor
+        request["member_id"] = member_id
+        request["summary"] = summary
+
+    state.setdefault("privacy_events", []).append(
+        {
+            "id": new_id("privacy"),
+            "event_type": "account_deleted",
+            "member_id": member_id,
+            "display_name": summary["display_name"],
+            "request_id": request_id,
+            "actor": actor,
+            "created_at": now,
+            "summary": summary,
+        }
+    )
+    return summary
 
 
 def total_xp(member: dict) -> int:

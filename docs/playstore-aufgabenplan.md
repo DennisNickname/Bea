@@ -10,13 +10,15 @@ Stand: v1.0-Entwicklung, Android-WebView-App fuer die Bea-Webapp.
 - Datenschutzseite unter `/datenschutz` ergaenzt.
 - Gesundheitshinweis unter `/gesundheitshinweis` ergaenzt.
 - Seite fuer Konto-/Datenloeschanfragen unter `/konto-loeschung` ergaenzt.
+- Admin-Ansicht unter `/admin/datenloeschung` ergaenzt.
+- Konto-/Datenloeschung entfernt Auth-Daten, Profile, Plaene, private Eintraege, Strava-Verbindungen, Fotos und anonymisiert Gruppen-/Challenge-Referenzen.
 - Android-Startmaske verlinkt Datenschutz und Gesundheitshinweis ueber die eingetragene Bea-Serveradresse.
 
 ## Phase 1: Recht und Datenschutz
 
 - Echtes Impressum mit realem Betreiber, Anschrift und Kontakt ersetzen.
 - Datenschutztext mit realem Betreiber, Rechtsgrundlage, Speicherdauer, Hosting, Empfaengern und Loeschfristen finalisieren.
-- Konto- und Datenloeschung als vollstaendige, bestaetigte Funktion umsetzen.
+- Konto- und Datenloeschung mit echten Betreiberrollen, Identitaetspruefung und Audit-Prozess finalisieren.
 - Medizinischen Hinweis und Grenzen der App final pruefen lassen.
 
 ## Phase 2: Android Release
