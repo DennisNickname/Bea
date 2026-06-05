@@ -8,6 +8,7 @@ Stand: 5. Juni 2026, v1.0-Entwicklung, Android-WebView-App für die Bea-Webapp.
 - Release-Build blockiert unverschlüsseltes HTTP.
 - Release-Build verlangt jetzt `BEA_RELEASE_SERVER_URL`, damit keine lokale `.local`-Adresse versehentlich in eine Store-Version gelangt.
 - Debug-Serveradresse kann über `BEA_DEBUG_SERVER_URL` überschrieben werden.
+- Gradle Wrapper für reproduzierbare Android-Builds ergänzt.
 - Android-App fragt nur die Berechtigung `INTERNET` an.
 - Datenschutzseite unter `/datenschutz` ergänzt.
 - Gesundheitshinweis unter `/gesundheitshinweis` ergänzt.
@@ -28,7 +29,6 @@ Stand: 5. Juni 2026, v1.0-Entwicklung, Android-WebView-App für die Bea-Webapp.
 
 ## Phase 2: Android Release
 
-- Gradle Wrapper (`gradlew`, `gradlew.bat`, Wrapper-JAR/Properties) hinzufügen.
 - Signiertes Android App Bundle (`.aab`) bauen.
 - Play App Signing einrichten.
 - Upload-Key sicher speichern und dokumentieren.

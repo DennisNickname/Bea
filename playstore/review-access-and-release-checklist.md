@@ -17,17 +17,15 @@ Der Release-Build darf nicht mit einer lokalen `.local`-Adresse gebaut werden. D
 
 ```bash
 cd android
-gradle bundleRelease -PBEA_RELEASE_SERVER_URL=https://bea.example.de
+./gradlew bundleRelease -PBEA_RELEASE_SERVER_URL=https://bea.example.de
 ```
 
 Für lokale Debug-Builds kann die Raspberry-Pi-Adresse überschrieben werden:
 
 ```bash
 cd android
-gradle assembleDebug -PBEA_DEBUG_SERVER_URL=http://raspidiss.local:8010
+./gradlew assembleDebug -PBEA_DEBUG_SERVER_URL=http://raspidiss.local:8010
 ```
-
-Sobald ein Gradle Wrapper vorhanden ist, sollten die Befehle mit `./gradlew` ausgeführt werden.
 
 ## App Access in der Play Console
 

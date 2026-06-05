@@ -22,7 +22,6 @@ Offene Punkte, die noch externe Daten, echte Konten, rechtliche Angaben oder ein
 - Löschprotokoll rechtlich prüfen: Welche anonymisierten Gruppen-/Challenge-Spuren dürfen bleiben, welche müssen komplett entfernt werden?
 - Demo-/Review-Konto für Google anlegen und dokumentieren.
 - Release-Build mit echter öffentlicher HTTPS-Adresse bauen: `-PBEA_RELEASE_SERVER_URL=https://...`.
-- Gradle Wrapper hinzufügen, damit der Android-Build reproduzierbar ohne lokal installiertes Gradle läuft.
 - Signiertes `.aab` bauen und Play App Signing einrichten.
 - Upload-Key sicher ablegen und Wiederherstellungsweg dokumentieren.
 - Release-Build mit Login, Datenschutzlink, Gesundheitshinweis, Serverwechsel und Foto-Upload testen.

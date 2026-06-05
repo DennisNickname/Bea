@@ -21,25 +21,25 @@ Die App enthält keinen eigenen Fitness-Server und keine eigene Datenbank. Sie l
 3. Bei Bedarf Android SDK 35 installieren lassen.
 4. `Build > Build Bundle(s) / APK(s) > Build APK(s)` ausführen.
 
-Alternativ mit installiertem Gradle:
+Alternativ mit dem enthaltenen Gradle Wrapper:
 
 ```bash
 cd android
-gradle assembleDebug
+./gradlew assembleDebug
 ```
 
 Optional kann die Debug-Serveradresse überschrieben werden:
 
 ```bash
 cd android
-gradle assembleDebug -PBEA_DEBUG_SERVER_URL=http://raspidiss.local:8010
+./gradlew assembleDebug -PBEA_DEBUG_SERVER_URL=http://raspidiss.local:8010
 ```
 
 Für eine Store- oder Release-Version:
 
 ```bash
 cd android
-gradle bundleRelease -PBEA_RELEASE_SERVER_URL=https://bea.example.de
+./gradlew bundleRelease -PBEA_RELEASE_SERVER_URL=https://bea.example.de
 ```
 
 Der Release-Build erwartet eine Bea-Instanz hinter HTTPS, VPN oder Reverse Proxy mit gültigem Zertifikat. Ohne `BEA_RELEASE_SERVER_URL` bricht der Release-Build bewusst ab, damit keine lokale Raspberry-Pi-Adresse versehentlich in eine Store-Version gelangt.
