@@ -132,6 +132,23 @@ public class MainActivity extends Activity {
         });
         content.addView(connectButton, matchWrap());
 
+        LinearLayout legalLinks = new LinearLayout(this);
+        legalLinks.setOrientation(LinearLayout.HORIZONTAL);
+        legalLinks.setGravity(Gravity.CENTER);
+        content.addView(legalLinks, matchWrap());
+
+        Button privacyButton = new Button(this);
+        privacyButton.setText("Datenschutz");
+        privacyButton.setAllCaps(false);
+        privacyButton.setOnClickListener(view -> openServerPage(serverInput, "/datenschutz"));
+        legalLinks.addView(privacyButton, smallButtonParams());
+
+        Button healthButton = new Button(this);
+        healthButton.setText("Gesundheit");
+        healthButton.setAllCaps(false);
+        healthButton.setOnClickListener(view -> openServerPage(serverInput, "/gesundheitshinweis"));
+        legalLinks.addView(healthButton, smallButtonParams());
+
         return scrollView;
     }
 
@@ -292,6 +309,19 @@ public class MainActivity extends Activity {
         browserLayout.setVisibility(View.VISIBLE);
         serverLabel.setText(normalized);
         webView.loadUrl(normalized);
+    }
+
+    private void openServerPage(EditText serverInput, String path) {
+        String normalized = normalizeServerUrl(serverInput.getText().toString());
+        if (normalized.isEmpty()) {
+            Toast.makeText(this, "Bitte Server-Adresse eintragen.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!BuildConfig.ALLOW_CLEARTEXT_SERVER && normalized.toLowerCase().startsWith("http://")) {
+            Toast.makeText(this, "Für diese App-Version ist HTTPS erforderlich.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        showBrowser(normalized + path);
     }
 
     private String normalizeServerUrl(String rawValue) {

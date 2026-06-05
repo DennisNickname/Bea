@@ -637,6 +637,10 @@ async def require_authenticated_member(request: Request, call_next):
             "/password-reset/confirm",
             "/api/password-reset/request",
             "/api/password-reset/confirm",
+            "/datenschutz",
+            "/gesundheitshinweis",
+            "/konto-loeschung",
+            "/api/account-deletion/request",
             "/logout",
             "/favicon.ico",
         }
@@ -1877,6 +1881,9 @@ def render_layout(active_path: str, title: str, body: str) -> str:
             <footer class="site-footer">
               <span>Bea Fitness Community</span>
               <a href="/impressum">Impressum</a>
+              <a href="/datenschutz">Datenschutz</a>
+              <a href="/gesundheitshinweis">Gesundheitshinweis</a>
+              <a href="/konto-loeschung">Konto löschen</a>
             </footer>
           </div>
         </div>
@@ -6916,6 +6923,176 @@ def imprint_page() -> str:
       </section>
     """
     return render_layout("/impressum", "Impressum", body)
+
+
+@app.get("/datenschutz", response_class=HTMLResponse)
+def privacy_page() -> str:
+    body = """
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Rechtliches</p>
+          <h1>Datenschutz</h1>
+        </div>
+        <p class="subtle">Muster-Datenschutzhinweis für die aktuelle Entwicklungsfassung.</p>
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <h2>Welche Daten Bea verarbeitet</h2>
+          <div class="list">
+            <article class="card area-team">
+              <h3>Konto und Community</h3>
+              <p class="subtle">Name, Benutzername, Geburtstag, E-Mail-Adresse, Passwort-Hash, Gruppenmitgliedschaften, Kommentare, Likes, Challenges und Fortschrittsdaten.</p>
+            </article>
+            <article class="card area-strength">
+              <h3>Fitness und Gesundheit</h3>
+              <p class="subtle">Größe, Gewicht, BMI, Körpermaße, Trainingsfokus, Verletzungshistorie, Trainings- und Regenerationsdaten, Flüssigkeit, Ernährung und optionale Strava-Aktivitäten.</p>
+            </article>
+            <article class="card area-endurance">
+              <h3>Fotos und Avatar</h3>
+              <p class="subtle">Private Vergleichsfotos, Avatar-Angaben, Frisur, Kleidung und optionale Community-Veröffentlichungen. Private Fotos sind zusätzlich über den Foto-PIN geschützt.</p>
+            </article>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Zweck, Speicherort und Rechte</h2>
+          <div class="list">
+            <article class="card area-nutrition">
+              <h3>Zweck</h3>
+              <p class="subtle">Bea nutzt die Daten, um Trainingsplan, Ernährungsplan, Fortschritt, RPG-Level, Gruppenfunktionen und Motivation bereitzustellen.</p>
+            </article>
+            <article class="card area-team">
+              <h3>Speicherort</h3>
+              <p class="subtle">Die Daten liegen in der selbst betriebenen Bea-Instanz auf dem Raspberry Pi oder einem eigenen Server. Die Android-App ist nur die Hülle zur Weboberfläche.</p>
+            </article>
+            <article class="card area-mindset">
+              <h3>Auskunft und Löschung</h3>
+              <p class="subtle">Teilnehmer können Auskunft, Berichtigung und Löschung verlangen. Nutze dafür die Seite <a href="/konto-loeschung">Konto löschen</a>.</p>
+            </article>
+          </div>
+          <p class="subtle">Vor einer echten Veröffentlichung müssen Betreiber, Rechtsgrundlage, Kontakt, Auftragsverarbeitung, Speicherdauer und internationale Übermittlungen mit echten Angaben ersetzt und rechtlich geprüft werden.</p>
+        </article>
+      </section>
+    """
+    return render_layout("/datenschutz", "Datenschutz", body)
+
+
+@app.get("/gesundheitshinweis", response_class=HTMLResponse)
+def health_notice_page() -> str:
+    body = """
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Sicherheit</p>
+          <h1>Gesundheitshinweis</h1>
+        </div>
+        <p class="subtle">Bea motiviert und strukturiert Training, ersetzt aber keine medizinische Beratung.</p>
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <h2>Wichtige Grenzen</h2>
+          <div class="list">
+            <article class="card area-strength">
+              <h3>Keine Diagnose</h3>
+              <p class="subtle">Bea stellt keine Diagnosen, behandelt keine Krankheiten und ersetzt keinen Arzt, keine Physiotherapie und keine Ernährungsberatung.</p>
+            </article>
+            <article class="card area-endurance">
+              <h3>Training abbrechen</h3>
+              <p class="subtle">Bei Schmerzen, Schwindel, Atemnot, Brustschmerz, Taubheit oder ungewöhnlichem Unwohlsein Training abbrechen und medizinischen Rat einholen.</p>
+            </article>
+            <article class="card area-nutrition">
+              <h3>Ernährung</h3>
+              <p class="subtle">Kalorien- und Makroangaben sind Näherungen. Medizinische Diäten, Essstörungen, Schwangerschaft, Diabetes oder andere Erkrankungen gehören in fachliche Betreuung.</p>
+            </article>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Eigenverantwortung</h2>
+          <p class="subtle">Trainingspläne werden aus deinen Angaben erstellt. Frühere Verletzungen, Schlaf, Alltag und Regeneration sollten ehrlich gepflegt werden, damit Vorschläge vorsichtiger ausfallen können.</p>
+          <p class="subtle">Vor intensiven Trainingsprogrammen, Wettkampfvorbereitung oder Training nach Verletzungen sollte eine medizinische oder sportfachliche Freigabe eingeholt werden.</p>
+        </article>
+      </section>
+    """
+    return render_layout("/gesundheitshinweis", "Gesundheitshinweis", body)
+
+
+@app.get("/konto-loeschung", response_class=HTMLResponse)
+def account_deletion_page(notice: str = "", error: str = "", identifier: str = "", email: str = "") -> str:
+    notice_html = f'<article class="card area-team"><p class="subtle">{h(notice)}</p></article>' if notice else ""
+    error_html = f'<article class="card area-strength"><p class="subtle">{h(error)}</p></article>' if error else ""
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Datenschutz</p>
+          <h1>Konto löschen</h1>
+        </div>
+        <p class="subtle">Hier kannst du eine Löschung deines Bea-Kontos und der zugehörigen personenbezogenen Daten anfordern.</p>
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <h2>Löschanfrage stellen</h2>
+          {notice_html}
+          {error_html}
+          <form method="post" action="/api/account-deletion/request">
+            <label>
+              Benutzername oder E-Mail
+              <input name="identifier" required value="{h(identifier)}">
+            </label>
+            <label>
+              Kontakt-E-Mail für Rückfragen
+              <input name="email" type="email" required value="{h(email)}">
+            </label>
+            <label>
+              Hinweis
+              <textarea name="details" rows="4" placeholder="Optional: Was soll gelöscht werden?"></textarea>
+            </label>
+            <button type="submit">Löschung anfordern</button>
+          </form>
+        </article>
+
+        <article class="panel">
+          <h2>Was danach passiert</h2>
+          <p class="subtle">Die Anfrage wird in der Bea-State-Datei unter <code>account_deletion_requests</code> gespeichert. Der Betreiber muss sie prüfen, die Identität bestätigen und die Daten löschen oder anonymisieren.</p>
+          <p class="subtle">Die vollständige automatische Löschfunktion ist als Play-Store-Restaufgabe in <code>ToDofuerBea.md</code> dokumentiert.</p>
+        </article>
+      </section>
+    """
+    return render_layout("/konto-loeschung", "Konto löschen", body)
+
+
+@app.post("/api/account-deletion/request")
+async def api_account_deletion_request(request: Request):
+    payload = parse_form_body(await request.body())
+    identifier = str(payload.get("identifier") or "").strip()
+    email = str(payload.get("email") or "").strip()
+    details = str(payload.get("details") or "").strip()[:1000]
+    if not identifier or not email or "@" not in email:
+        target = (
+            "/konto-loeschung?"
+            f"error={urllib.parse.quote('Bitte Benutzername und gültige E-Mail-Adresse eintragen.')}"
+            f"&identifier={urllib.parse.quote(identifier)}"
+            f"&email={urllib.parse.quote(email)}"
+        )
+        return RedirectResponse(target, status_code=303)
+
+    state = load_state()
+    state.setdefault("account_deletion_requests", []).append(
+        {
+            "id": f"delete_{secrets.token_urlsafe(8)}",
+            "identifier": identifier,
+            "email": email,
+            "details": details,
+            "requested_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "source_ip": source_ip_for_security(request),
+            "status": "requested",
+        }
+    )
+    save_state(state)
+    notice = "Löschanfrage wurde gespeichert. Der Betreiber muss sie prüfen und abschließen."
+    return RedirectResponse(f"/konto-loeschung?notice={urllib.parse.quote(notice)}", status_code=303)
 
 
 async def read_json_payload(request: Request) -> dict:
