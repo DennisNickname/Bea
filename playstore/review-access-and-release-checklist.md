@@ -6,6 +6,7 @@ Stand: 5. Juni 2026.
 
 - echte Domain festlegen, zum Beispiel `https://bea.example.de`
 - HTTPS mit gültigem Zertifikat einrichten
+- bei Hetzner das Profil `deploy/hetzner/` nutzen, damit Bea nur lokal auf `127.0.0.1:8010` lauscht und Caddy HTTPS übernimmt
 - `/datenschutz`, `/konto-loeschung`, `/impressum` und `/gesundheitshinweis` öffentlich erreichbar machen
 - produktive Login- und Passwort-Reset-Funktion mit E-Mail-Versand testen
 - Konto- und Datenlöschung per E-Mail-Code testen

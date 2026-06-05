@@ -32,7 +32,7 @@ else
       failures=$((failures + 1))
     else
       echo "WARN: Bea lauscht im Netzwerk. Das ist für LAN-Betrieb ok, aber nicht für Portfreigabe ins Internet."
-      echo "      Für gehärteten HTTPS-Betrieb: BEA_HOST=127.0.0.1 plus nginx/VPN verwenden."
+      echo "      Für gehärteten HTTPS-Betrieb: BEA_HOST=127.0.0.1 plus Caddy/nginx/VPN verwenden."
     fi
   else
     echo "OK: Bea-Port ist nur lokal gebunden."
@@ -46,7 +46,11 @@ if [[ -z "$https_lines" ]]; then
   echo "WARN: Port 443 lauscht nicht. HTTPS/nginx ist offenbar nicht aktiv."
 else
   echo "$https_lines"
-  echo "OK: HTTPS-Port ist aktiv. Firewall muss trotzdem auf LAN/VPN begrenzen."
+  if [[ "$REQUIRE_LOCAL_BIND" == "1" ]]; then
+    echo "OK: HTTPS-Port ist aktiv. Für öffentlichen Reverse-Proxy-Betrieb muss die Firewall 80/443 erlauben und $APP_PORT blockieren."
+  else
+    echo "OK: HTTPS-Port ist aktiv. Firewall muss trotzdem passend zum Betrieb begrenzt werden."
+  fi
 fi
 
 echo

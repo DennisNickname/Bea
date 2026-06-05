@@ -9,6 +9,7 @@ Stand: 5. Juni 2026, v1.0-Entwicklung, Android-WebView-App für die Bea-Webapp.
 - Release-Build verlangt jetzt `BEA_RELEASE_SERVER_URL`, damit keine lokale `.local`-Adresse versehentlich in eine Store-Version gelangt.
 - Debug-Serveradresse kann über `BEA_DEBUG_SERVER_URL` überschrieben werden.
 - Gradle Wrapper für reproduzierbare Android-Builds ergänzt.
+- Hetzner-Deployment-Profil mit Caddy, HTTPS-Reverse-Proxy und Produktiv-Env ergänzt.
 - Android-App fragt nur die Berechtigung `INTERNET` an.
 - Datenschutzseite unter `/datenschutz` ergänzt.
 - Gesundheitshinweis unter `/gesundheitshinweis` ergänzt.

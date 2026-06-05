@@ -1,0 +1,24 @@
+# Bea Hetzner deployment
+# Platzhalter ersetzen:
+# __BEA_DOMAIN__ -> bea.deinedomain.de
+# __APP_PORT__ -> 8010
+# __ACME_EMAIL_BLOCK__ -> optionaler Caddy-Globalblock mit Kontakt-E-Mail
+
+__ACME_EMAIL_BLOCK__
+
+__BEA_DOMAIN__ {
+    encode zstd gzip
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "same-origin"
+        Permissions-Policy "camera=(self), microphone=(), geolocation=()"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+
+    reverse_proxy 127.0.0.1:__APP_PORT__ {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+    }
+}

@@ -5,7 +5,7 @@ Offene Punkte, die noch externe Daten, echte Konten, rechtliche Angaben oder ein
 ## Play Store Pflichtaufgaben
 
 - Echte öffentliche HTTPS-Adresse für Bea festlegen, z.B. `https://bea.example.de`.
-- Raspberry-Pi- oder Serverbetrieb hinter HTTPS/VPN/Reverse Proxy für Google Review erreichbar machen.
+- Hetzner-Server mit `deploy/hetzner/` hinter HTTPS/Caddy einrichten und für Google Review erreichbar machen.
 - Echtes Impressum mit realem Betreiber, Anschrift, Kontakt und Verantwortlichen ersetzen.
 - Öffentliche Datenschutz-URL finalisieren und in Play Console hinterlegen.
 - Data-Safety-Formular in Play Console anhand `playstore/data-safety-entwurf.md` ausfüllen.

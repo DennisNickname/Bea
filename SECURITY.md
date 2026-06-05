@@ -45,6 +45,10 @@ Empfohlen für echte Gruppen mit sensiblen Daten:
 - Bei stabilem HTTPS optional `BEA_ENABLE_HSTS=1` setzen.
 - `scripts/security_network_check.sh` nach Änderungen ausführen.
 
+Für Hetzner liegt ein vorbereitetes Caddy-/systemd-Profil unter `deploy/hetzner/`.
+Der Produktivstandard dort ist `BEA_HOST=127.0.0.1`, `BEA_AUTH_REQUIRED=1`,
+`BEA_PRIVATE_NETWORK_ONLY=0`, `BEA_SECURE_COOKIE=1` und HTTPS über Caddy.
+
 ### Android Release
 
 Debug-Builds dürfen lokale HTTP-Pi-Adressen nutzen. Release-Builds erzwingen

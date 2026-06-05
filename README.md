@@ -125,6 +125,27 @@ Raspberry-Pi-Host eintragen, zum Beispiel:
 http://raspidiss.local:8010
 ```
 
+## Hetzner / Internetbetrieb
+
+Für einen öffentlich erreichbaren Server liegt ein eigenes Deployment-Profil unter [`deploy/hetzner/`](deploy/hetzner/).
+Empfohlen ist eine Domain oder Subdomain wie `bea.deinedomain.de`, die per DNS auf die Hetzner-IP zeigt.
+
+Auf Hetzner läuft Bea nur lokal auf `127.0.0.1:8010`; Caddy übernimmt HTTPS auf Port `443` und leitet intern weiter:
+
+```text
+Internet -> HTTPS 443 -> Caddy -> 127.0.0.1:8010 -> Bea
+```
+
+Kurzer Start auf einem frischen Debian-/Ubuntu-Server:
+
+```bash
+git clone https://github.com/DennisNickname/Bea.git Bea
+cd Bea
+BEA_DOMAIN=bea.deinedomain.de BEA_ACME_EMAIL=admin@deinedomain.de bash scripts/install_hetzner.sh
+```
+
+Danach in der Hetzner Firewall nur `22`, `80` und `443` öffnen. Port `8010` bleibt geschlossen.
+
 ## Raspberry Pi
 
 Auf dem Raspberry Pi:
