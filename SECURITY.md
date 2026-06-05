@@ -14,6 +14,7 @@ WLAN, VPN oder ein gehärteter HTTPS-Reverse-Proxy.
 - Session-Cookies sind `HttpOnly` und `SameSite=Strict`; per `BEA_SECURE_COOKIE=1`
   zusätzlich nur über HTTPS.
 - Login, Registrierung und Passwort-Reset haben serverseitige Rate-Limits.
+- Konto- und Datenlöschung wird per zeitlich begrenztem E-Mail-Code bestätigt.
 - Seiten, APIs, Fotos und GitHub-Update sind bei aktiviertem Login ohne
   Anmeldung gesperrt.
 - Standardmäßig sind nur private Netze, VPN/link-local und `localhost` erlaubt.

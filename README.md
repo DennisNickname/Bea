@@ -53,6 +53,10 @@ BEA_MAIL_FROM=noreply@example.com
 BEA_MAIL_USE_TLS=1
 ```
 
+Die Konto- und Datenlöschung läuft ebenfalls per zeitlich begrenztem E-Mail-Code über `/konto-loeschung`. Nach der
+Bestätigung entfernt Bea Login, Profil, Pläne, private Einträge, Strava-Verbindungen und Fotos automatisch; Gruppen-
+und Challenge-Spuren werden anonymisiert, damit Community-Verläufe technisch stabil bleiben.
+
 Ohne SMTP-Konfiguration wird kein externer Mailversand erzwungen. Der Code wird dann für den lokalen Testbetrieb in
 der internen Auth-Outbox der State-Datei abgelegt.
 

@@ -91,10 +91,12 @@ from app.state import complete_assignment
 from app.state import complete_daily_quest
 from app.state import complete_health_journey_lesson
 from app.state import consume_password_reset_code
+from app.state import consume_account_deletion_code
 from app.state import create_challenge
 from app.state import create_group
 from app.state import create_personal_plan
 from app.state import create_password_reset_code
+from app.state import create_account_deletion_code
 from app.state import current_story_chapter
 from app.state import daily_chest_status
 from app.state import delete_member_account_data
@@ -163,6 +165,8 @@ SESSIONS: dict[str, dict] = {}
 LOGIN_RATE_LIMITS: dict[str, dict] = {}
 RESET_REQUEST_RATE_LIMITS: dict[str, dict] = {}
 RESET_CONFIRM_RATE_LIMITS: dict[str, dict] = {}
+DELETION_REQUEST_RATE_LIMITS: dict[str, dict] = {}
+DELETION_CONFIRM_RATE_LIMITS: dict[str, dict] = {}
 REGISTER_RATE_LIMITS: dict[str, dict] = {}
 
 NAV_ITEMS = (
@@ -377,6 +381,54 @@ def send_password_reset_email(email: str, code: str) -> bool:
                 "Hallo,",
                 "",
                 f"dein Bea-Code zum Zurücksetzen des Passworts lautet: {code}",
+                "Der Code ist 15 Minuten gültig.",
+                "",
+                "Wenn du das nicht angefordert hast, kannst du diese Nachricht ignorieren.",
+            )
+        )
+    )
+
+    if use_ssl:
+        with smtplib.SMTP_SSL(host, port) as smtp:
+            if username:
+                smtp.login(username, password)
+            smtp.send_message(msg)
+    else:
+        with smtplib.SMTP(host, port) as smtp:
+            if use_tls:
+                smtp.starttls()
+            if username:
+                smtp.login(username, password)
+            smtp.send_message(msg)
+    return True
+
+
+def send_account_deletion_email(email: str, code: str) -> bool:
+    host = _env_value("BEA_MAIL_HOST", "MAIL_HOST")
+    if not host:
+        return False
+
+    try:
+        port = int(_env_value("BEA_MAIL_PORT", "MAIL_PORT", default="587"))
+    except ValueError:
+        port = 587
+
+    username = _env_value("BEA_MAIL_USER", "MAIL_USER")
+    password = _env_value("BEA_MAIL_PASS", "MAIL_PASS")
+    mail_from = _env_value("BEA_MAIL_FROM", "MAIL_FROM", default="noreply@bea.local")
+    use_ssl = _env_bool("BEA_MAIL_USE_SSL", "MAIL_USE_SSL", default=port == 465)
+    use_tls = _env_bool("BEA_MAIL_USE_TLS", "MAIL_USE_TLS", default=port == 587)
+
+    msg = EmailMessage()
+    msg["From"] = mail_from
+    msg["To"] = email
+    msg["Subject"] = "Bea Konto löschen"
+    msg.set_content(
+        "\n".join(
+            (
+                "Hallo,",
+                "",
+                f"dein Bea-Code zum Löschen des Kontos lautet: {code}",
                 "Der Code ist 15 Minuten gültig.",
                 "",
                 "Wenn du das nicht angefordert hast, kannst du diese Nachricht ignorieren.",
@@ -643,7 +695,9 @@ async def require_authenticated_member(request: Request, call_next):
             "/datenschutz",
             "/gesundheitshinweis",
             "/konto-loeschung",
+            "/konto-loeschung/bestaetigen",
             "/api/account-deletion/request",
+            "/api/account-deletion/confirm",
             "/logout",
             "/favicon.ico",
         }
@@ -7031,12 +7085,12 @@ def account_deletion_page(notice: str = "", error: str = "", identifier: str = "
           <p class="eyebrow">Datenschutz</p>
           <h1>Konto löschen</h1>
         </div>
-        <p class="subtle">Hier kannst du eine Löschung deines Bea-Kontos und der zugehörigen personenbezogenen Daten anfordern.</p>
+        <p class="subtle">Hier kannst du die automatische Löschung deines Bea-Kontos und der zugehörigen personenbezogenen Daten starten.</p>
       </section>
 
       <section class="grid two">
         <article class="panel">
-          <h2>Löschanfrage stellen</h2>
+          <h2>Lösch-Code anfordern</h2>
           {notice_html}
           {error_html}
           <form method="post" action="/api/account-deletion/request">
@@ -7052,18 +7106,59 @@ def account_deletion_page(notice: str = "", error: str = "", identifier: str = "
               Hinweis
               <textarea name="details" rows="4" placeholder="Optional: Was soll gelöscht werden?"></textarea>
             </label>
-            <button type="submit">Löschung anfordern</button>
+            <button type="submit">Code senden</button>
           </form>
         </article>
 
         <article class="panel">
           <h2>Was danach passiert</h2>
-          <p class="subtle">Die Anfrage wird in der Bea-State-Datei unter <code>account_deletion_requests</code> gespeichert. Der Betreiber muss sie prüfen, die Identität bestätigen und die Daten löschen oder anonymisieren.</p>
-          <p class="subtle">Betreiber können offene Anfragen unter <a href="/admin/datenloeschung">Admin Datenlöschung</a> bearbeiten.</p>
+          <p class="subtle">Wenn Benutzername und E-Mail zu einem Konto passen, sendet Bea einen zeitlich begrenzten Code an die hinterlegte E-Mail-Adresse. Nach der Bestätigung löscht oder anonymisiert Bea die personenbezogenen Daten automatisch.</p>
+          <p class="subtle">Betreiber können offene und erledigte Anfragen weiterhin unter <a href="/admin/datenloeschung">Admin Datenlöschung</a> einsehen.</p>
         </article>
       </section>
     """
     return render_layout("/konto-loeschung", "Konto löschen", body)
+
+
+@app.get("/konto-loeschung/bestaetigen", response_class=HTMLResponse)
+def account_deletion_confirm_page(email: str = "", notice: str = "", error: str = "") -> str:
+    notice_html = f'<article class="card area-team"><p class="subtle">{h(notice)}</p></article>' if notice else ""
+    error_html = f'<article class="card area-strength"><p class="subtle">{h(error)}</p></article>' if error else ""
+    body = f"""
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Datenschutz</p>
+          <h1>Löschung bestätigen</h1>
+        </div>
+        <p class="subtle">Gib den Code aus der E-Mail ein. Danach wird das Konto automatisch gelöscht oder anonymisiert.</p>
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <h2>Code eingeben</h2>
+          {notice_html}
+          {error_html}
+          <form method="post" action="/api/account-deletion/confirm">
+            <label>
+              E-Mail-Adresse
+              <input name="email" type="email" required value="{h(email)}">
+            </label>
+            <label>
+              Lösch-Code
+              <input name="code" inputmode="numeric" autocomplete="one-time-code" required minlength="6" maxlength="6">
+            </label>
+            <button type="submit">Konto endgültig löschen</button>
+          </form>
+        </article>
+
+        <article class="panel">
+          <h2>Wichtig</h2>
+          <p class="subtle">Diese Aktion entfernt Login, Profil, Pläne, private Einträge, Strava-Verbindungen und Fotos. Gruppen- und Challenge-Spuren werden anonymisiert, damit die Community-Historie technisch stabil bleibt.</p>
+          <p class="subtle">Wenn der Code abgelaufen ist, kannst du auf <a href="/konto-loeschung">Konto löschen</a> einen neuen Code anfordern.</p>
+        </article>
+      </section>
+    """
+    return render_layout("/konto-loeschung", "Löschung bestätigen", body)
 
 
 @app.post("/api/account-deletion/request")
@@ -7072,6 +7167,17 @@ async def api_account_deletion_request(request: Request):
     identifier = str(payload.get("identifier") or "").strip()
     email = str(payload.get("email") or "").strip()
     details = str(payload.get("details") or "").strip()[:1000]
+    limit_key = rate_limit_key("account-deletion-request", identifier or email, request)
+    allowed, retry_after = check_rate_limit(DELETION_REQUEST_RATE_LIMITS, limit_key)
+    if not allowed:
+        target = (
+            "/konto-loeschung?"
+            f"error={urllib.parse.quote(rate_limit_text(retry_after))}"
+            f"&identifier={urllib.parse.quote(identifier)}"
+            f"&email={urllib.parse.quote(email)}"
+        )
+        return RedirectResponse(target, status_code=303)
+
     if not identifier or not email or "@" not in email:
         target = (
             "/konto-loeschung?"
@@ -7082,19 +7188,68 @@ async def api_account_deletion_request(request: Request):
         return RedirectResponse(target, status_code=303)
 
     state = load_state()
-    state.setdefault("account_deletion_requests", []).append(
-        {
-            "id": f"delete_{secrets.token_urlsafe(8)}",
-            "identifier": identifier,
-            "email": email,
-            "details": details,
-            "requested_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "source_ip": source_ip_for_security(request),
-            "status": "requested",
-        }
+    deletion = create_account_deletion_code(state, identifier, email, details)
+    notice = "Wenn ein passendes Konto gefunden wurde, wurde ein Lösch-Code an die hinterlegte E-Mail-Adresse gesendet."
+    record_rate_limit_event(
+        DELETION_REQUEST_RATE_LIMITS,
+        limit_key,
+        _env_int("BEA_DELETION_REQUEST_RATE_LIMIT_MAX_ATTEMPTS", 5),
+        _env_int("BEA_DELETION_REQUEST_RATE_LIMIT_LOCKOUT_SECONDS", 900),
     )
+
+    if deletion:
+        request_item = account_deletion_request_by_id(state, deletion["request_id"])
+        if request_item:
+            request_item["source_ip"] = source_ip_for_security(request)
+        subject = "Bea Konto löschen"
+        body = f"Dein Bea-Code zum Löschen des Kontos lautet {deletion['code']}. Er ist 15 Minuten gültig."
+        sent = False
+        try:
+            sent = send_account_deletion_email(deletion["email"], deletion["code"])
+        except (OSError, smtplib.SMTPException, RuntimeError):
+            sent = False
+        if not sent:
+            append_auth_mail_outbox(state, deletion["email"], subject, body, deletion["code"])
+        save_state(state)
+
+    target_email = urllib.parse.quote(email)
+    return RedirectResponse(
+        f"/konto-loeschung/bestaetigen?email={target_email}&notice={urllib.parse.quote(notice)}",
+        status_code=303,
+    )
+
+
+@app.post("/api/account-deletion/confirm")
+async def api_account_deletion_confirm(request: Request):
+    payload = parse_form_body(await request.body())
+    email = str(payload.get("email") or "")
+    code = str(payload.get("code") or "")
+    limit_key = rate_limit_key("account-deletion-confirm", email, request)
+    allowed, retry_after = check_rate_limit(DELETION_CONFIRM_RATE_LIMITS, limit_key)
+    if not allowed:
+        return RedirectResponse(
+            f"/konto-loeschung/bestaetigen?email={urllib.parse.quote(email)}&error={urllib.parse.quote(rate_limit_text(retry_after))}",
+            status_code=303,
+        )
+
+    state = load_state()
+    try:
+        summary = consume_account_deletion_code(state, email, code)
+    except ValueError as exc:
+        record_rate_limit_event(
+            DELETION_CONFIRM_RATE_LIMITS,
+            limit_key,
+            _env_int("BEA_DELETION_CONFIRM_RATE_LIMIT_MAX_ATTEMPTS", 5),
+            _env_int("BEA_DELETION_CONFIRM_RATE_LIMIT_LOCKOUT_SECONDS", 900),
+        )
+        return RedirectResponse(
+            f"/konto-loeschung/bestaetigen?email={urllib.parse.quote(email)}&error={urllib.parse.quote(str(exc))}",
+            status_code=303,
+        )
+
+    clear_rate_limit(DELETION_CONFIRM_RATE_LIMITS, limit_key)
     save_state(state)
-    notice = "Löschanfrage wurde gespeichert. Der Betreiber muss sie prüfen und abschließen."
+    notice = f"Konto {summary['display_name']} wurde automatisch gelöscht/anonymisiert."
     return RedirectResponse(f"/konto-loeschung?notice={urllib.parse.quote(notice)}", status_code=303)
 
 

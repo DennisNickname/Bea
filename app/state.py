@@ -19,6 +19,7 @@ PHOTO_STORAGE_ROOT = Path(os.getenv("BEA_PHOTO_PATH", PROJECT_ROOT / "data" / "p
 CHECKIN_INTERVAL_DAYS = 90
 PASSWORD_ITERATIONS = 240_000
 PASSWORD_RESET_TTL_SECONDS = 15 * 60
+ACCOUNT_DELETION_TTL_SECONDS = 15 * 60
 USERNAME_ALLOWED_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789._-")
 CHALLENGE_BONUS_XP_HARD_CAP = 250
 CHALLENGE_PROGRESS_XP_HARD_CAP = 80
@@ -1030,6 +1031,7 @@ DEFAULT_STATE = {
         "passwords": {},
         "users": {},
         "password_reset_codes": {},
+        "account_deletion_codes": {},
         "mail_outbox": [],
     },
 }
@@ -1089,6 +1091,10 @@ def auth_users(state: dict) -> dict:
 
 def auth_password_reset_codes(state: dict) -> dict:
     return state.setdefault("auth", {}).setdefault("password_reset_codes", {})
+
+
+def auth_account_deletion_codes(state: dict) -> dict:
+    return state.setdefault("auth", {}).setdefault("account_deletion_codes", {})
 
 
 def auth_mail_outbox(state: dict) -> list[dict]:
@@ -1397,6 +1403,80 @@ def consume_password_reset_code(state: dict, email: str, code: str, new_password
     set_member_password(state, member_id, new_password)
     auth_password_reset_codes(state).pop(normalized_email, None)
     return member
+
+
+def create_account_deletion_code(state: dict, identifier: str, email: str, details: str = "") -> dict | None:
+    member = member_by_login(state, identifier)
+    normalized_email = _email_key(email)
+    if not member or not normalized_email:
+        return None
+
+    account = account_for_member(state, member["id"])
+    account_email = _email_key(account.get("email"))
+    if not account_email or account_email != normalized_email:
+        return None
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    salt = os.urandom(16)
+    now = int(time.time())
+    request = {
+        "id": new_id("delete"),
+        "identifier": str(identifier or "").strip(),
+        "email": account_email,
+        "details": str(details or "").strip()[:1000],
+        "requested_at": today(),
+        "status": "verification_sent",
+        "member_id": member["id"],
+        "verification_expires_at": now + ACCOUNT_DELETION_TTL_SECONDS,
+    }
+    account_deletion_requests(state).append(request)
+    auth_account_deletion_codes(state)[account_email] = {
+        "request_id": request["id"],
+        "member_id": member["id"],
+        "email": account_email,
+        "code_hash": password_hash(code, salt, PASSWORD_ITERATIONS),
+        "salt": base64.b64encode(salt).decode("ascii"),
+        "iterations": PASSWORD_ITERATIONS,
+        "created_at": today(),
+        "expires_at": now + ACCOUNT_DELETION_TTL_SECONDS,
+    }
+    return {"member_id": member["id"], "email": account_email, "code": code, "request_id": request["id"]}
+
+
+def consume_account_deletion_code(state: dict, email: str, code: str) -> dict:
+    normalized_email = normalize_email(email)
+    record = auth_account_deletion_codes(state).get(normalized_email)
+    if not record:
+        raise ValueError("Lösch-Code ist ungültig oder abgelaufen.")
+    if int(record.get("expires_at") or 0) < int(time.time()):
+        auth_account_deletion_codes(state).pop(normalized_email, None)
+        raise ValueError("Lösch-Code ist abgelaufen. Bitte neue Löschung anfordern.")
+
+    try:
+        salt = base64.b64decode(str(record["salt"]))
+        iterations = int(record.get("iterations") or PASSWORD_ITERATIONS)
+        expected = str(record["code_hash"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Lösch-Code ist ungültig oder abgelaufen.") from exc
+
+    actual = password_hash(str(code or "").strip(), salt, iterations)
+    if not hmac.compare_digest(actual, expected):
+        raise ValueError("Lösch-Code ist ungültig oder abgelaufen.")
+
+    member_id = str(record.get("member_id") or "")
+    if member_id not in members_by_id(state):
+        auth_account_deletion_codes(state).pop(normalized_email, None)
+        raise ValueError("Konto wurde nicht gefunden.")
+
+    request_id = str(record.get("request_id") or "")
+    summary = delete_member_account_data(
+        state,
+        member_id,
+        request_id=request_id,
+        actor="self-service",
+    )
+    auth_account_deletion_codes(state).pop(normalized_email, None)
+    return summary
 
 
 def as_int(payload: dict, key: str, default: int = 0) -> int:
@@ -2429,6 +2509,11 @@ def delete_member_account_data(state: dict, identifier: str, request_id: str = "
     for key in reset_keys:
         reset_codes.pop(key, None)
     summary["removed_auth_records"] = int(summary["removed_auth_records"]) + len(reset_keys)
+    deletion_codes = auth.setdefault("account_deletion_codes", {})
+    deletion_keys = [key for key, value in deletion_codes.items() if value.get("member_id") == member_id or (email and key == email)]
+    for key in deletion_keys:
+        deletion_codes.pop(key, None)
+    summary["removed_auth_records"] = int(summary["removed_auth_records"]) + len(deletion_keys)
     if email:
         outbox = auth.setdefault("mail_outbox", [])
         kept_outbox = [item for item in outbox if _email_key(item.get("email")) != email]
