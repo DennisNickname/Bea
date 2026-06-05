@@ -263,6 +263,37 @@ def active_member_id(state: dict, request: Request) -> str:
     return ""
 
 
+def configured_admin_member_ids() -> set[str]:
+    raw_value = os.getenv("BEA_ADMIN_MEMBER_IDS", "")
+    return {item.strip() for item in raw_value.split(",") if item.strip()}
+
+
+def member_has_admin_role(state: dict, member_id: str) -> bool:
+    if not member_id:
+        return False
+    member = members_by_id(state).get(member_id, {})
+    account = state.setdefault("auth", {}).setdefault("users", {}).get(member_id, {})
+    explicit_admins = configured_admin_member_ids()
+    if explicit_admins:
+        return member_id in explicit_admins
+    if account.get("is_admin") is True or member.get("is_admin") is True:
+        return True
+    role = str(account.get("role") or member.get("role") or "").strip().lower()
+    if role in ("admin", "owner", "betreiber"):
+        return True
+    return not auth_required() and member_id == development_member_id(state)
+
+
+def active_member_is_admin(state: dict, request: Request) -> bool:
+    return member_has_admin_role(state, active_member_id(state, request))
+
+
+def admin_denied_response(request: Request):
+    if request.url.path.startswith("/api"):
+        return JSONResponse(status_code=403, content={"detail": {"message": "Nur Betreiber dürfen diese Aktion ausführen."}})
+    return HTMLResponse(render_auth_page("Kein Adminzugriff", "Nur Betreiber dürfen diesen Bereich öffnen.", ""), status_code=403)
+
+
 def cookie_secure(request: Request) -> bool:
     return request.url.scheme == "https" or os.getenv("BEA_SECURE_COOKIE", "").lower() in ("1", "true", "yes")
 
@@ -703,6 +734,17 @@ async def require_authenticated_member(request: Request, call_next):
         }
         if path in public_paths:
             response = await call_next(request)
+        elif path.startswith("/admin") or path == "/api/account-deletion/complete":
+            state = load_state()
+            if active_member_is_admin(state, request):
+                response = await call_next(request)
+            elif auth_required() and not current_session(request):
+                if path.startswith("/api"):
+                    response = JSONResponse(status_code=401, content={"detail": {"message": "Bitte anmelden."}})
+                else:
+                    response = login_redirect_for(request)
+            else:
+                response = admin_denied_response(request)
         elif not auth_required():
             response = await call_next(request)
         elif current_session(request):
@@ -7326,6 +7368,8 @@ async def api_complete_account_deletion(request: Request):
     payload = parse_form_body(await request.body())
     request_id = str(payload.get("request_id") or "")
     state = load_state()
+    if not active_member_is_admin(state, request):
+        raise HTTPException(status_code=403, detail={"message": "Nur Betreiber dürfen Löschanfragen manuell abschließen."})
     request_item = account_deletion_request_by_id(state, request_id)
     if not request_item:
         error = "Löschanfrage wurde nicht gefunden."

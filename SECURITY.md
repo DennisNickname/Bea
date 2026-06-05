@@ -15,6 +15,7 @@ WLAN, VPN oder ein gehärteter HTTPS-Reverse-Proxy.
   zusätzlich nur über HTTPS.
 - Login, Registrierung und Passwort-Reset haben serverseitige Rate-Limits.
 - Konto- und Datenlöschung wird per zeitlich begrenztem E-Mail-Code bestätigt.
+- Admin-Bereiche sind im Produktivbetrieb nur für `BEA_ADMIN_MEMBER_IDS` oder explizite Admin-Rollen freigegeben.
 - Seiten, APIs, Fotos und GitHub-Update sind bei aktiviertem Login ohne
   Anmeldung gesperrt.
 - Standardmäßig sind nur private Netze, VPN/link-local und `localhost` erlaubt.
@@ -36,6 +37,7 @@ Netz sind.
 Empfohlen für echte Gruppen mit sensiblen Daten:
 
 - Login erzwingen: `BEA_AUTH_REQUIRED=1`.
+- Betreiber festlegen: `BEA_ADMIN_MEMBER_IDS=<mitglied-id>`.
 - FastAPI nur lokal binden: `BEA_HOST=127.0.0.1`.
 - nginx/Caddy davor mit HTTPS.
 - Zugriff von außen nur über VPN oder bewusst gehärteten Reverse Proxy.

@@ -41,6 +41,9 @@ Zusätzlich setzt Bea Sicherheitsheader, prüft bei schreibenden Anfragen die He
 Registrierungs- und Passwort-Reset-Versuche serverseitig. Vor einem GitHub-Update wird automatisch ein ZIP-Backup von
 State-Datei und Fotos unter `data/backups/` angelegt. Details stehen in [`SECURITY.md`](SECURITY.md).
 
+Admin-Seiten wie `/admin/datenloeschung` sind im Produktivbetrieb nur für Betreiber freigegeben. Setze dafür auf dem
+Raspberry Pi `BEA_ADMIN_MEMBER_IDS` mit kommagetrennten Mitglieds-IDs, z.B. `BEA_ADMIN_MEMBER_IDS=bea,max`.
+
 Wenn ein Passwort vergessen wurde, kann ein zeitlich begrenzter Code an die hinterlegte E-Mail-Adresse geschickt
 werden. Dafür können auf dem Raspberry Pi SMTP-Daten in `/etc/default/bea` gesetzt werden:
 

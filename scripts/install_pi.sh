@@ -32,6 +32,8 @@ BEA_PORT=8010
 BEA_AUTH_REQUIRED=0
 # Optionaler Entwicklungsnutzer ohne Login
 # BEA_DEV_MEMBER_ID=bea
+# Betreiber-Accounts fuer Admin-Seiten, kommagetrennte Mitglieds-IDs
+# BEA_ADMIN_MEMBER_IDS=bea
 # BEA_PRIVATE_NETWORK_ONLY=1
 # BEA_SECURE_COOKIE=1
 # BEA_TRUST_PROXY_HEADERS=1

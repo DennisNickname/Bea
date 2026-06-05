@@ -17,7 +17,7 @@ Offene Punkte, die noch externe Daten, echte Konten, rechtliche Angaben oder ein
 
 ## App- und Code-Aufgaben
 
-- Admin-Rollen/Rechte fuer `/admin/datenloeschung` bauen, bevor Login im Produktivbetrieb wieder aktiviert wird.
+- Produktive Betreiber-IDs in `BEA_ADMIN_MEMBER_IDS` festlegen und testen.
 - E-Mail-Zustellung fuer Loesch-Codes produktiv konfigurieren und testen.
 - Loeschprotokoll rechtlich pruefen: Welche anonymisierten Gruppen-/Challenge-Spuren duerfen bleiben, welche muessen komplett entfernt werden?
 - Demo-/Review-Konto fuer Google anlegen und dokumentieren.
